@@ -80,14 +80,14 @@ export const navGroups: SidebarNavGroup[] = [
 		label: "Sales & Counter",
 		items: [
 			{
-				title: "Orders",
-				path: "/dashboard/orders",
-				icon: <ShoppingBag className="size-4" />,
-			},
-			{
 				title: "Counter",
 				path: "#/counter",
 				icon: <Store className="size-4" />,
+			},
+			{
+				title: "Orders",
+				path: "/dashboard/orders",
+				icon: <ShoppingBag className="size-4" />,
 			},
 		],
 	},
