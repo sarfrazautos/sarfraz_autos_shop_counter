@@ -13,6 +13,7 @@ import {
 	Users,
 	MapPin,
 	CalendarCheck,
+	History,
 	Activity,
 	HelpCircle,
 } from "lucide-react";
@@ -80,13 +81,8 @@ export const navGroups: SidebarNavGroup[] = [
 		items: [
 			{
 				title: "Orders",
-				path: "#/orders",
+				path: "/dashboard/orders",
 				icon: <ShoppingBag className="size-4" />,
-			},
-			{
-				title: "Payments",
-				path: "#/payments",
-				icon: <CreditCard className="size-4" />,
 			},
 			{
 				title: "Counter",
@@ -110,8 +106,19 @@ export const navGroups: SidebarNavGroup[] = [
 			},
 			{
 				title: "Attendance",
-				path: "#/attendance",
 				icon: <CalendarCheck className="size-4" />,
+				subItems: [
+					{
+						title: "Daily Attendance",
+						path: "/dashboard/attendance",
+						icon: <CalendarCheck className="size-4" />,
+					},
+					{
+						title: "Attendance History",
+						path: "/dashboard/attendance/history",
+						icon: <History className="size-4" />,
+					},
+				],
 			},
 		],
 	},
@@ -120,7 +127,7 @@ export const navGroups: SidebarNavGroup[] = [
 		items: [
 			{
 				title: "System health",
-				path: "#/system-health",
+				path: "/dashboard/system-health",
 				icon: <Activity className="size-4" />,
 			},
 		],
@@ -135,7 +142,7 @@ export const footerNavLinks: SidebarNavItem[] = [
 	},
 	{
 		title: "System health",
-		path: "#/system-health",
+		path: "/dashboard/system-health",
 		icon: <Activity className="size-4" />,
 	},
 ];
