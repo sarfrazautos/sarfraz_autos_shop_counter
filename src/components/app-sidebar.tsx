@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
 	Sidebar,
@@ -19,7 +20,7 @@ export function AppSidebar({ pathname }: { pathname?: string }) {
 	return (
 		<Sidebar collapsible="icon" variant="inset">
 			<SidebarHeader className="h-14 justify-center">
-				<SidebarMenuButton size="lg" render={<a href="/dashboard" />}>
+				<SidebarMenuButton size="lg" render={<Link href="/dashboard" />}>
 					<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary/10">
 						<Image
 							src="/logo.png"
@@ -40,21 +41,21 @@ export function AppSidebar({ pathname }: { pathname?: string }) {
 					<SidebarMenuItem className="flex items-center gap-2">
 						<SidebarMenuButton
 							className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
-							tooltip="Quick Create"
+							tooltip="Quick Sale"
 						>
 							<PlusIcon
 							/>
-							<span>New Conversation</span>
+							<span>New Sale</span>
 						</SidebarMenuButton>
 						<Button
-							aria-label="Search conversations"
+							aria-label="Search items"
 							className="size-8 group-data-[collapsible=icon]:opacity-0"
 							size="icon"
 							variant="outline"
 						>
 							<SearchIcon
 							/>
-							<span className="sr-only">Search conversations</span>
+							<span className="sr-only">Search items</span>
 						</Button>
 					</SidebarMenuItem>
 				</SidebarGroup>
@@ -71,7 +72,7 @@ export function AppSidebar({ pathname }: { pathname?: string }) {
 				<SidebarMenu className="mt-2">
 					{footerNavLinks.map((item) => (
 						<SidebarMenuItem key={item.title}>
-							<SidebarMenuButton className="text-muted-foreground" isActive={item.path === pathname} size="sm" render={<a href={item.path} />}>{item.icon}<span>{item.title}</span></SidebarMenuButton>
+							<SidebarMenuButton className="text-muted-foreground" isActive={item.path === pathname} size="sm" render={<Link href={item.path ?? "#"} />}>{item.icon}<span>{item.title}</span></SidebarMenuButton>
 						</SidebarMenuItem>
 					))}
 				</SidebarMenu>

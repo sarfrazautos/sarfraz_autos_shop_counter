@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -36,14 +37,14 @@ export function NavGroup({
                     										<SidebarMenuSub>
                     											{item.subItems?.map((subItem) => (
                     												<SidebarMenuSubItem key={subItem.title}>
-                    													<SidebarMenuSubButton isActive={subItem.path === pathname} render={<a href={subItem.path} />}>{subItem.icon}<span>{subItem.title}</span></SidebarMenuSubButton>
+                    													<SidebarMenuSubButton isActive={subItem.path === pathname} render={<Link href={subItem.path ?? "#"} />}>{subItem.icon}<span>{subItem.title}</span></SidebarMenuSubButton>
                     												</SidebarMenuSubItem>
                     											))}
                     										</SidebarMenuSub>
                     									</CollapsibleContent>
                     								</>
                     							) : (
-                    								<SidebarMenuButton isActive={item.path === pathname} render={<a href={item.path} />}>{item.icon}<span>{item.title}</span></SidebarMenuButton>
+                    								<SidebarMenuButton isActive={item.path === pathname} render={<Link href={item.path ?? "#"} />}>{item.icon}<span>{item.title}</span></SidebarMenuButton>
                     							)}</Collapsible>
 				))}
 			</SidebarMenu>

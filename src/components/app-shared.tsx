@@ -1,5 +1,21 @@
 import type { ReactNode } from "react";
-import { LayoutGridIcon, ListChecksIcon, BarChart3Icon, MessageSquareTextIcon, UsersIcon, PlugIcon, SettingsIcon, Settings2Icon, HelpCircleIcon, ActivityIcon } from "lucide-react";
+import {
+	LayoutGrid,
+	Package,
+	PackageSearch,
+	PlusCircle,
+	FileSpreadsheet,
+	BadgeDollarSign,
+	BadgePercent,
+	ShoppingBag,
+	CreditCard,
+	Store,
+	Users,
+	MapPin,
+	CalendarCheck,
+	Activity,
+	HelpCircle,
+} from "lucide-react";
 
 export type SidebarNavItem = {
 	title: string;
@@ -18,92 +34,94 @@ export const navGroups: SidebarNavGroup[] = [
 		items: [
 			{
 				title: "Overview",
-				path: "#/overview",
-				icon: (
-					<LayoutGridIcon
-					/>
-				),
+				path: "/dashboard",
+				icon: <LayoutGrid className="size-4" />,
 			},
 		],
 	},
 	{
-		label: "Today",
+		label: "Inventory",
 		items: [
 			{
-				title: "Queue",
-				path: "#/queue",
-				icon: (
-					<ListChecksIcon
-					/>
-				),
-			},
-			{
-				title: "Team insights",
-				path: "#/team-insights",
-				icon: (
-					<BarChart3Icon
-					/>
-				),
-			},
-		],
-	},
-	{
-		label: "Inbox",
-		items: [
-			{
-				title: "Conversations",
-				icon: (
-					<MessageSquareTextIcon
-					/>
-				),
+				title: "Products",
+				icon: <Package className="size-4" />,
 				subItems: [
-					{ title: "Unassigned", path: "#/inbox/unassigned" },
-					{ title: "Assigned to me", path: "#/inbox/assigned" },
-					{ title: "Recently closed", path: "#/inbox/closed" },
+					{
+						title: "All Products",
+						path: "#/products",
+						icon: <PackageSearch className="size-4" />,
+					},
+					{
+						title: "Add Product",
+						path: "#/products/add",
+						icon: <PlusCircle className="size-4" />,
+					},
+					{
+						title: "Excel Product Upload",
+						path: "#/products/upload",
+						icon: <FileSpreadsheet className="size-4" />,
+					},
+					{
+						title: "Price Updater",
+						path: "#/products/price-updater",
+						icon: <BadgeDollarSign className="size-4" />,
+					},
 				],
 			},
 			{
-				title: "Customers",
-				path: "#/customers",
-				icon: (
-					<UsersIcon
-					/>
-				),
-			},
-			{
-				title: "Channels",
-				path: "#/channels",
-				icon: (
-					<PlugIcon
-					/>
-				),
+				title: "Trade schemes",
+				path: "#/trade-schemes",
+				icon: <BadgePercent className="size-4" />,
 			},
 		],
 	},
 	{
-		label: "Organization",
+		label: "Sales & Counter",
 		items: [
 			{
-				title: "Workspace",
-				icon: (
-					<SettingsIcon
-					/>
-				),
-				subItems: [
-					{ title: "Branding", path: "#/workspace/branding" },
-					{ title: "Team & roles", path: "#/workspace/team" },
-					{ title: "API keys", path: "#/workspace/api-keys" },
-					{ title: "Webhooks", path: "#/workspace/webhooks" },
-					{ title: "Billing", path: "#/workspace/billing" },
-				],
+				title: "Orders",
+				path: "#/orders",
+				icon: <ShoppingBag className="size-4" />,
 			},
 			{
-				title: "Settings",
-				path: "#/settings",
-				icon: (
-					<Settings2Icon
-					/>
-				),
+				title: "Payments",
+				path: "#/payments",
+				icon: <CreditCard className="size-4" />,
+			},
+			{
+				title: "Counter",
+				path: "#/counter",
+				icon: <Store className="size-4" />,
+			},
+		],
+	},
+	{
+		label: "Operations",
+		items: [
+			{
+				title: "Team",
+				path: "/dashboard/team",
+				icon: <Users className="size-4" />,
+			},
+			{
+				title: "Map tracking",
+				path: "/dashboard/map",
+				icon: <MapPin className="size-4" />,
+			},
+			{
+				title: "Attendance",
+				path: "#/attendance",
+				icon: <CalendarCheck className="size-4" />,
+			},
+		],
+	},
+	{
+		label: "Maintenance",
+		items: [
+			{
+				title: "System health",
+				path: "#/system-health",
+				icon: <Activity className="size-4" />,
 			},
 		],
 	},
@@ -113,18 +131,12 @@ export const footerNavLinks: SidebarNavItem[] = [
 	{
 		title: "Help Center",
 		path: "#/help",
-		icon: (
-			<HelpCircleIcon
-			/>
-		),
+		icon: <HelpCircle className="size-4" />,
 	},
 	{
-		title: "System status",
-		path: "#/status",
-		icon: (
-			<ActivityIcon
-			/>
-		),
+		title: "System health",
+		path: "#/system-health",
+		icon: <Activity className="size-4" />,
 	},
 ];
 

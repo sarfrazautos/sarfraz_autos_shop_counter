@@ -3,7 +3,7 @@ import { Dashboard } from "@/components/dashboard";
 
 export default function DashboardPage() {
   return (
-    <AppShell pathname="#/overview">
+    <AppShell pathname="/dashboard">
       <Dashboard />
     </AppShell>
   );

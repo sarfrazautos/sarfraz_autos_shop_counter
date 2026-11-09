@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 
@@ -34,7 +35,7 @@ export function LatestChange() {
 			<span className="text-[10px] text-muted-foreground">
 				{latestChange.description}
 			</span>
-			<Button className="w-max px-0 font-light text-xs" size="sm" variant="link" render={<a href={latestChange.readMore.href} />} nativeButton={false}>{latestChange.readMore.label}</Button>
+			<Button className="w-max px-0 font-light text-xs" size="sm" variant="link" render={<Link href={latestChange.readMore.href} />} nativeButton={false}>{latestChange.readMore.label}</Button>
 			<Button
 				className="absolute top-2 right-2 z-10 size-6 rounded-full opacity-0 transition-opacity group-hover/latest-change:opacity-100"
 				onClick={() => setIsOpen(false)}
