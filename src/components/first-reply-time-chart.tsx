@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
-import { CartesianGrid, LabelList, Line, LineChart, XAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
 	Card,
 	CardContent,
@@ -16,34 +16,25 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Delta, DeltaIcon, DeltaValue } from "@/components/delta";
+import { Bike } from "lucide-react";
 
-type ReplyRow = {
-	day: string;
-	minutes: number;
+type BikeModelRow = {
+	model: string;
+	partsSold: number;
 };
 
-const chartRows: ReplyRow[] = [
-	{ day: "Mon", minutes: 5.4 },
-	{ day: "Tue", minutes: 4.9 },
-	{ day: "Wed", minutes: 5.2 },
-	{ day: "Thu", minutes: 4.7 },
-	{ day: "Fri", minutes: 4.5 },
-	{ day: "Sat", minutes: 5.0 },
-	{ day: "Sun", minutes: 4.1 },
+const chartRows: BikeModelRow[] = [
+	{ model: "Honda CD70", partsSold: 8420 },
+	{ model: "Honda CG125", partsSold: 4650 },
+	{ model: "Crown 70cc", partsSold: 2840 },
+	{ model: "Suzuki GS150", partsSold: 1420 },
+	{ model: "Yamaha YBR", partsSold: 1120 },
 ];
 
-const firstMinutes = chartRows[0]?.minutes ?? 0;
-const lastMinutes = chartRows.at(-1)?.minutes ?? firstMinutes;
-
-/** Positive when median first reply faster Mon → Sun. */
-const replyImprovementPct =
-	firstMinutes > 0 ? ((firstMinutes - lastMinutes) / firstMinutes) * 100 : 0;
-
 const chartConfig = {
-	minutes: {
-		label: "Minutes",
-		color: "var(--chart-2)",
+	partsSold: {
+		label: "Spare Parts Sold",
+		color: "var(--chart-2, #3b82f6)",
 	},
 } satisfies ChartConfig;
 
@@ -58,59 +49,39 @@ export function FirstReplyTimeChart({
 		>
 			<CardHeader className="space-y-1">
 				<div className="flex flex-wrap items-center gap-2">
-					<CardTitle >Median first reply</CardTitle>
-					<Delta value={replyImprovementPct} variant="badge">
-						<DeltaIcon variant="trend" />
-						<DeltaValue />
-					</Delta>
+					<CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+						<Bike className="size-4 text-primary" />
+						Top Bike Models Spare Parts Demand
+					</CardTitle>
 				</div>
-				<CardDescription>
-					Minutes to first agent message, last 7 days.
+				<CardDescription className="text-xs">
+					Unit volume of parts sold by motorcycle model this month.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<ChartContainer className="aspect-video w-full" config={chartConfig}>
-					<LineChart
-						accessibilityLayer
-						data={chartRows}
-						margin={{ top: 24, left: 20, right: 12, bottom: 8 }}
-					>
-						<CartesianGrid className="stroke-border" vertical={false} />
-						<XAxis
+				<ChartContainer className="aspect-16/7 w-full max-h-[220px]" config={chartConfig}>
+					<BarChart accessibilityLayer data={chartRows} layout="vertical" margin={{ left: 16, right: 16, top: 4, bottom: 4 }}>
+						<CartesianGrid className="stroke-border" horizontal={false} />
+						<XAxis type="number" axisLine={false} tickLine={false} tickMargin={8} className="text-xs font-mono" />
+						<YAxis
+							type="category"
+							dataKey="model"
 							axisLine={false}
-							dataKey="day"
-							interval={0}
-							tickFormatter={(value) => String(value).slice(0, 3)}
 							tickLine={false}
 							tickMargin={8}
+							width={88}
+							className="text-xs font-semibold"
 						/>
 						<ChartTooltip
-							content={<ChartTooltipContent indicator="line" />}
-							cursor={false}
+							content={
+								<ChartTooltipContent
+									className="min-w-32 font-mono"
+									formatter={(val) => [`${val} Units`, "Parts Sold"]}
+								/>
+							}
 						/>
-						<Line
-							activeDot={{ r: 6 }}
-							dataKey="minutes"
-							dot={{ fill: "var(--color-minutes)" }}
-							stroke="var(--color-minutes)"
-							strokeWidth={2}
-							type="natural"
-						>
-							<LabelList
-								className="fill-foreground"
-								dataKey="minutes"
-								fontSize={12}
-								formatter={(label) => {
-									const n = Number(label);
-									return Number.isFinite(n)
-										? `${n.toFixed(1)}m`
-										: String(label ?? "");
-								}}
-								offset={12}
-								position="top"
-							/>
-						</Line>
-					</LineChart>
+						<Bar dataKey="partsSold" fill="var(--chart-2, #3b82f6)" radius={[0, 6, 6, 0]} />
+					</BarChart>
 				</ChartContainer>
 			</CardContent>
 		</Card>

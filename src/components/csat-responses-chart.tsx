@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
-import { Bar, BarChart, Rectangle, XAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
 	Card,
 	CardContent,
@@ -16,52 +16,24 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Store } from "lucide-react";
 
 const chartData = [
-	{ day: "Apr 8", direct: 11, email: 9, social: 4 },
-	{ day: "Apr 9", direct: 15, email: 11, social: 5 },
-	{ day: "Apr 10", direct: 13, email: 10, social: 5 },
-	{ day: "Apr 11", direct: 16, email: 12, social: 5 },
-	{ day: "Apr 12", direct: 12, email: 10, social: 5 },
-	{ day: "Apr 13", direct: 14, email: 10, social: 6 },
-	{ day: "Apr 14", direct: 11, email: 9, social: 5 },
-	{ day: "Apr 15", direct: 16, email: 7, social: 4 },
-	{ day: "Apr 16", direct: 13, email: 11, social: 5 },
-	{ day: "Apr 17", direct: 15, email: 11, social: 6 },
+	{ branch: "Saddar Main", sales: 2650, orders: 810 },
+	{ branch: "Gulshan Hub", sales: 1420, orders: 420 },
+	{ branch: "DHA Counter", sales: 780, orders: 198 },
 ] as const;
 
 const chartConfig = {
-	direct: {
-		label: "Direct",
-		color: "var(--chart-1)",
+	sales: {
+		label: "Revenue (Rs. '000)",
+		color: "var(--chart-1, #10b981)",
 	},
-	email: {
-		label: "Email",
-		color: "var(--chart-3)",
-	},
-	social: {
-		label: "Social",
-		color: "var(--chart-5)",
+	orders: {
+		label: "Completed Orders",
+		color: "var(--chart-2, #3b82f6)",
 	},
 } satisfies ChartConfig;
-
-/** Half of bar width (8) so ends read as fully rounded “caps”. */
-const BAR_RADIUS = 5;
-
-/**
- *  column hover background.
- */
-function ColumnHoverCursor(props: React.ComponentProps<typeof Rectangle>) {
-	return (
-		<Rectangle
-			fill="var(--muted)"
-			fillOpacity={0.5}
-			radius={BAR_RADIUS * 2}
-			stroke="none"
-			{...props}
-		/>
-	);
-}
 
 export function CsatResponsesChart({
 	className,
@@ -72,56 +44,49 @@ export function CsatResponsesChart({
 			className={cn("shadow-none md:col-span-2 dark:ring-0", className)}
 			{...props}
 		>
-			<CardHeader>
-				<CardTitle >CSAT responses</CardTitle>
-				<CardDescription>
-					Post-resolution surveys submitted per day by channel, last 10 days.
+			<CardHeader className="space-y-1">
+				<div className="flex flex-wrap items-center gap-2">
+					<CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+						<Store className="size-4 text-primary" />
+						Branch Counter Performance
+					</CardTitle>
+				</div>
+				<CardDescription className="text-xs">
+					Monthly revenue & order count comparison across the 3 physical shop branches.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<ChartContainer className="aspect-video w-full" config={chartConfig}>
-					<BarChart accessibilityLayer data={[...chartData]}>
+				<ChartContainer className="aspect-16/7 w-full max-h-[220px]" config={chartConfig}>
+					<BarChart accessibilityLayer data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+						<CartesianGrid className="stroke-border" vertical={false} />
 						<XAxis
 							axisLine={false}
-							dataKey="day"
-							interval={0}
-							minTickGap={8}
-							tickFormatter={(value) => String(value)}
+							dataKey="branch"
 							tickLine={false}
-							tickMargin={10}
+							tickMargin={8}
+							className="text-xs font-semibold"
+						/>
+						<YAxis
+							axisLine={false}
+							tickLine={false}
+							tickMargin={8}
+							tickFormatter={(val) => `Rs.${val}k`}
+							width={54}
+							className="text-xs font-mono"
 						/>
 						<ChartTooltip
-							content={<ChartTooltipContent hideLabel />}
-							cursor={<ColumnHoverCursor />}
+							content={
+								<ChartTooltipContent
+									className="min-w-36 font-mono"
+									formatter={(value, name) =>
+										name === "sales"
+											? [`Rs. ${Number(value) * 1000} PKR`, "Revenue"]
+											: [`${value} Orders`, "Orders"]
+									}
+								/>
+							}
 						/>
-						<Bar
-							background={{
-								fill: "var(--muted)",
-								radius: BAR_RADIUS,
-							}}
-							barSize={8}
-							dataKey="social"
-							fill="var(--color-social)"
-							overflow="visible"
-							radius={[0, 0, BAR_RADIUS, BAR_RADIUS]}
-							stackId="csat"
-						/>
-						<Bar
-							barSize={8}
-							dataKey="email"
-							fill="var(--color-email)"
-							overflow="visible"
-							radius={0}
-							stackId="csat"
-						/>
-						<Bar
-							barSize={8}
-							dataKey="direct"
-							fill="var(--color-direct)"
-							overflow="visible"
-							radius={[BAR_RADIUS, BAR_RADIUS, 0, 0]}
-							stackId="csat"
-						/>
+						<Bar dataKey="sales" fill="var(--chart-1, #10b981)" radius={[6, 6, 0, 0]} />
 					</BarChart>
 				</ChartContainer>
 			</CardContent>

@@ -1,13 +1,15 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { type ComponentProps, useState } from "react";
+import type { ComponentProps } from "react";
+import Link from "next/link";
 import {
 	Avatar,
 	AvatarFallback,
 	AvatarImage,
 } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
 	Card,
 	CardContent,
@@ -15,147 +17,75 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { StatusIndicator } from "@/components/indicator";
-import { EllipsisIcon, SendIcon, ListChecksIcon } from "lucide-react";
-
-type Teammate = {
-	id: string;
-	name: string;
-	status: "Online" | "Away";
-	/** Conversations currently assigned to this teammate */
-	open: number;
-	image?: string;
-};
-
-const INITIAL_TEAMMATES: readonly Teammate[] = [
-	{
-		id: "amelia",
-		name: "Amelia Park",
-		status: "Online",
-		open: 9,
-		image: "https://avatar.vercel.sh/ameliapark",
-	},
-	{
-		id: "noah",
-		name: "Noah Ibarra",
-		status: "Online",
-		open: 7,
-		image: "https://avatar.vercel.sh/noahi",
-	},
-	{
-		id: "priya",
-		name: "Priya Desai",
-		status: "Away",
-		open: 4,
-		image: "https://avatar.vercel.sh/priyadesai",
-	},
-	{
-		id: "marcus",
-		name: "Marcus Chen",
-		status: "Online",
-		open: 11,
-		image: "https://avatar.vercel.sh/marcuschen",
-	},
-	{
-		id: "emily",
-		name: "Emily Johnson",
-		status: "Away",
-		open: 2,
-		image: "https://avatar.vercel.sh/emilyjohnson",
-	},
-];
-
-function getInitials(name: string) {
-	return name
-		.split(" ")
-		.map((word) => word.charAt(0).toUpperCase())
-		.join("");
-}
+import { Users, ArrowRight } from "lucide-react";
+import { INITIAL_MEMBERS } from "@/components/Team/types";
 
 export function TeamOnDuty({
 	className,
 	...props
 }: ComponentProps<typeof Card>) {
-	const [teammates, setTeammates] = useState<Teammate[]>(() => [
-		...INITIAL_TEAMMATES,
-	]);
-
-	function pullNextConversation(id: string) {
-		setTeammates((prev) =>
-			prev.map((t) =>
-				t.id === id ? { ...t, open: Math.max(0, t.open - 1) } : t
-			)
-		);
-	}
+	// Show active team members
+	const activeMembers = INITIAL_MEMBERS.slice(0, 4);
 
 	return (
-		<Card className={cn("shadow-none dark:ring-0", className)} {...props}>
-			<CardHeader className="border-b">
-				<CardTitle >Team on duty</CardTitle>
-				<CardDescription>Who is carrying the queue right now</CardDescription>
+		<Card
+			className={cn("shadow-none md:col-span-2 dark:ring-0", className)}
+			{...props}
+		>
+			<CardHeader className="flex flex-row items-center justify-between pb-3 space-y-0">
+				<div className="space-y-1">
+					<CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+						<Users className="size-4 text-primary" />
+						Branch Employees on Duty
+					</CardTitle>
+					<CardDescription className="text-xs">
+						Active counter operators, advisors, and mechanics across branches.
+					</CardDescription>
+				</div>
+				<Button
+					variant="ghost"
+					size="xs"
+					render={<Link href="/dashboard/team" />}
+					nativeButton={false}
+					className="text-xs text-primary hover:text-primary/80 gap-1 cursor-pointer"
+				>
+					<span>View All</span>
+					<ArrowRight className="size-3" />
+				</Button>
 			</CardHeader>
-			<CardContent className="p-0">
-				<ul className="flex flex-col divide-y divide-border">
-					{teammates.map((t) => (
-						<li
-							className="flex items-center gap-2 p-3 first:pt-0 last:pb-0 sm:gap-3"
-							key={t.id}
+			<CardContent className="space-y-3">
+				<div className="divide-y divide-border/60">
+					{activeMembers.map((member) => (
+						<div
+							key={member.id}
+							className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
 						>
-							<Avatar className="size-8">
-								<AvatarImage alt={t.name} src={t.image} />
-								<AvatarFallback>{getInitials(t.name)}</AvatarFallback>
-							</Avatar>
-							<div className="min-w-0 flex-1 pr-1">
-								<p className="truncate font-medium text-foreground text-sm leading-snug">
-									{t.name}
-								</p>
-								<p className="flex items-center gap-2 text-[10px] leading-snug">
-									<span className="flex shrink-0 items-center gap-1">
-										<StatusIndicator
-											color={t.status === "Online" ? "emerald" : "amber"}
-											pulse={t.status === "Online"}
-										/>
-										{t.status}
-									</span>
-									<span className="inline-flex size-1 rounded-full bg-foreground/80" />
-									<span className="tabular-nums">{t.open} assigned</span>
-								</p>
+							<div className="flex items-center gap-3 min-w-0">
+								<Avatar className="size-8 shrink-0">
+									<AvatarImage src={member.avatarUrl} alt={member.name} />
+									<AvatarFallback className="text-xs font-bold">
+										{member.name.charAt(0)}
+									</AvatarFallback>
+								</Avatar>
+								<div className="min-w-0">
+									<p className="font-semibold text-xs text-foreground truncate">
+										{member.name}
+									</p>
+									<p className="text-[11px] text-muted-foreground truncate">
+										{member.role} • {member.branch.split("(")[0]}
+									</p>
+								</div>
 							</div>
-							<DropdownMenu>
-								<DropdownMenuTrigger render={<Button aria-label={`Actions for ${t.name}`} size="icon-xs" variant="ghost" />}><EllipsisIcon
-                                										/></DropdownMenuTrigger>
-								<DropdownMenuContent align="end" className="min-w-52">
-									<DropdownMenuLabel className="font-normal text-muted-foreground text-xs">
-										{t.name}
-									</DropdownMenuLabel>
-									<DropdownMenuSeparator />
-									<DropdownMenuItem className="gap-2">
-										<SendIcon className="size-4 opacity-70" />
-										Message
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										className="gap-2"
-										disabled={t.open === 0}
-										onSelect={() => {
-											pullNextConversation(t.id);
-										}}
-									>
-										<ListChecksIcon className="size-4 opacity-70" />
-										Pull next conversation
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</li>
+
+							<Badge
+								variant="outline"
+								className="text-[10px] shrink-0 font-medium bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+							>
+								{member.status === "on-duty" ? "On Duty" : "Active"}
+							</Badge>
+						</div>
 					))}
-				</ul>
+				</div>
 			</CardContent>
 		</Card>
 	);

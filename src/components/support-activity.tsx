@@ -1,5 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -8,40 +11,39 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { ShieldCheckIcon, LayersIcon, WandIcon, UsersRoundIcon, ArrowRightIcon } from "lucide-react";
+import {
+	Boxes,
+	Receipt,
+	BadgeDollarSign,
+	UserCheck,
+	ArrowRight,
+	Activity,
+} from "lucide-react";
 
-const items = [
+const activityItems = [
 	{
-		title: "SLA warning cleared for Oak Street Studio",
+		title: "Stock Dispatched: 45 units Crown Piston Kit to Saddar Main Counter",
 		time: "12 min ago",
-		icon: (
-			<ShieldCheckIcon
-			/>
-		),
+		icon: <Boxes className="size-3.5 text-sky-600" />,
+		bg: "bg-sky-500/10",
 	},
 	{
-		title: "Conversation escalated to Tier 2",
+		title: "Invoice #SA-64276 issued for Afraz Auto Works (Rs. 54,230)",
 		time: "28 min ago",
-		icon: (
-			<LayersIcon
-			/>
-		),
+		icon: <Receipt className="size-3.5 text-emerald-600" />,
+		bg: "bg-emerald-500/10",
 	},
 	{
-		title: "Macro “Refund approved” updated",
+		title: "Bulk Price Update applied: +5% on Engine & Transmission",
 		time: "1 hr ago",
-		icon: (
-			<WandIcon
-			/>
-		),
+		icon: <BadgeDollarSign className="size-3.5 text-amber-600" />,
+		bg: "bg-amber-500/10",
 	},
 	{
-		title: "New customer segment synced from CRM",
+		title: "Staff Assignment: Kashif Raza checked-in at DHA Counter",
 		time: "3 hr ago",
-		icon: (
-			<UsersRoundIcon
-			/>
-		),
+		icon: <UserCheck className="size-3.5 text-purple-600" />,
+		bg: "bg-purple-500/10",
 	},
 ] as const;
 
@@ -50,37 +52,58 @@ export function SupportActivity({
 	...props
 }: ComponentProps<typeof Card>) {
 	return (
-		<Card className={cn("gap-0 shadow-none dark:ring-0", className)} {...props}>
-			<CardHeader className="border-b">
-				<CardTitle >Workspace activity</CardTitle>
-				<CardDescription>Operational signals.</CardDescription>
+		<Card
+			className={cn("shadow-none md:col-span-2 lg:col-span-4 dark:ring-0", className)}
+			{...props}
+		>
+			<CardHeader className="flex flex-row items-center justify-between pb-3 space-y-0">
+				<div className="space-y-1">
+					<CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+						<Activity className="size-4 text-primary" />
+						Counter & Inventory Live Activity
+					</CardTitle>
+					<CardDescription className="text-xs">
+						Recent stock arrivals, price adjustments, and counter transactions.
+					</CardDescription>
+				</div>
+				<Button
+					variant="ghost"
+					size="xs"
+					render={<Link href="/dashboard/notifications" />}
+					nativeButton={false}
+					className="text-xs text-primary hover:text-primary/80 gap-1 cursor-pointer"
+				>
+					<span>View Activity Log</span>
+					<ArrowRight className="size-3" />
+				</Button>
 			</CardHeader>
-			<CardContent className="px-0">
-				<ul className="flex flex-col divide-y divide-border">
-					{items.map((item) => (
-						<li className="flex h-18 items-center gap-3 px-3" key={item.title}>
-							<span
-								aria-hidden="true"
-								className="flex size-10 shrink-0 items-center justify-center [&_svg]:size-4"
-							>
-								{item.icon}
-							</span>
-							<div className="min-w-0 flex-1 space-y-1">
-								<p className="line-clamp-2 text-pretty text-foreground text-xs leading-snug">
+			<CardContent className="pt-1">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+					{activityItems.map((item, idx) => (
+						<div
+							key={idx}
+							className="p-3 rounded-xl border bg-muted/20 flex flex-col justify-between gap-2.5 hover:bg-muted/40 transition-colors"
+						>
+							<div className="flex items-start gap-2.5">
+								<div
+									className={cn(
+										"size-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
+										item.bg
+									)}
+								>
+									{item.icon}
+								</div>
+								<p className="text-xs font-semibold text-foreground leading-snug">
 									{item.title}
 								</p>
-								<p className="text-muted-foreground text-xs tabular-nums">
-									{item.time}
-								</p>
 							</div>
-						</li>
+							<span className="text-[10px] text-muted-foreground font-mono self-end">
+								{item.time}
+							</span>
+						</div>
 					))}
-				</ul>
+				</div>
 			</CardContent>
-			<div className="flex items-center justify-center">
-				<Button size="sm" variant="ghost" render={<a href="/#" />} nativeButton={false}>View All
-                						<ArrowRightIcon aria-hidden="true" data-icon="inline-end" /></Button>
-			</div>
 		</Card>
 	);
 }

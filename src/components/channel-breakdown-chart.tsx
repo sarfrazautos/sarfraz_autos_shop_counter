@@ -16,9 +16,9 @@ import {
 	ChartLegend,
 	ChartLegendContent,
 } from "@/components/ui/chart";
-import { Delta, DeltaIcon, DeltaValue } from "@/components/delta";
+import { PieChart as PieChartIcon } from "lucide-react";
 
-type ChannelKey = "direct" | "email" | "social";
+type ChannelKey = "wholesale" | "retail" | "workshop";
 
 type ChannelDatum = {
 	channel: ChannelKey;
@@ -27,26 +27,26 @@ type ChannelDatum = {
 };
 
 const chartData: ChannelDatum[] = [
-	{ channel: "direct", share: 44, fill: "var(--color-direct)" },
-	{ channel: "email", share: 36, fill: "var(--color-email)" },
-	{ channel: "social", share: 20, fill: "var(--color-social)" },
+	{ channel: "wholesale", share: 55, fill: "var(--chart-1, #10b981)" },
+	{ channel: "retail", share: 32, fill: "var(--chart-2, #3b82f6)" },
+	{ channel: "workshop", share: 13, fill: "var(--chart-3, #f59e0b)" },
 ];
 
 const chartConfig = {
 	share: {
-		label: "Share",
+		label: "Share %",
 	},
-	direct: {
-		label: "Direct",
-		color: "var(--chart-1)",
+	wholesale: {
+		label: "Wholesale Dealers (55%)",
+		color: "var(--chart-1, #10b981)",
 	},
-	email: {
-		label: "Email",
-		color: "var(--chart-3)",
+	retail: {
+		label: "Retail Walk-in (32%)",
+		color: "var(--chart-2, #3b82f6)",
 	},
-	social: {
-		label: "Social",
-		color: "var(--chart-5)",
+	workshop: {
+		label: "Mechanics / Accounts (13%)",
+		color: "var(--chart-3, #f59e0b)",
 	},
 } satisfies ChartConfig;
 
@@ -59,48 +59,42 @@ export function ChannelBreakdownChart({
 			className={cn("flex flex-col shadow-none dark:ring-0", className)}
 			{...props}
 		>
-			<CardHeader className="items-center space-y-1 pb-0 sm:items-start">
-				<div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-					<CardTitle >Traffic by channel</CardTitle>
-					<Delta value={2.4} variant="badge">
-						<DeltaIcon variant="trend" />
-						<DeltaValue suffix="pp" />
-					</Delta>
-				</div>
-				<CardDescription>
-					Share of new conversations in last 7 days
+			<CardHeader className="space-y-1">
+				<CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+					<PieChartIcon className="size-4 text-primary" />
+					Sales by Order Type
+				</CardTitle>
+				<CardDescription className="text-xs">
+					Share of wholesale vs counter retail sales.
 				</CardDescription>
 			</CardHeader>
-			<CardContent className="my-auto">
+			<CardContent className="flex flex-1 flex-col justify-center">
 				<ChartContainer
-					className="mx-auto aspect-square max-h-72 w-full"
+					className="mx-auto aspect-square w-full max-w-[210px]"
 					config={chartConfig}
 				>
-					<PieChart accessibilityLayer>
+					<PieChart>
 						<Pie
-							cornerRadius={8}
 							data={chartData}
 							dataKey="share"
-							innerRadius={36}
 							nameKey="channel"
-							outerRadius="88%"
-							stroke="var(--card)"
-							strokeWidth={4}
+							innerRadius={46}
+							outerRadius={74}
+							strokeWidth={2}
+							stroke="var(--background)"
 						>
 							<LabelList
-								className="fill-background font-medium"
+								className="fill-foreground font-mono text-[11px] font-bold"
 								dataKey="share"
-								fill="currentColor"
-								fontWeight={500}
-								formatter={(label) => {
-									const n = Number(label);
-									return Number.isFinite(n) ? `${n}%` : String(label ?? "");
-								}}
+								formatter={(value: any) => `${value}%`}
 								position="inside"
 								stroke="none"
 							/>
 						</Pie>
-						<ChartLegend content={<ChartLegendContent nameKey="channel" />} />
+						<ChartLegend
+							className="mt-3 flex-wrap gap-2 text-xs"
+							content={<ChartLegendContent nameKey="channel" />}
+						/>
 					</PieChart>
 				</ChartContainer>
 			</CardContent>

@@ -5,45 +5,44 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Delta, DeltaIcon, DeltaValue } from "@/components/delta";
+import {
+	Banknote,
+	ShoppingBag,
+	Boxes,
+	Store,
+} from "lucide-react";
 
 type Stat = {
 	label: string;
 	value: string;
-	delta: number;
 	footnote: string;
-	/** When true, a negative delta is treated as favorable (e.g. queue depth, reply time). */
-	lowerIsBetter: boolean;
+	icon: React.ReactNode;
 };
 
 const stats: readonly Stat[] = [
 	{
-		label: "Open queue",
-		value: "38",
-		delta: -12.4,
-		footnote: "vs yesterday",
-		lowerIsBetter: true,
+		label: "Total Sales (This Month)",
+		value: "Rs. 4,850,200",
+		footnote: "vs last month (Rs. 4,120,000)",
+		icon: <Banknote className="size-4 text-emerald-600" />,
 	},
 	{
-		label: "Active conversations",
-		value: "126",
-		delta: 5.2,
-		footnote: "vs last week",
-		lowerIsBetter: false,
+		label: "Total Orders Completed",
+		value: "1,428 Orders",
+		footnote: "vs last month (1,280 Orders)",
+		icon: <ShoppingBag className="size-4 text-primary" />,
 	},
 	{
-		label: "Median first reply",
-		value: "4.1m",
-		delta: -8.0,
-		footnote: "vs last week",
-		lowerIsBetter: true,
+		label: "Spare Parts Dispatched",
+		value: "18,450 Units",
+		footnote: "vs last month (16,300 Units)",
+		icon: <Boxes className="size-4 text-sky-600" />,
 	},
 	{
-		label: "CSAT (30d)",
-		value: "94%",
-		delta: 1.1,
-		footnote: "vs prior 30d",
-		lowerIsBetter: false,
+		label: "Active Inventory Stock",
+		value: "3,840 Items",
+		footnote: "Across 3 branches vs last month",
+		icon: <Store className="size-4 text-purple-600" />,
 	},
 ];
 
@@ -51,21 +50,22 @@ export function DashboardStats() {
 	return (
 		<>
 			{stats.map((s) => (
-				<Card className={cn("shadow-none dark:ring-0")} key={s.label}>
-					<CardHeader>
-						<CardTitle className="font-normal text-muted-foreground text-xs">
+				<Card className={cn("shadow-none dark:ring-0 border")} key={s.label}>
+					<CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+						<CardTitle className="font-medium text-muted-foreground text-xs">
 							{s.label}
 						</CardTitle>
-					</CardHeader>
-					<CardContent className="flex flex-col gap-2">
-						<p className="font-semibold text-2xl tabular-nums">{s.value}</p>
-						<div className="flex items-center gap-1 text-xs">
-							<Delta value={s.delta}>
-								<DeltaIcon />
-								<DeltaValue />
-							</Delta>
-							<span className="text-muted-foreground">{s.footnote}</span>
+						<div className="size-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+							{s.icon}
 						</div>
+					</CardHeader>
+					<CardContent className="flex flex-col gap-1.5 pt-0">
+						<p className="font-bold text-2xl tracking-tight text-foreground font-mono">
+							{s.value}
+						</p>
+						<p className="text-xs text-muted-foreground">
+							{s.footnote}
+						</p>
 					</CardContent>
 				</Card>
 			))}

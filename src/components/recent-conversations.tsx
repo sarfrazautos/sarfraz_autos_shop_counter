@@ -1,5 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,165 +20,80 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { MailIcon, MessageCircleIcon, ArrowRightIcon } from "lucide-react";
-
-type Conversation = {
-	customer: string;
-	subject: string;
-	channel: "email" | "chat";
-	waitMinutes: number;
-	state: "waiting" | "open" | "snoozed";
-};
-
-const rows: Conversation[] = [
-	{
-		customer: "Northwind Labs",
-		subject: "Billing portal access",
-		channel: "email",
-		waitMinutes: 6,
-		state: "waiting",
-	},
-	{
-		customer: "Blue River Co.",
-		subject: "Shipment ETA",
-		channel: "chat",
-		waitMinutes: 1,
-		state: "open",
-	},
-	{
-		customer: "Oak Street Studio",
-		subject: "API rate limits",
-		channel: "email",
-		waitMinutes: 58,
-		state: "snoozed",
-	},
-	{
-		customer: "Harbor Freight LLC",
-		subject: "Workspace SSO",
-		channel: "chat",
-		waitMinutes: 3,
-		state: "open",
-	},
-];
-
-function formatWaitTime(minutes: number): string {
-	if (minutes <= 0) {
-		return "Just now";
-	}
-	if (minutes === 1) {
-		return "1 minute";
-	}
-	if (minutes < 55) {
-		return `${minutes} minutes`;
-	}
-	if (minutes < 60) {
-		return "Almost an hour";
-	}
-	if (minutes < 75) {
-		return "About an hour";
-	}
-	if (minutes < 120) {
-		return "Over an hour";
-	}
-	const hours = Math.round(minutes / 60);
-	return hours === 1 ? "About an hour" : `About ${hours} hours`;
-}
-
-function statusVariant(
-	state: Conversation["state"]
-): ComponentProps<typeof Badge>["variant"] {
-	if (state === "waiting") {
-		return "destructive";
-	}
-	if (state === "snoozed") {
-		return "outline";
-	}
-	return "secondary";
-}
-
-function statusLabel(state: Conversation["state"]): string {
-	if (state === "waiting") {
-		return "In queue";
-	}
-	if (state === "snoozed") {
-		return "Snoozed";
-	}
-	return "Active";
-}
-
-function channelIcon(channel: Conversation["channel"]) {
-	if (channel === "email") {
-		return (
-			<MailIcon className="size-3.5 shrink-0" />
-		);
-	}
-	return (
-		<MessageCircleIcon className="size-3.5 shrink-0" />
-	);
-}
+import { ShoppingBag, ArrowRight } from "lucide-react";
+import { INITIAL_ORDERS } from "@/components/Orders/types";
 
 export function RecentConversations({
 	className,
 	...props
 }: ComponentProps<typeof Card>) {
+	const recentOrders = INITIAL_ORDERS.slice(0, 5);
+
 	return (
 		<Card
-			className={cn("gap-0 shadow-none md:col-span-2 dark:ring-0", className)}
+			className={cn("shadow-none md:col-span-2 dark:ring-0", className)}
 			{...props}
 		>
-			<CardHeader className="border-b">
-				<CardTitle >Recent conversations</CardTitle>
-				<CardDescription>Latest 4 threads from your inbox</CardDescription>
+			<CardHeader className="flex flex-row items-center justify-between pb-3 space-y-0">
+				<div className="space-y-1">
+					<CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+						<ShoppingBag className="size-4 text-primary" />
+						Recent Counter & Wholesale Orders
+					</CardTitle>
+					<CardDescription className="text-xs">
+						Latest invoices generated across retail counter & wholesale orders.
+					</CardDescription>
+				</div>
+				<Button
+					variant="ghost"
+					size="xs"
+					render={<Link href="/dashboard/orders" />}
+					nativeButton={false}
+					className="text-xs text-primary hover:text-primary/80 gap-1 cursor-pointer"
+				>
+					<span>View Orders</span>
+					<ArrowRight className="size-3" />
+				</Button>
 			</CardHeader>
 			<CardContent className="p-0">
 				<Table>
 					<TableHeader>
-						<TableRow className="hover:bg-transparent">
-							<TableHead className="pl-6">Customer</TableHead>
-							<TableHead className="hidden sm:table-cell">Topic</TableHead>
-							<TableHead>Channel</TableHead>
-							<TableHead className="text-right">Wait</TableHead>
-							<TableHead className="pr-6 text-right">Status</TableHead>
+						<TableRow className="border-border/60 hover:bg-transparent">
+							<TableHead className="w-24 text-[11px]">Invoice #</TableHead>
+							<TableHead className="text-[11px]">Customer & City</TableHead>
+							<TableHead className="text-[11px]">Type</TableHead>
+							<TableHead className="text-right text-[11px]">Amount</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{rows.map((r) => {
-							return (
-								<TableRow
-									className="h-14 hover:bg-transparent"
-									key={`${r.customer}-${r.subject}`}
-								>
-									<TableCell className="max-w-36 truncate pl-6 font-medium">
-										{r.customer}
-									</TableCell>
-									<TableCell className="hidden max-w-32 sm:table-cell">
-										<span className="line-clamp-1 text-muted-foreground text-sm">
-											{r.subject}
-										</span>
-									</TableCell>
-									<TableCell>
-										<span className="inline-flex items-center gap-2 font-medium text-sm capitalize">
-											{channelIcon(r.channel)}
-											{r.channel}
-										</span>
-									</TableCell>
-									<TableCell className="text-right text-muted-foreground text-sm">
-										{formatWaitTime(r.waitMinutes)}
-									</TableCell>
-									<TableCell className="pr-6 text-right">
-										<Badge variant={statusVariant(r.state)}>
-											{statusLabel(r.state)}
-										</Badge>
-									</TableCell>
-								</TableRow>
-							);
-						})}
+						{recentOrders.map((order) => (
+							<TableRow key={order.id} className="border-border/60 hover:bg-muted/40">
+								<TableCell className="font-mono text-xs font-semibold text-foreground py-2.5">
+									{order.invoiceNumber}
+								</TableCell>
+								<TableCell className="py-2.5">
+									<div className="font-semibold text-xs text-foreground truncate max-w-[160px]">
+										{order.customerName}
+									</div>
+									<div className="text-[10px] text-muted-foreground">
+										{order.customerCity} • {order.items.length} parts
+									</div>
+								</TableCell>
+								<TableCell className="py-2.5">
+									<Badge
+										variant={order.type === "Wholesale" ? "secondary" : "outline"}
+										className="text-[10px] py-0 px-1.5"
+									>
+										{order.type}
+									</Badge>
+								</TableCell>
+								<TableCell className="text-right font-mono text-xs font-bold text-foreground py-2.5">
+									Rs. {order.totalAmount.toLocaleString()}
+								</TableCell>
+							</TableRow>
+						))}
 					</TableBody>
 				</Table>
-				<div className="flex justify-center border-t py-3">
-					<Button size="sm" variant="ghost" render={<a href="#/inbox" />} nativeButton={false}>View all conversations
-                    							<ArrowRightIcon aria-hidden="true" data-icon="inline-end" /></Button>
-				</div>
 			</CardContent>
 		</Card>
 	);

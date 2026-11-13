@@ -28,124 +28,87 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Delta, DeltaIcon, DeltaValue } from "@/components/delta";
+import { TrendingUp, Banknote } from "lucide-react";
 
 type PeriodDays = 7 | 30 | 60;
 
 type VolumeRow = {
 	date: string;
-	conversations: number;
+	salesRevenue: number; // in Thousands of PKR (k)
 };
 
 /**
- * Demo data.
+ * Realistic Spare Parts Daily Sales Volume data.
  */
 const chartData: VolumeRow[] = [
-	{ date: "2026-02-18", conversations: 162 },
-	{ date: "2026-02-19", conversations: 162 },
-	{ date: "2026-02-20", conversations: 162 },
-	{ date: "2026-02-21", conversations: 162 },
-	{ date: "2026-02-22", conversations: 162 },
-	{ date: "2026-02-23", conversations: 162 },
-	{ date: "2026-02-24", conversations: 161 },
-	{ date: "2026-02-25", conversations: 161 },
-	{ date: "2026-02-26", conversations: 160 },
-	{ date: "2026-02-27", conversations: 160 },
-	{ date: "2026-02-28", conversations: 159 },
-	{ date: "2026-03-01", conversations: 158 },
-	{ date: "2026-03-02", conversations: 158 },
-	{ date: "2026-03-03", conversations: 157 },
-	{ date: "2026-03-04", conversations: 157 },
-	{ date: "2026-03-05", conversations: 157 },
-	{ date: "2026-03-06", conversations: 157 },
-	{ date: "2026-03-07", conversations: 157 },
-	{ date: "2026-03-08", conversations: 157 },
-	{ date: "2026-03-09", conversations: 157 },
-	{ date: "2026-03-10", conversations: 157 },
-	{ date: "2026-03-11", conversations: 157 },
-	{ date: "2026-03-12", conversations: 157 },
-	{ date: "2026-03-13", conversations: 157 },
-	{ date: "2026-03-14", conversations: 156 },
-	{ date: "2026-03-15", conversations: 156 },
-	{ date: "2026-03-16", conversations: 155 },
-	{ date: "2026-03-17", conversations: 155 },
-	{ date: "2026-03-18", conversations: 154 },
-	{ date: "2026-03-19", conversations: 153 },
-	{ date: "2026-03-20", conversations: 152 },
-	{ date: "2026-03-21", conversations: 151 },
-	{ date: "2026-03-22", conversations: 150 },
-	{ date: "2026-03-23", conversations: 149 },
-	{ date: "2026-03-24", conversations: 149 },
-	{ date: "2026-03-25", conversations: 150 },
-	{ date: "2026-03-26", conversations: 147 },
-	{ date: "2026-03-27", conversations: 151 },
-	{ date: "2026-03-28", conversations: 147 },
-	{ date: "2026-03-29", conversations: 145 },
-	{ date: "2026-03-30", conversations: 143 },
-	{ date: "2026-03-31", conversations: 141 },
-	{ date: "2026-04-01", conversations: 139 },
-	{ date: "2026-04-02", conversations: 137 },
-	{ date: "2026-04-03", conversations: 137 },
-	{ date: "2026-04-04", conversations: 137 },
-	{ date: "2026-04-05", conversations: 137 },
-	{ date: "2026-04-06", conversations: 137 },
-	{ date: "2026-04-07", conversations: 137 },
-	{ date: "2026-04-08", conversations: 136 },
-	{ date: "2026-04-09", conversations: 134 },
-	{ date: "2026-04-10", conversations: 132 },
-	{ date: "2026-04-11", conversations: 129 },
-	{ date: "2026-04-12", conversations: 127 },
-	{ date: "2026-04-13", conversations: 125 },
-	{ date: "2026-04-14", conversations: 124 },
-	{ date: "2026-04-15", conversations: 124 },
-	{ date: "2026-04-16", conversations: 124 },
-	{ date: "2026-04-17", conversations: 124 },
-	{ date: "2026-04-18", conversations: 124 },
-	{ date: "2026-04-19", conversations: 124 },
-	{ date: "2026-04-20", conversations: 122 },
-	{ date: "2026-04-21", conversations: 120 },
-	{ date: "2026-04-22", conversations: 118 },
-	{ date: "2026-04-23", conversations: 115 },
-	{ date: "2026-04-24", conversations: 113 },
-	{ date: "2026-04-25", conversations: 112 },
-	{ date: "2026-04-26", conversations: 111 },
-	{ date: "2026-04-27", conversations: 114 },
-	{ date: "2026-04-28", conversations: 110 },
-	{ date: "2026-04-29", conversations: 113 },
-	{ date: "2026-04-30", conversations: 111 },
-	{ date: "2026-05-01", conversations: 111 },
-	{ date: "2026-05-02", conversations: 107 },
-	{ date: "2026-05-03", conversations: 109 },
-	{ date: "2026-05-04", conversations: 105 },
-	{ date: "2026-05-05", conversations: 103 },
-	{ date: "2026-05-06", conversations: 101 },
-	{ date: "2026-05-07", conversations: 98 },
-	{ date: "2026-05-08", conversations: 100 },
-	{ date: "2026-05-09", conversations: 97 },
-	{ date: "2026-05-10", conversations: 101 },
-	{ date: "2026-05-11", conversations: 99 },
-	{ date: "2026-05-12", conversations: 100 },
-	{ date: "2026-05-13", conversations: 94 },
-	{ date: "2026-05-14", conversations: 102 },
-	{ date: "2026-05-15", conversations: 99 },
-	{ date: "2026-05-16", conversations: 107 },
-	{ date: "2026-05-17", conversations: 104 },
-	{ date: "2026-05-18", conversations: 118 },
-	{ date: "2026-05-19", conversations: 127 },
+	{ date: "2026-09-15", salesRevenue: 142 },
+	{ date: "2026-09-16", salesRevenue: 156 },
+	{ date: "2026-09-17", salesRevenue: 168 },
+	{ date: "2026-09-18", salesRevenue: 182 },
+	{ date: "2026-09-19", salesRevenue: 175 },
+	{ date: "2026-09-20", salesRevenue: 190 },
+	{ date: "2026-09-21", salesRevenue: 145 },
+	{ date: "2026-09-22", salesRevenue: 162 },
+	{ date: "2026-09-23", salesRevenue: 178 },
+	{ date: "2026-09-24", salesRevenue: 185 },
+	{ date: "2026-09-25", salesRevenue: 210 },
+	{ date: "2026-09-26", salesRevenue: 195 },
+	{ date: "2026-09-27", salesRevenue: 150 },
+	{ date: "2026-09-28", salesRevenue: 172 },
+	{ date: "2026-09-29", salesRevenue: 188 },
+	{ date: "2026-09-30", salesRevenue: 205 },
+	{ date: "2026-10-01", salesRevenue: 220 },
+	{ date: "2026-10-02", salesRevenue: 198 },
+	{ date: "2026-10-03", salesRevenue: 215 },
+	{ date: "2026-10-04", salesRevenue: 160 },
+	{ date: "2026-10-05", salesRevenue: 175 },
+	{ date: "2026-10-06", salesRevenue: 192 },
+	{ date: "2026-10-07", salesRevenue: 210 },
+	{ date: "2026-10-08", salesRevenue: 235 },
+	{ date: "2026-10-09", salesRevenue: 240 },
+	{ date: "2026-10-10", salesRevenue: 218 },
+	{ date: "2026-10-11", salesRevenue: 170 },
+	{ date: "2026-10-12", salesRevenue: 185 },
+	{ date: "2026-10-13", salesRevenue: 202 },
+	{ date: "2026-10-14", salesRevenue: 225 },
+	{ date: "2026-10-15", salesRevenue: 245 },
+	{ date: "2026-10-16", salesRevenue: 230 },
+	{ date: "2026-10-17", salesRevenue: 215 },
+	{ date: "2026-10-18", salesRevenue: 180 },
+	{ date: "2026-10-19", salesRevenue: 195 },
+	{ date: "2026-10-20", salesRevenue: 220 },
+	{ date: "2026-10-21", salesRevenue: 238 },
+	{ date: "2026-10-22", salesRevenue: 260 },
+	{ date: "2026-10-23", salesRevenue: 252 },
+	{ date: "2026-10-24", salesRevenue: 230 },
+	{ date: "2026-10-25", salesRevenue: 190 },
+	{ date: "2026-10-26", salesRevenue: 205 },
+	{ date: "2026-10-27", salesRevenue: 225 },
+	{ date: "2026-10-28", salesRevenue: 248 },
+	{ date: "2026-10-29", salesRevenue: 270 },
+	{ date: "2026-10-30", salesRevenue: 262 },
+	{ date: "2026-10-31", salesRevenue: 240 },
+	{ date: "2026-11-01", salesRevenue: 215 },
+	{ date: "2026-11-02", salesRevenue: 235 },
+	{ date: "2026-11-03", salesRevenue: 250 },
+	{ date: "2026-11-04", salesRevenue: 265 },
+	{ date: "2026-11-05", salesRevenue: 285 },
+	{ date: "2026-11-06", salesRevenue: 275 },
+	{ date: "2026-11-07", salesRevenue: 290 },
+	{ date: "2026-11-08", salesRevenue: 220 },
+	{ date: "2026-11-09", salesRevenue: 245 },
+	{ date: "2026-11-10", salesRevenue: 260 },
+	{ date: "2026-11-11", salesRevenue: 280 },
+	{ date: "2026-11-12", salesRevenue: 295 },
+	{ date: "2026-11-13", salesRevenue: 310 },
 ];
 
-const lastChartRow = chartData.at(-1);
-if (lastChartRow === undefined) {
-	throw new Error(
-		"ConversationVolumeChart: chartData must include at least one row"
-	);
-}
-const volumeChartReferenceDate = parseIsoCalendarDate(lastChartRow.date);
+const volumeChartReferenceDate = "2026-11-13";
 
 const chartConfig = {
-	conversations: {
-		label: "New threads",
-		color: "var(--chart-2)",
+	salesRevenue: {
+		label: "Daily Sales (Rs. '000)",
+		color: "var(--color-primary, #10b981)",
 	},
 } satisfies ChartConfig;
 
@@ -153,9 +116,8 @@ export function ConversationVolumeChart({
 	className,
 	...props
 }: ComponentProps<typeof Card>) {
-	const chartUid = useId().replace(/:/g, "");
-	const idAreaGradient = `conversation-volume-area-grad-${chartUid}`;
-
+	const reactId = useId();
+	const idAreaGradient = `sales-area-${reactId.replace(/:/g, "")}`;
 	const [periodDays, setPeriodDays] = useState<PeriodDays>(30);
 
 	const chartRows = useMemo(() => {
@@ -165,23 +127,6 @@ export function ConversationVolumeChart({
 			(item) => parseIsoCalendarDate(item.date) >= startDate
 		);
 	}, [periodDays]);
-
-	const growthPctNum = useMemo(() => {
-		const first = chartRows[0];
-		if (!first) {
-			return 0;
-		}
-		const last = chartRows.at(-1);
-		if (!last) {
-			return 0;
-		}
-		const a = first.conversations;
-		const b = last.conversations;
-		if (!a) {
-			return 0;
-		}
-		return ((b - a) / a) * 100;
-	}, [chartRows]);
 
 	let xAxisMinTickGap: number | undefined;
 	if (periodDays <= 7) {
@@ -201,16 +146,19 @@ export function ConversationVolumeChart({
 			{...props}
 		>
 			<CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="min-w-0 space-y-2">
-					<div className="flex flex-wrap items-center gap-2">
-						<CardTitle >Conversation volume</CardTitle>
-						<Delta value={growthPctNum} variant="badge">
-							<DeltaIcon variant="trend" />
-							<DeltaValue />
-						</Delta>
+				<div className="min-w-0 space-y-1">
+					<div className="flex items-center gap-2">
+						<CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+							<Banknote className="size-4 text-emerald-600" />
+							Sales Revenue Generated
+						</CardTitle>
+						<span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+							<TrendingUp className="size-3" />
+							Consistent Growth
+						</span>
 					</div>
-					<CardDescription>
-						New threads per day for the selected window.
+					<CardDescription className="text-xs">
+						Daily motorcycle spare parts counter sales & wholesale billing in PKR (Rs. Thousands).
 					</CardDescription>
 				</div>
 				<Select
@@ -221,16 +169,16 @@ export function ConversationVolumeChart({
 					value={String(periodDays)}
 				>
 					<SelectTrigger
-						aria-label="Conversation volume time range"
-						className="w-full min-w-36 sm:w-fit"
+						aria-label="Sales volume time range"
+						className="w-full min-w-36 sm:w-fit h-8 text-xs bg-background"
 						size="sm"
 					>
 						<SelectValue placeholder="Range" />
 					</SelectTrigger>
 					<SelectContent align="end">
-						<SelectItem value="7">Last 7 days</SelectItem>
-						<SelectItem value="30">Last 30 days</SelectItem>
-						<SelectItem value="60">Last 60 days</SelectItem>
+						<SelectItem value="7" className="text-xs">Last 7 days</SelectItem>
+						<SelectItem value="30" className="text-xs">Last 30 days</SelectItem>
+						<SelectItem value="60" className="text-xs">Last 60 days</SelectItem>
 					</SelectContent>
 				</Select>
 			</CardHeader>
@@ -245,17 +193,17 @@ export function ConversationVolumeChart({
 							<linearGradient id={idAreaGradient} x1="0" x2="0" y1="0" y2="1">
 								<stop
 									offset="0%"
-									stopColor="var(--color-conversations)"
+									stopColor="var(--chart-1, #10b981)"
 									stopOpacity={0.45}
 								/>
 								<stop
 									offset="55%"
-									stopColor="var(--color-conversations)"
+									stopColor="var(--chart-1, #10b981)"
 									stopOpacity={0.12}
 								/>
 								<stop
 									offset="100%"
-									stopColor="var(--color-conversations)"
+									stopColor="var(--chart-1, #10b981)"
 									stopOpacity={0}
 								/>
 							</linearGradient>
@@ -277,13 +225,15 @@ export function ConversationVolumeChart({
 							tick={{ className: "tabular-nums" }}
 							tickLine={false}
 							tickMargin={8}
-							width={36}
+							width={42}
+							tickFormatter={(v) => `Rs.${v}k`}
 						/>
 						<ChartTooltip
 							content={
 								<ChartTooltipContent
-									className="min-w-34"
+									className="min-w-36 font-mono"
 									indicator="line"
+									formatter={(value) => `Rs. ${Number(value) * 1000} PKR`}
 									labelFormatter={(_, payload) => {
 										const row = payload?.[0]?.payload as VolumeRow | undefined;
 										if (!row?.date) {
@@ -296,12 +246,13 @@ export function ConversationVolumeChart({
 							cursor={false}
 						/>
 						<Area
-							dataKey="conversations"
+							dataKey="salesRevenue"
 							dot={false}
 							fill={`url(#${idAreaGradient})`}
-							stroke="var(--color-conversations)"
+							fillOpacity={1}
+							stroke="var(--chart-1, #10b981)"
 							strokeWidth={2}
-							type="natural"
+							type="monotone"
 						/>
 					</AreaChart>
 				</ChartContainer>
