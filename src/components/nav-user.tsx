@@ -15,7 +15,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserIcon, BellIcon, CommandIcon, LifeBuoyIcon, LogOutIcon } from "lucide-react";
+import { UserIcon, BellIcon, LifeBuoyIcon, LogOutIcon } from "lucide-react";
 
 const user = {
 	name: "Sarfraz Admin",
@@ -67,10 +67,6 @@ export function NavUser() {
 					<DropdownMenuItem render={<Link href="/dashboard/notifications" />} nativeButton={false}>
 						<BellIcon />
 						Notifications
-					</DropdownMenuItem>
-					<DropdownMenuItem>
-						<CommandIcon />
-						Keyboard shortcuts
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
