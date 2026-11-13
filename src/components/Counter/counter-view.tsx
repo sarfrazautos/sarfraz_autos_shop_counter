@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
 	Store,
 	Search,
@@ -8,37 +8,34 @@ import {
 	Minus,
 	Trash2,
 	Printer,
-	RotateCcw,
 	Receipt,
 	CheckCircle2,
 	AlertTriangle,
-	Sparkles,
 	Clock,
-	Layers,
 	Bike,
 	User,
-	Phone,
-	MapPin,
-	DollarSign,
-	ArrowRight,
-	FileText,
-	Check,
-	PauseCircle,
-	PlayCircle,
-	X,
 	Calculator,
-	CreditCard,
 	Banknote,
-	ShieldAlert,
+	ShieldCheck,
+	ArrowRight,
+	Check,
+	X,
+	Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
 	BRANCHES,
 	BIKE_MODELS,
 	FREQUENT_CUSTOMERS,
-	COMMON_COUNTER_ITEMS,
 	type BranchId,
 	type CounterCartItem,
 	type CustomerProfile,
@@ -48,6 +45,8 @@ import { InvoiceSheet } from "@/components/Orders/invoice-sheet";
 import type { OrderRecord } from "@/components/Orders/types";
 
 const LOCAL_STORAGE_BRANCH_KEY = "sarfraz_active_branch_id";
+const DEFAULT_WARRANTY_POLICY =
+	"7 Days Check Warranty Only (Return / Exchange within 7 days)";
 
 export function CounterView() {
 	// Branch selection with localStorage persistence
@@ -83,7 +82,6 @@ export function CounterView() {
 
 	// Customer state
 	const [customer, setCustomer] = useState<CustomerProfile>(FREQUENT_CUSTOMERS[0]);
-	const [customerNotes, setCustomerNotes] = useState("");
 
 	// Cart items state
 	const [cart, setCart] = useState<CounterCartItem[]>([
@@ -119,22 +117,12 @@ export function CounterView() {
 		},
 	]);
 
-	// Parked / Held Cart
-	const [parkedCart, setParkedCart] = useState<{
-		cart: CounterCartItem[];
-		customer: CustomerProfile;
-		timestamp: string;
-	} | null>(null);
-
-	// Product Search & Add Form state
-	const [entryMode, setEntryMode] = useState<"catalog" | "custom">("catalog");
+	// Product Search & Filter state
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState("All");
 	const [selectedBikeModel, setSelectedBikeModel] = useState<string>("Honda CD70");
 	const [selectedPricingTier, setSelectedPricingTier] = useState<"Retail" | "Wholesale">("Wholesale");
 	const [inputQuantity, setInputQuantity] = useState<number>(1);
-	const [customPartName, setCustomPartName] = useState("");
-	const [customRate, setCustomRate] = useState<number>(500);
 
 	// Financials & Register
 	const [discountValue, setDiscountValue] = useState<number>(0);
@@ -146,7 +134,7 @@ export function CounterView() {
 	const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<OrderRecord | null>(null);
 	const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
 
-	// Clock display
+	// Clock display - only shows live timing as requested
 	const [currentTime, setCurrentTime] = useState<string>("");
 	useEffect(() => {
 		const updateTime = () => {
@@ -228,67 +216,7 @@ export function CounterView() {
 
 		setSearchQuery("");
 		setInputQuantity(1);
-		showFlashNotice(`Added "${product.name}" to cart`);
-	};
-
-	// Add custom item
-	const handleAddCustomItem = () => {
-		if (!customPartName.trim()) return;
-
-		const newItem: CounterCartItem = {
-			id: `cart-custom-${Date.now()}`,
-			name: customPartName.trim(),
-			bikeModel: selectedBikeModel,
-			category: "Counter Custom Part",
-			rate: customRate || 0,
-			retailRate: customRate || 0,
-			wholesaleRate: Math.round((customRate || 0) * 0.9),
-			quantity: inputQuantity > 0 ? inputQuantity : 1,
-			unit: "Pcs",
-			branchStock: 50,
-			pricingTier: selectedPricingTier,
-		};
-
-		setCart((prev) => [newItem, ...prev]);
-		setCustomPartName("");
-		setInputQuantity(1);
-		showFlashNotice(`Added custom item "${newItem.name}"`);
-	};
-
-	// Add from Quick Common Chips
-	const handleAddCommonItem = (item: (typeof COMMON_COUNTER_ITEMS)[0]) => {
-		const rate =
-			selectedPricingTier === "Retail" ? item.retailPrice : item.wholesalePrice;
-
-		setCart((prev) => {
-			const existingIndex = prev.findIndex(
-				(ci) => ci.name === item.name && ci.bikeModel === item.bikeModel
-			);
-			if (existingIndex > -1) {
-				const updated = [...prev];
-				updated[existingIndex] = {
-					...updated[existingIndex],
-					quantity: updated[existingIndex].quantity + 1,
-				};
-				return updated;
-			}
-			const newItem: CounterCartItem = {
-				id: `cart-chip-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-				name: item.name,
-				bikeModel: item.bikeModel,
-				category: item.category,
-				rate: rate,
-				retailRate: item.retailPrice,
-				wholesaleRate: item.wholesalePrice,
-				quantity: 1,
-				unit: item.unit,
-				branchStock: 30,
-				pricingTier: selectedPricingTier,
-			};
-			return [newItem, ...prev];
-		});
-
-		showFlashNotice(`Added "${item.name}"`);
+		showFlashNotice(`Added "${product.name}" to counter cart`);
 	};
 
 	// Cart manipulations
@@ -324,33 +252,13 @@ export function CounterView() {
 
 	const clearCart = () => {
 		if (cart.length === 0) return;
-		if (confirm("Clear current counter bill?")) {
+		if (confirm("Clear current counter cart?")) {
 			setCart([]);
 			setDiscountValue(0);
 			setShippingOrFitting(0);
 			setCashReceived(0);
-			showFlashNotice("Counter bill cleared");
+			showFlashNotice("Counter cart cleared");
 		}
-	};
-
-	// Park and unpark cart
-	const handleParkCart = () => {
-		if (cart.length === 0) return;
-		setParkedCart({
-			cart,
-			customer,
-			timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-		});
-		setCart([]);
-		showFlashNotice("Cart parked / held. Counter is ready for next customer.");
-	};
-
-	const handleRecallParkedCart = () => {
-		if (!parkedCart) return;
-		setCart(parkedCart.cart);
-		setCustomer(parkedCart.customer);
-		setParkedCart(null);
-		showFlashNotice("Parked cart restored to counter.");
 	};
 
 	// Flash notification helper
@@ -373,7 +281,7 @@ export function CounterView() {
 		return Math.max(0, total);
 	}, [subtotal, discountValue, shippingOrFitting]);
 
-	// Auto match cash received when empty or initially loading
+	// Auto match cash received when empty or cart changes
 	useEffect(() => {
 		if (cashReceived === 0 && netBill > 0) {
 			setCashReceived(netBill);
@@ -436,7 +344,7 @@ export function CounterView() {
 					? "Online Transfer"
 					: "Cash on Counter",
 			godown: currentBranch.name.toUpperCase(),
-			remarks: customerNotes || "Counter Spot Sale. 7 Days Checking Warranty.",
+			remarks: DEFAULT_WARRANTY_POLICY,
 		};
 
 		setActiveInvoiceOrder(generatedOrder);
@@ -448,20 +356,19 @@ export function CounterView() {
 			setCart([]);
 			setDiscountValue(0);
 			setShippingOrFitting(0);
-			setCustomerNotes("");
 		}
 	};
 
 	return (
 		<div className="flex flex-col gap-5 w-full max-w-[1600px] mx-auto pb-16">
-			{/* TOP BAR: BRANCH SELECTOR, LIVE STATUS & COUNTER CONTROLS */}
-			<div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-				{/* Left: Branch Indicator & Selector */}
-				<div className="flex flex-col sm:flex-row sm:items-center gap-3.5">
+			{/* TOP BAR: SHADCN BRANCH SELECTOR & LIVE TIMING ONLY */}
+			<div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+				{/* Left: Branch Indicator & shadcn Select */}
+				<div className="flex flex-col sm:flex-row sm:items-center gap-3.5 flex-1 min-w-0">
 					<div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
 						<Store className="size-5" />
 					</div>
-					<div>
+					<div className="space-y-1.5 flex-1 max-w-md">
 						<div className="flex items-center gap-2">
 							<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
 								Active Shop Counter
@@ -475,25 +382,29 @@ export function CounterView() {
 							</Badge>
 						</div>
 
-						{/* Branch Dropdown */}
-						<div className="flex items-center gap-2 mt-1">
-							<select
-								value={activeBranchId}
-								onChange={(e) => handleBranchChange(e.target.value as BranchId)}
-								className="font-heading font-bold text-base sm:text-lg text-foreground bg-transparent border-b-2 border-primary/40 focus:border-primary focus:outline-none cursor-pointer py-0.5 pr-2"
-							>
+						{/* shadcn Select for Branch Selection */}
+						<Select
+							value={activeBranchId}
+							onValueChange={(val) => {
+								if (val) handleBranchChange(val as BranchId);
+							}}
+						>
+							<SelectTrigger className="h-9 text-xs sm:text-sm font-bold w-full bg-background border-input">
+								<SelectValue placeholder="Select Branch Counter..." />
+							</SelectTrigger>
+							<SelectContent>
 								{BRANCHES.map((b) => (
-									<option key={b.id} value={b.id} className="bg-popover text-foreground">
+									<SelectItem key={b.id} value={b.id} className="text-xs font-medium">
 										{b.name}
-									</option>
+									</SelectItem>
 								))}
-							</select>
-						</div>
+							</SelectContent>
+						</Select>
 					</div>
 				</div>
 
 				{/* Center: Branch Details snippet */}
-				<div className="hidden xl:flex items-center gap-6 text-xs text-muted-foreground border-x px-6">
+				<div className="hidden lg:flex items-center gap-6 text-xs text-muted-foreground border-x px-6">
 					<div>
 						<span className="block text-[10px] uppercase font-semibold text-muted-foreground/80">
 							Branch Location
@@ -506,50 +417,16 @@ export function CounterView() {
 						<span className="block text-[10px] uppercase font-semibold text-muted-foreground/80">
 							Counter Hotline
 						</span>
-						<p className="font-medium text-foreground">{currentBranch.phone}</p>
+						<p className="font-medium text-foreground font-mono">{currentBranch.phone}</p>
 					</div>
 				</div>
 
-				{/* Right: Clock & Quick Parked / Action controls */}
-				<div className="flex items-center justify-between lg:justify-end gap-3 shrink-0">
-					{parkedCart ? (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={handleRecallParkedCart}
-							className="h-8 px-2.5 text-xs border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 gap-1.5 cursor-pointer font-medium animate-pulse"
-						>
-							<PlayCircle className="size-3.5" />
-							<span>Recall Held Bill ({parkedCart.cart.length} items)</span>
-						</Button>
-					) : (
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={cart.length === 0}
-							onClick={handleParkCart}
-							className="h-8 px-2.5 text-xs gap-1.5 cursor-pointer font-medium text-muted-foreground hover:text-foreground"
-						>
-							<PauseCircle className="size-3.5" />
-							<span>Hold Bill</span>
-						</Button>
-					)}
-
-					<div className="flex items-center gap-2 bg-muted/40 border px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-foreground">
-						<Clock className="size-3.5 text-primary" />
+				{/* Right: Timing only (Hold bill & New bill removed as requested) */}
+				<div className="flex items-center justify-end gap-3 shrink-0">
+					<div className="flex items-center gap-2 bg-muted/50 border px-3.5 py-2 rounded-xl text-xs font-mono font-bold text-foreground shadow-2xs">
+						<Clock className="size-4 text-primary" />
 						<span>{currentTime || "12:00:00 PM"}</span>
 					</div>
-
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={clearCart}
-						disabled={cart.length === 0}
-						className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 gap-1 cursor-pointer"
-					>
-						<RotateCcw className="size-3.5" />
-						<span className="hidden sm:inline">New Bill</span>
-					</Button>
 				</div>
 			</div>
 
@@ -576,31 +453,13 @@ export function CounterView() {
 				<div className="lg:col-span-7 flex flex-col gap-4">
 					{/* PRODUCT ENTRY / SEARCH CARD */}
 					<div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-xs space-y-4">
-						{/* Tabs: Existing Catalog vs Custom Part Entry */}
+						{/* Header: Title & Pricing Tier Toggle */}
 						<div className="flex items-center justify-between border-b pb-3 gap-2">
 							<div className="flex items-center gap-2">
-								<button
-									type="button"
-									onClick={() => setEntryMode("catalog")}
-									className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-										entryMode === "catalog"
-											? "bg-primary text-primary-foreground shadow-xs"
-											: "text-muted-foreground hover:text-foreground hover:bg-muted"
-									}`}
-								>
-									Inventory Catalog
-								</button>
-								<button
-									type="button"
-									onClick={() => setEntryMode("custom")}
-									className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-										entryMode === "custom"
-											? "bg-primary text-primary-foreground shadow-xs"
-											: "text-muted-foreground hover:text-foreground hover:bg-muted"
-									}`}
-								>
-									+ Custom / New Part
-								</button>
+								<Layers className="size-4 text-primary" />
+								<h2 className="font-heading font-bold text-sm text-foreground">
+									Spare Parts Inventory Catalog
+								</h2>
 							</div>
 
 							{/* Pricing Tier Toggle (Retail vs Wholesale) */}
@@ -608,7 +467,7 @@ export function CounterView() {
 								<button
 									type="button"
 									onClick={() => setSelectedPricingTier("Wholesale")}
-									className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+									className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
 										selectedPricingTier === "Wholesale"
 											? "bg-background text-foreground shadow-xs"
 											: "text-muted-foreground hover:text-foreground"
@@ -619,7 +478,7 @@ export function CounterView() {
 								<button
 									type="button"
 									onClick={() => setSelectedPricingTier("Retail")}
-									className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+									className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
 										selectedPricingTier === "Retail"
 											? "bg-background text-foreground shadow-xs"
 											: "text-muted-foreground hover:text-foreground"
@@ -630,26 +489,74 @@ export function CounterView() {
 							</div>
 						</div>
 
-						{/* Bike Model & Filters Row */}
+						{/* Bike Model & Filters Row with shadcn Select */}
 						<div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-							{/* Bike Model Selector */}
+							{/* Bike Model Selector (shadcn Select) */}
 							<div className="sm:col-span-6 space-y-1">
 								<label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
 									<Bike className="size-3 text-primary" />
 									Target Bike Model:
 								</label>
-								<select
+								<Select
 									value={selectedBikeModel}
-									onChange={(e) => setSelectedBikeModel(e.target.value)}
-									className="w-full h-9 rounded-lg border bg-background px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+									onValueChange={(val) => {
+										if (val) setSelectedBikeModel(val);
+									}}
 								>
-									<option value="All Models">All Models / Universal</option>
-									{BIKE_MODELS.map((model) => (
-										<option key={model} value={model}>
-											{model}
-										</option>
-									))}
-								</select>
+									<SelectTrigger className="h-9 text-xs w-full bg-background">
+										<SelectValue placeholder="Select Bike Model..." />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="All Models" className="text-xs">
+											All Models / Universal
+										</SelectItem>
+										{BIKE_MODELS.map((model) => (
+											<SelectItem key={model} value={model} className="text-xs">
+												{model}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							{/* Category Filter (shadcn Select) */}
+							<div className="sm:col-span-3 space-y-1">
+								<label className="text-[11px] font-semibold text-muted-foreground">
+									Category:
+								</label>
+								<Select
+									value={selectedCategory}
+									onValueChange={(val) => {
+										if (val) setSelectedCategory(val);
+									}}
+								>
+									<SelectTrigger className="h-9 text-xs w-full bg-background truncate">
+										<SelectValue placeholder="Category..." />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="All" className="text-xs">
+											All Categories
+										</SelectItem>
+										<SelectItem value="Engine & Transmission" className="text-xs">
+											Engine & Transmission
+										</SelectItem>
+										<SelectItem value="Electrical & Lighting" className="text-xs">
+											Electrical & Lighting
+										</SelectItem>
+										<SelectItem value="Brakes & Suspension" className="text-xs">
+											Brakes & Suspension
+										</SelectItem>
+										<SelectItem value="Chassis & Body" className="text-xs">
+											Chassis & Body
+										</SelectItem>
+										<SelectItem value="Cables & Control" className="text-xs">
+											Cables & Control
+										</SelectItem>
+										<SelectItem value="Tyres & Wheels" className="text-xs">
+											Tyres & Wheels
+										</SelectItem>
+									</SelectContent>
+								</Select>
 							</div>
 
 							{/* Quantity to Add */}
@@ -681,213 +588,97 @@ export function CounterView() {
 									</button>
 								</div>
 							</div>
-
-							{/* Category Filter (if Catalog mode) */}
-							<div className="sm:col-span-3 space-y-1">
-								<label className="text-[11px] font-semibold text-muted-foreground">
-									Category:
-								</label>
-								<select
-									value={selectedCategory}
-									onChange={(e) => setSelectedCategory(e.target.value)}
-									className="w-full h-9 rounded-lg border bg-background px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer truncate"
-								>
-									<option value="All">All Categories</option>
-									<option value="Engine & Transmission">Engine & Transmission</option>
-									<option value="Electrical & Lighting">Electrical & Lighting</option>
-									<option value="Brakes & Suspension">Brakes & Suspension</option>
-									<option value="Chassis & Body">Chassis & Body</option>
-									<option value="Cables & Control">Cables & Control</option>
-									<option value="Tyres & Wheels">Tyres & Wheels</option>
-								</select>
-							</div>
 						</div>
 
-						{/* INPUT BAR BASED ON MODE */}
-						{entryMode === "catalog" ? (
-							<div className="space-y-2">
-								<div className="relative">
-									<Search className="size-4 absolute left-3 top-2.5 text-muted-foreground" />
-									<Input
-										placeholder="Type part name or SKU (e.g. Piston, Clutch, Chain, Sleeve)..."
-										value={searchQuery}
-										onChange={(e) => setSearchQuery(e.target.value)}
-										className="pl-9 h-10 text-xs font-medium bg-background"
-									/>
-									{searchQuery && (
-										<button
-											type="button"
-											onClick={() => setSearchQuery("")}
-											className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
-										>
-											<X className="size-4" />
-										</button>
-									)}
-								</div>
-
-								{/* Autocomplete / Suggested Products dropdown */}
-								{searchQuery.trim().length > 0 && (
-									<div className="rounded-xl border bg-popover shadow-lg max-h-60 overflow-y-auto divide-y divide-border">
-										{matchingProducts.length === 0 ? (
-											<div className="p-4 text-center text-xs text-muted-foreground">
-												No matching product found in catalog. Switch to{" "}
-												<button
-													type="button"
-													onClick={() => {
-														setCustomPartName(searchQuery);
-														setEntryMode("custom");
-													}}
-													className="text-primary font-semibold underline cursor-pointer"
-												>
-													+ Custom Part
-												</button>{" "}
-												to add directly.
-											</div>
-										) : (
-											matchingProducts.map((prod) => {
-												const branchStock = getBranchStock(prod);
-												const displayPrice =
-													selectedPricingTier === "Retail"
-														? Math.round(prod.price * 1.15)
-														: prod.price;
-
-												return (
-													<div
-														key={prod.id}
-														className="p-2.5 hover:bg-muted/50 flex items-center justify-between gap-3 transition-colors cursor-pointer"
-														onClick={() => handleAddCatalogItem(prod)}
-													>
-														<div className="min-w-0 flex-1">
-															<div className="flex items-center gap-2">
-																<span className="font-semibold text-xs text-foreground truncate">
-																	{prod.name}
-																</span>
-																<Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">
-																	{prod.bikeModel}
-																</Badge>
-															</div>
-															<div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-																<span>SKU: {prod.sku}</span>
-																<span>•</span>
-																<span className="text-foreground font-medium">
-																	Rs. {displayPrice.toLocaleString()} ({selectedPricingTier})
-																</span>
-																<span>•</span>
-																<span
-																	className={`font-semibold ${
-																		branchStock > 10
-																			? "text-emerald-600 dark:text-emerald-400"
-																			: branchStock > 0
-																			? "text-amber-600 dark:text-amber-400"
-																			: "text-rose-600"
-																	}`}
-																>
-																	{branchStock} {prod.unit} in {currentBranch.shortName}
-																</span>
-															</div>
-														</div>
-
-														<Button
-															size="sm"
-															className="h-7 px-3 text-xs gap-1 bg-primary text-primary-foreground shrink-0 cursor-pointer"
-															onClick={(e) => {
-																e.stopPropagation();
-																handleAddCatalogItem(prod);
-															}}
-														>
-															<Plus className="size-3" />
-															Add
-														</Button>
-													</div>
-												);
-											})
-										)}
-									</div>
+						{/* Search Input Bar */}
+						<div className="space-y-2">
+							<div className="relative">
+								<Search className="size-4 absolute left-3 top-2.5 text-muted-foreground" />
+								<Input
+									placeholder="Search spare part name or SKU (e.g. Piston, Clutch Gear, Brake Shoe, Chain)..."
+									value={searchQuery}
+									onChange={(e) => setSearchQuery(e.target.value)}
+									className="pl-9 h-10 text-xs font-medium bg-background"
+								/>
+								{searchQuery && (
+									<button
+										type="button"
+										onClick={() => setSearchQuery("")}
+										className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+									>
+										<X className="size-4" />
+									</button>
 								)}
 							</div>
-						) : (
-							/* Custom Part Direct Entry */
-							<div className="p-3.5 rounded-xl border bg-muted/20 space-y-3">
-								<div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-									<div className="sm:col-span-7 space-y-1">
-										<label className="text-[11px] font-semibold text-foreground">
-											New / Custom Part Name:
-										</label>
-										<Input
-											placeholder="e.g. Front Shock Oil Seal Special (OEM)"
-											value={customPartName}
-											onChange={(e) => setCustomPartName(e.target.value)}
-											className="h-9 text-xs bg-background"
-										/>
-									</div>
-									<div className="sm:col-span-5 space-y-1">
-										<label className="text-[11px] font-semibold text-foreground">
-											Counter Rate (PKR Rs.):
-										</label>
-										<div className="relative">
-											<span className="absolute left-3 top-2 text-xs font-bold text-muted-foreground">
-												Rs.
-											</span>
-											<Input
-												type="number"
-												min={0}
-												value={customRate}
-												onChange={(e) => setCustomRate(Math.max(0, parseInt(e.target.value) || 0))}
-												className="pl-9 h-9 text-xs font-semibold bg-background"
-											/>
+
+							{/* Autocomplete / Suggested Products dropdown */}
+							{searchQuery.trim().length > 0 && (
+								<div className="rounded-xl border bg-popover shadow-lg max-h-64 overflow-y-auto divide-y divide-border">
+									{matchingProducts.length === 0 ? (
+										<div className="p-4 text-center text-xs text-muted-foreground">
+											No matching product found in catalog for "{searchQuery}".
 										</div>
-									</div>
+									) : (
+										matchingProducts.map((prod) => {
+											const branchStock = getBranchStock(prod);
+											const displayPrice =
+												selectedPricingTier === "Retail"
+													? Math.round(prod.price * 1.15)
+													: prod.price;
+
+											return (
+												<div
+													key={prod.id}
+													className="p-2.5 hover:bg-muted/50 flex items-center justify-between gap-3 transition-colors cursor-pointer"
+													onClick={() => handleAddCatalogItem(prod)}
+												>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2">
+															<span className="font-semibold text-xs text-foreground truncate">
+																{prod.name}
+															</span>
+															<Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">
+																{prod.bikeModel}
+															</Badge>
+														</div>
+														<div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+															<span>SKU: {prod.sku}</span>
+															<span>•</span>
+															<span className="text-foreground font-medium">
+																Rs. {displayPrice.toLocaleString()} ({selectedPricingTier})
+															</span>
+															<span>•</span>
+															<span
+																className={`font-semibold ${
+																	branchStock > 10
+																		? "text-emerald-600 dark:text-emerald-400"
+																		: branchStock > 0
+																		? "text-amber-600 dark:text-amber-400"
+																		: "text-rose-600"
+																}`}
+															>
+																{branchStock} {prod.unit} in {currentBranch.shortName}
+															</span>
+														</div>
+													</div>
+
+													<Button
+														size="sm"
+														className="h-7 px-3 text-xs gap-1 bg-primary text-primary-foreground shrink-0 cursor-pointer"
+														onClick={(e) => {
+															e.stopPropagation();
+															handleAddCatalogItem(prod);
+														}}
+													>
+														<Plus className="size-3" />
+														Add
+													</Button>
+												</div>
+											);
+										})
+									)}
 								</div>
-
-								<div className="flex items-center justify-between pt-1">
-									<p className="text-[11px] text-muted-foreground">
-										Assigns to <strong className="text-foreground">{selectedBikeModel}</strong> at{" "}
-										<strong className="text-foreground">{selectedPricingTier}</strong> rate.
-									</p>
-									<Button
-										size="sm"
-										onClick={handleAddCustomItem}
-										disabled={!customPartName.trim()}
-										className="h-8 px-4 text-xs font-semibold gap-1.5 cursor-pointer bg-primary text-primary-foreground"
-									>
-										<Plus className="size-3.5" />
-										Add Custom Part
-									</Button>
-								</div>
-							</div>
-						)}
-
-						{/* Quick Spare Part Chips (Fast-click counter shelf) */}
-						<div className="pt-2 border-t">
-							<div className="flex items-center justify-between mb-2">
-								<span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-									<Sparkles className="size-3 text-amber-500" />
-									High Velocity Counter Parts (1-Click Add):
-								</span>
-								<span className="text-[10px] text-muted-foreground font-mono">
-									Prices auto-adjust for {selectedPricingTier}
-								</span>
-							</div>
-
-							<div className="flex flex-wrap gap-1.5">
-								{COMMON_COUNTER_ITEMS.map((item) => (
-									<button
-										key={item.name}
-										type="button"
-										onClick={() => handleAddCommonItem(item)}
-										className="px-2.5 py-1 rounded-lg border bg-background hover:bg-muted/80 text-[11px] font-medium text-foreground flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:border-primary/50"
-									>
-										<span>{item.name}</span>
-										<span className="text-[10px] font-semibold text-primary">
-											Rs.{" "}
-											{selectedPricingTier === "Retail"
-												? item.retailPrice
-												: item.wholesalePrice}
-										</span>
-										<Plus className="size-2.5 text-muted-foreground" />
-									</button>
-								))}
-							</div>
+							)}
 						</div>
 					</div>
 
@@ -942,7 +733,7 @@ export function CounterView() {
 												<Receipt className="size-8 mx-auto opacity-30" />
 												<p className="text-xs font-medium">Cart is currently empty.</p>
 												<p className="text-[11px] text-muted-foreground">
-													Search products above, pick a fast-item chip, or type a custom part to build an invoice.
+													Search spare parts above and add them to create customer bill.
 												</p>
 											</td>
 										</tr>
@@ -964,7 +755,7 @@ export function CounterView() {
 															{item.name}
 														</div>
 														<div className="flex items-center gap-2 mt-1">
-															{/* Inline Bike Model Dropdown */}
+															{/* Model Dropdown */}
 															<select
 																value={item.bikeModel}
 																onChange={(e) => updateItemModel(item.id, e.target.value)}
@@ -1079,7 +870,7 @@ export function CounterView() {
 						<div className="flex items-center justify-between border-b pb-2.5">
 							<h3 className="font-heading font-bold text-sm text-foreground flex items-center gap-1.5">
 								<User className="size-4 text-primary" />
-								Customer & Counter Account
+								Customer Information
 							</h3>
 							<Badge variant="outline" className="text-[10px] font-semibold">
 								{customer.type}
@@ -1126,7 +917,7 @@ export function CounterView() {
 									value={customer.name}
 									onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
 									className="h-8 text-xs bg-background"
-									placeholder="e.g. Afraz Autos"
+									placeholder="e.g. Walk-in Customer"
 								/>
 							</div>
 
@@ -1154,24 +945,37 @@ export function CounterView() {
 								/>
 							</div>
 
+							{/* Payment Terms with shadcn Select */}
 							<div className="space-y-1">
 								<label className="text-[11px] font-semibold text-muted-foreground">
 									Payment Terms:
 								</label>
-								<select
+								<Select
 									value={customer.paymentMethod}
-									onChange={(e) =>
-										setCustomer({
-											...customer,
-											paymentMethod: e.target.value as CustomerProfile["paymentMethod"],
-										})
-									}
-									className="w-full h-8 rounded-lg border bg-background px-2 text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+									onValueChange={(val) => {
+										if (val) {
+											setCustomer({
+												...customer,
+												paymentMethod: val as CustomerProfile["paymentMethod"],
+											});
+										}
+									}}
 								>
-									<option value="Cash on Counter">Cash on Counter</option>
-									<option value="Online Transfer">Online Transfer (EasyPaisa/JazzCash/Bank)</option>
-									<option value="Credit / Khata">Credit / Khata Ledger</option>
-								</select>
+									<SelectTrigger className="h-8 text-xs w-full bg-background">
+										<SelectValue placeholder="Payment Mode..." />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="Cash on Counter" className="text-xs">
+											Cash on Counter
+										</SelectItem>
+										<SelectItem value="Online Transfer" className="text-xs">
+											Online Transfer (EasyPaisa/JazzCash/Bank)
+										</SelectItem>
+										<SelectItem value="Credit / Khata" className="text-xs">
+											Credit / Khata Ledger
+										</SelectItem>
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
 					</div>
@@ -1244,7 +1048,7 @@ export function CounterView() {
 								</div>
 							</div>
 
-							{/* CASH TENDER & CHANGE CALCULATION */}
+							{/* CASH TENDER & CHANGE CALCULATION (Exact, Round 500 etc removed) */}
 							<div className="pt-2 space-y-2.5">
 								<div className="flex items-center justify-between">
 									<label className="text-xs font-bold text-foreground flex items-center gap-1">
@@ -1263,38 +1067,6 @@ export function CounterView() {
 											className="w-28 h-8 px-2 font-mono font-black text-sm rounded-lg border-2 border-emerald-500/50 bg-background text-foreground text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
 										/>
 									</div>
-								</div>
-
-								{/* Quick Cash Bills Shortcuts */}
-								<div className="flex items-center justify-end gap-1.5">
-									<button
-										type="button"
-										onClick={() => setCashReceived(netBill)}
-										className="px-2 py-0.5 rounded border text-[10px] font-semibold bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
-									>
-										Exact
-									</button>
-									<button
-										type="button"
-										onClick={() => setCashReceived(Math.ceil(netBill / 500) * 500 || 500)}
-										className="px-2 py-0.5 rounded border text-[10px] font-semibold bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
-									>
-										Round 500
-									</button>
-									<button
-										type="button"
-										onClick={() => setCashReceived(Math.ceil(netBill / 1000) * 1000 || 1000)}
-										className="px-2 py-0.5 rounded border text-[10px] font-semibold bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
-									>
-										Round 1000
-									</button>
-									<button
-										type="button"
-										onClick={() => setCashReceived((c) => c + 5000)}
-										className="px-2 py-0.5 rounded border text-[10px] font-semibold bg-muted hover:bg-muted/80 text-foreground cursor-pointer"
-									>
-										+5000 Note
-									</button>
 								</div>
 
 								{/* Return Balance or Due */}
@@ -1319,21 +1091,23 @@ export function CounterView() {
 								</div>
 							</div>
 
-							{/* Bill Remarks / Notes */}
-							<div className="pt-1">
-								<label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-									Invoice Notes (Printed on Receipt):
-								</label>
-								<Input
-									value={customerNotes}
-									onChange={(e) => setCustomerNotes(e.target.value)}
-									placeholder="e.g. 7 days checking warranty. Mechanics fitting."
-									className="h-8 text-xs bg-background"
-								/>
+							{/* Default 7-day checking warranty notice */}
+							<div className="pt-2">
+								<div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-start gap-2.5">
+									<ShieldCheck className="size-4 text-primary shrink-0 mt-0.5" />
+									<div className="space-y-0.5">
+										<span className="text-xs font-bold text-foreground block">
+											Warranty Standard:
+										</span>
+										<p className="text-[11px] text-muted-foreground leading-snug">
+											{DEFAULT_WARRANTY_POLICY}
+										</p>
+									</div>
+								</div>
 							</div>
 						</div>
 
-						{/* INVOICE ACTION BUTTONS */}
+						{/* INVOICE ACTION BUTTONS (Hold bill removed) */}
 						<div className="pt-2 space-y-2 border-t">
 							<Button
 								onClick={() => handleCreateInvoice("print")}
@@ -1345,27 +1119,15 @@ export function CounterView() {
 								<ArrowRight className="size-4 ml-auto" />
 							</Button>
 
-							<div className="grid grid-cols-2 gap-2">
-								<Button
-									variant="outline"
-									onClick={() => handleCreateInvoice("save")}
-									disabled={cart.length === 0}
-									className="h-9 text-xs font-semibold gap-1.5 cursor-pointer text-foreground"
-								>
-									<Check className="size-3.5 text-emerald-600" />
-									<span>Save Order (No Print)</span>
-								</Button>
-
-								<Button
-									variant="outline"
-									onClick={handleParkCart}
-									disabled={cart.length === 0}
-									className="h-9 text-xs font-semibold gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
-								>
-									<PauseCircle className="size-3.5" />
-									<span>Hold / Park Bill</span>
-								</Button>
-							</div>
+							<Button
+								variant="outline"
+								onClick={() => handleCreateInvoice("save")}
+								disabled={cart.length === 0}
+								className="w-full h-9 text-xs font-semibold gap-1.5 cursor-pointer text-foreground"
+							>
+								<Check className="size-3.5 text-emerald-600" />
+								<span>Save Order (No Print)</span>
+							</Button>
 						</div>
 					</div>
 				</div>
