@@ -35,7 +35,6 @@ import {
 import {
 	BRANCHES,
 	BIKE_MODELS,
-	FREQUENT_CUSTOMERS,
 	type BranchId,
 	type CounterCartItem,
 	type CustomerProfile,
@@ -81,7 +80,13 @@ export function CounterView() {
 	}, [activeBranchId]);
 
 	// Customer state
-	const [customer, setCustomer] = useState<CustomerProfile>(FREQUENT_CUSTOMERS[0]);
+	const [customer, setCustomer] = useState<CustomerProfile>({
+		name: "Walk-in Customer",
+		phone: "0300-0000000",
+		city: "Karachi",
+		type: "Retail Customer",
+		paymentMethod: "Cash on Counter",
+	});
 
 	// Cart items state
 	const [cart, setCart] = useState<CounterCartItem[]>([
@@ -872,38 +877,35 @@ export function CounterView() {
 								<User className="size-4 text-primary" />
 								Customer Information
 							</h3>
-							<Badge variant="outline" className="text-[10px] font-semibold">
-								{customer.type}
-							</Badge>
-						</div>
-
-						{/* Frequent Customers Quick Picker */}
-						<div className="space-y-1">
-							<span className="text-[11px] font-semibold text-muted-foreground block">
-								Quick Select Customer:
-							</span>
-							<div className="flex flex-wrap gap-1.5">
-								{FREQUENT_CUSTOMERS.map((cust) => (
-									<button
-										key={cust.name}
-										type="button"
-										onClick={() => {
-											setCustomer(cust);
-											if (cust.type.includes("Wholesale")) {
-												setSelectedPricingTier("Wholesale");
-											} else {
-												setSelectedPricingTier("Retail");
-											}
-										}}
-										className={`px-2.5 py-1 text-[11px] rounded-lg border transition-all cursor-pointer ${
-											customer.name === cust.name
-												? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
-												: "bg-background text-muted-foreground hover:text-foreground hover:bg-muted"
-										}`}
-									>
-										{cust.name}
-									</button>
-								))}
+							<div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border">
+								<button
+									type="button"
+									onClick={() => {
+										setCustomer({ ...customer, type: "Retail Customer" });
+										setSelectedPricingTier("Retail");
+									}}
+									className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-all cursor-pointer ${
+										customer.type === "Retail Customer"
+											? "bg-background text-foreground shadow-2xs font-bold"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Retail
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setCustomer({ ...customer, type: "Wholesale Dealer" });
+										setSelectedPricingTier("Wholesale");
+									}}
+									className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-all cursor-pointer ${
+										customer.type === "Wholesale Dealer"
+											? "bg-background text-foreground shadow-2xs font-bold"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Wholesale
+								</button>
 							</div>
 						</div>
 
