@@ -82,7 +82,7 @@ export const navGroups: SidebarNavGroup[] = [
 		items: [
 			{
 				title: "Counter",
-				path: "#/counter",
+				path: "/dashboard/counter",
 				icon: <Store className="size-4" />,
 			},
 			{
