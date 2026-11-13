@@ -16,6 +16,7 @@ import {
 	History,
 	Activity,
 	HelpCircle,
+	Bell,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -49,12 +50,12 @@ export const navGroups: SidebarNavGroup[] = [
 				subItems: [
 					{
 						title: "All Products",
-						path: "#/products",
+						path: "/dashboard/products",
 						icon: <PackageSearch className="size-4" />,
 					},
 					{
 						title: "Add Product",
-						path: "#/products/add",
+						path: "/dashboard/products/add",
 						icon: <PlusCircle className="size-4" />,
 					},
 					{
@@ -64,7 +65,7 @@ export const navGroups: SidebarNavGroup[] = [
 					},
 					{
 						title: "Price Updater",
-						path: "#/products/price-updater",
+						path: "/dashboard/products/price-updater",
 						icon: <BadgeDollarSign className="size-4" />,
 					},
 				],
@@ -137,7 +138,7 @@ export const navGroups: SidebarNavGroup[] = [
 export const footerNavLinks: SidebarNavItem[] = [
 	{
 		title: "Help Center",
-		path: "#/help",
+		path: "/dashboard/help",
 		icon: <HelpCircle className="size-4" />,
 	},
 	{
@@ -154,4 +155,9 @@ export const navLinks: SidebarNavItem[] = [
 		)
 	),
 	...footerNavLinks,
+	{
+		title: "Notifications",
+		path: "/dashboard/notifications",
+		icon: <Bell className="size-4" />,
+	},
 ];

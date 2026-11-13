@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -30,9 +31,19 @@ export function AppHeader({ pathname }: { pathname?: string }) {
 					<SendIcon
 					/>
 				</Button>
-				<Button aria-label="Notifications" size="icon-sm" variant="outline">
-					<BellIcon
-					/>
+				<Button
+					aria-label="Notifications"
+					size="icon-sm"
+					variant="outline"
+					className="relative cursor-pointer"
+					render={<Link href="/dashboard/notifications" />}
+					nativeButton={false}
+				>
+					<BellIcon />
+					<span className="absolute -top-1 -right-1 flex size-2">
+						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+						<span className="relative inline-flex size-2 rounded-full bg-rose-500" />
+					</span>
 				</Button>
 				<Separator
 					className="h-4 data-[orientation=vertical]:self-center"

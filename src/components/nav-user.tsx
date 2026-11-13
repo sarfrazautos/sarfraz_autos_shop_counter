@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
 	Avatar,
 	AvatarFallback,
@@ -14,7 +15,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserIcon, BellIcon, CommandIcon, LifeBuoyIcon, GraduationCapIcon, CreditCardIcon, LogOutIcon } from "lucide-react";
+import { UserIcon, BellIcon, CommandIcon, LifeBuoyIcon, LogOutIcon } from "lucide-react";
 
 const user = {
 	name: "Sarfraz Admin",
@@ -56,51 +57,33 @@ export function NavUser() {
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
-					<DropdownMenuItem>
-						<UserIcon
-						/>
+					<DropdownMenuItem render={<Link href="/dashboard/team" />} nativeButton={false}>
+						<UserIcon />
 						Profile
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
-					<DropdownMenuItem>
-						<BellIcon
-						/>
+					<DropdownMenuItem render={<Link href="/dashboard/notifications" />} nativeButton={false}>
+						<BellIcon />
 						Notifications
 					</DropdownMenuItem>
 					<DropdownMenuItem>
-						<CommandIcon
-						/>
+						<CommandIcon />
 						Keyboard shortcuts
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
-					<DropdownMenuItem>
-						<LifeBuoyIcon
-						/>
+					<DropdownMenuItem render={<Link href="/dashboard/help" />} nativeButton={false}>
+						<LifeBuoyIcon />
 						Help center
 					</DropdownMenuItem>
-					<DropdownMenuItem>
-						<GraduationCapIcon
-						/>
-						Agent training
-					</DropdownMenuItem>
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
-					<DropdownMenuItem>
-						<CreditCardIcon
-						/>
-						Subscription
-					</DropdownMenuItem>
-				</DropdownMenuGroup>
-				<DropdownMenuSeparator />
-				<DropdownMenuGroup>
-					<DropdownMenuItem variant="destructive">
-						<LogOutIcon
-						/>
+					<DropdownMenuItem variant="destructive" render={<Link href="/auth" />} nativeButton={false}>
+						<LogOutIcon />
 						Log out
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
