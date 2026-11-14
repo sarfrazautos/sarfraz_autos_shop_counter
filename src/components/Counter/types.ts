@@ -63,48 +63,159 @@ export interface CounterCartItem {
 	rate: number;
 	retailRate: number;
 	wholesaleRate: number;
+	schemeRate?: number;
+	isSchemeActive?: boolean;
 	quantity: number;
 	unit: string;
 	branchStock: number;
 	pricingTier: "Retail" | "Wholesale";
+	imageUrl?: string;
 }
 
 export interface CustomerProfile {
+	id?: string;
 	name: string;
 	phone: string;
 	city: string;
+	route?: string;
+	salesman?: string;
 	type: "Retail Customer" | "Wholesale Dealer" | "Workshop / Mechanic";
 	paymentMethod: "Cash on Counter" | "Online Transfer" | "Credit / Khata";
+	openingBalance?: number;
+	currentBalance?: number;
+	creditLimit?: number;
 }
 
 export const FREQUENT_CUSTOMERS: CustomerProfile[] = [
 	{
+		id: "CUST-001",
 		name: "Walk-in Retail Rider",
 		phone: "0300-0000000",
 		city: "Karachi",
+		route: "Saddar Counter",
+		salesman: "Counter Cashier",
 		type: "Retail Customer",
 		paymentMethod: "Cash on Counter",
+		openingBalance: 0,
+		currentBalance: 0,
+		creditLimit: 0,
 	},
 	{
+		id: "CUST-002",
+		name: "Dilawar Autos Saddar",
+		phone: "0321-2244889",
+		city: "Karachi",
+		route: "Saddar Auto Market",
+		salesman: "Tariq Mehmood",
+		type: "Wholesale Dealer",
+		paymentMethod: "Credit / Khata",
+		openingBalance: 45000,
+		currentBalance: 87500,
+		creditLimit: 150000,
+	},
+	{
+		id: "CUST-003",
+		name: "Ahmed Autos Malir",
+		phone: "0333-8899112",
+		city: "Karachi",
+		route: "Malir & Korangi",
+		salesman: "Sarfraz Ahmed",
+		type: "Wholesale Dealer",
+		paymentMethod: "Credit / Khata",
+		openingBalance: 28000,
+		currentBalance: 54200,
+		creditLimit: 100000,
+	},
+	{
+		id: "CUST-004",
+		name: "M Talha (Wholesale Dealer)",
+		phone: "0300-1234567",
+		city: "Karachi",
+		route: "Saddar Auto Market",
+		salesman: "Tariq Mehmood",
+		type: "Wholesale Dealer",
+		paymentMethod: "Credit / Khata",
+		openingBalance: 50000,
+		currentBalance: 42500,
+		creditLimit: 200000,
+	},
+	{
+		id: "CUST-005",
+		name: "Sufiyan Autos Gulshan",
+		phone: "0313-7766554",
+		city: "Karachi",
+		route: "Gulshan-e-Iqbal",
+		salesman: "Kashif Raza",
+		type: "Wholesale Dealer",
+		paymentMethod: "Credit / Khata",
+		openingBalance: 15000,
+		currentBalance: 31400,
+		creditLimit: 80000,
+	},
+	{
+		id: "CUST-006",
+		name: "Madina Autos Liaquatabad",
+		phone: "0345-3344556",
+		city: "Karachi",
+		route: "Nazimabad / Liaquatabad",
+		salesman: "Sarfraz Ahmed",
+		type: "Wholesale Dealer",
+		paymentMethod: "Credit / Khata",
+		openingBalance: 60000,
+		currentBalance: 112000,
+		creditLimit: 250000,
+	},
+	{
+		id: "CUST-007",
+		name: "Naweed Autos Hyderabad",
+		phone: "0301-4455667",
+		city: "Hyderabad",
+		route: "Interior Sindh Route",
+		salesman: "Tariq Mehmood",
+		type: "Wholesale Dealer",
+		paymentMethod: "Credit / Khata",
+		openingBalance: 120000,
+		currentBalance: 195000,
+		creditLimit: 300000,
+	},
+	{
+		id: "CUST-008",
+		name: "Taj Autos Quetta",
+		phone: "0334-9988771",
+		city: "Quetta",
+		route: "Baluchistan Route",
+		salesman: "Sarfraz Ahmed",
+		type: "Wholesale Dealer",
+		paymentMethod: "Credit / Khata",
+		openingBalance: 85000,
+		currentBalance: 148000,
+		creditLimit: 300000,
+	},
+	{
+		id: "CUST-009",
 		name: "Afraz Auto Works (Workshop)",
 		phone: "0333-1285556",
 		city: "Karachi",
-		type: "Wholesale Dealer",
+		route: "Gulshan-e-Iqbal",
+		salesman: "Kashif Raza",
+		type: "Workshop / Mechanic",
 		paymentMethod: "Cash on Counter",
+		openingBalance: 0,
+		currentBalance: 6400,
+		creditLimit: 30000,
 	},
 	{
+		id: "CUST-010",
 		name: "Bilal Motorcycle Service",
 		phone: "0312-9843210",
 		city: "Karachi",
+		route: "Saddar Auto Market",
+		salesman: "Tariq Mehmood",
 		type: "Workshop / Mechanic",
 		paymentMethod: "Online Transfer",
-	},
-	{
-		name: "Kashif Autos Saddar",
-		phone: "0345-5678912",
-		city: "Karachi",
-		type: "Wholesale Dealer",
-		paymentMethod: "Credit / Khata",
+		openingBalance: 5000,
+		currentBalance: 12800,
+		creditLimit: 50000,
 	},
 ];
 

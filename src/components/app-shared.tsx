@@ -17,6 +17,8 @@ import {
 	Activity,
 	HelpCircle,
 	Bell,
+	BookOpen,
+	Clock,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -72,23 +74,33 @@ export const navGroups: SidebarNavGroup[] = [
 			},
 			{
 				title: "Trade schemes",
-				path: "#/trade-schemes",
+				path: "/dashboard/trade-schemes",
 				icon: <BadgePercent className="size-4" />,
 			},
 		],
 	},
 	{
-		label: "Sales & Counter",
+		label: "Sales & Khata",
 		items: [
 			{
-				title: "Counter",
+				title: "Counter POS",
 				path: "/dashboard/counter",
 				icon: <Store className="size-4" />,
 			},
 			{
-				title: "Orders",
+				title: "Orders & Sales",
 				path: "/dashboard/orders",
 				icon: <ShoppingBag className="size-4" />,
+			},
+			{
+				title: "Customer Ledgers",
+				path: "/dashboard/ledger",
+				icon: <BookOpen className="size-4" />,
+			},
+			{
+				title: "Aging Receivables",
+				path: "/dashboard/reports/aging",
+				icon: <Clock className="size-4" />,
 			},
 		],
 	},

@@ -21,6 +21,11 @@ import {
 	Check,
 	X,
 	Layers,
+	BadgePercent,
+	FileText,
+	Sparkles,
+	CreditCard,
+	Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +40,7 @@ import {
 import {
 	BRANCHES,
 	BIKE_MODELS,
+	FREQUENT_CUSTOMERS,
 	type BranchId,
 	type CounterCartItem,
 	type CustomerProfile,
@@ -42,6 +48,7 @@ import {
 import { INITIAL_PRODUCTS, type ProductItem } from "@/components/Products/types";
 import { InvoiceSheet } from "@/components/Orders/invoice-sheet";
 import type { OrderRecord } from "@/components/Orders/types";
+import Link from "next/link";
 
 const LOCAL_STORAGE_BRANCH_KEY = "sarfraz_active_branch_id";
 const DEFAULT_WARRANTY_POLICY =
@@ -79,16 +86,10 @@ export function CounterView() {
 		return BRANCHES.find((b) => b.id === activeBranchId) || BRANCHES[0];
 	}, [activeBranchId]);
 
-	// Customer state
-	const [customer, setCustomer] = useState<CustomerProfile>({
-		name: "Walk-in Customer",
-		phone: "0300-0000000",
-		city: "Karachi",
-		type: "Retail Customer",
-		paymentMethod: "Cash on Counter",
-	});
+	// Customer state with live Khata ledger data
+	const [customer, setCustomer] = useState<CustomerProfile>(FREQUENT_CUSTOMERS[1]); // Default to Dilawar Autos Saddar (Wholesale)
 
-	// Cart items state
+	// Cart items state with Scheme Rate support
 	const [cart, setCart] = useState<CounterCartItem[]>([
 		{
 			id: "cart-init-1",
@@ -100,6 +101,8 @@ export function CounterView() {
 			rate: 1450,
 			retailRate: 1650,
 			wholesaleRate: 1450,
+			schemeRate: 1280,
+			isSchemeActive: false,
 			quantity: 2,
 			unit: "Kit",
 			branchStock: 45,
@@ -115,6 +118,8 @@ export function CounterView() {
 			rate: 1120,
 			retailRate: 1250,
 			wholesaleRate: 1120,
+			schemeRate: 980,
+			isSchemeActive: false,
 			quantity: 1,
 			unit: "Pcs",
 			branchStock: 34,
@@ -188,6 +193,7 @@ export function CounterView() {
 			selectedPricingTier === "Retail"
 				? Math.round(product.price * 1.15)
 				: product.price;
+		const schemeRate = Math.round(product.price * 0.88); // 12% wholesale scheme discount
 
 		setCart((prev) => {
 			const existingIndex = prev.findIndex(
@@ -211,10 +217,13 @@ export function CounterView() {
 				rate: rate,
 				retailRate: Math.round(product.price * 1.15),
 				wholesaleRate: product.price,
+				schemeRate: schemeRate,
+				isSchemeActive: false,
 				quantity: inputQuantity > 0 ? inputQuantity : 1,
 				unit: product.unit,
 				branchStock: stock,
 				pricingTier: selectedPricingTier,
+				imageUrl: product.imageUrl,
 			};
 			return [newItem, ...prev];
 		});
@@ -237,6 +246,46 @@ export function CounterView() {
 				})
 				.filter((item) => item.quantity > 0)
 		);
+	};
+
+	// Direct numeric quantity entry (fixes client meeting issue: typing 50 or 100 directly)
+	const setDirectQuantity = (id: string, qty: number) => {
+		const validQty = Math.max(1, isNaN(qty) ? 1 : qty);
+		setCart((prev) =>
+			prev.map((item) => (item.id === id ? { ...item, quantity: validQty } : item))
+		);
+	};
+
+	// 1-Click Wholesale Net Scheme Rate Toggle (Requested in Video 1)
+	const toggleNetScheme = (id: string) => {
+		setCart((prev) =>
+			prev.map((item) => {
+				if (item.id === id) {
+					const willBeActive = !item.isSchemeActive;
+					const schemePrice = item.schemeRate || Math.round(item.wholesaleRate * 0.88);
+					return {
+						...item,
+						isSchemeActive: willBeActive,
+						rate: willBeActive
+							? schemePrice
+							: item.pricingTier === "Retail"
+							? item.retailRate
+							: item.wholesaleRate,
+					};
+				}
+				return item;
+			})
+		);
+		showFlashNotice("Applied Wholesale Scheme Net Rate");
+	};
+
+	// Quick Customer Switcher
+	const handleSelectCustomer = (custId: string) => {
+		const found = FREQUENT_CUSTOMERS.find((c) => c.id === custId);
+		if (found) {
+			setCustomer(found);
+			showFlashNotice(`Loaded ${found.name} (Khata: Rs. ${(found.currentBalance || 0).toLocaleString()})`);
+		}
 	};
 
 	const updateItemRate = (id: string, newRate: number) => {
@@ -634,36 +683,51 @@ export function CounterView() {
 											return (
 												<div
 													key={prod.id}
-													className="p-2.5 hover:bg-muted/50 flex items-center justify-between gap-3 transition-colors cursor-pointer"
+													className="p-2.5 hover:bg-muted/50 flex items-center justify-between gap-3 transition-colors cursor-pointer group"
 													onClick={() => handleAddCatalogItem(prod)}
 												>
-													<div className="min-w-0 flex-1">
-														<div className="flex items-center gap-2">
-															<span className="font-semibold text-xs text-foreground truncate">
-																{prod.name}
-															</span>
-															<Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">
-																{prod.bikeModel}
-															</Badge>
+													<div className="flex items-center gap-3 min-w-0 flex-1">
+														{/* Product Thumbnail / Icon */}
+														<div className="size-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform">
+															{prod.category.includes("Engine") ? (
+																<Sparkles className="size-5" />
+															) : prod.category.includes("Brake") ? (
+																<ShieldCheck className="size-5" />
+															) : prod.category.includes("Electrical") ? (
+																<Layers className="size-5" />
+															) : (
+																<Bike className="size-5" />
+															)}
 														</div>
-														<div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-															<span>SKU: {prod.sku}</span>
-															<span>•</span>
-															<span className="text-foreground font-medium">
-																Rs. {displayPrice.toLocaleString()} ({selectedPricingTier})
-															</span>
-															<span>•</span>
-															<span
-																className={`font-semibold ${
-																	branchStock > 10
-																		? "text-emerald-600 dark:text-emerald-400"
-																		: branchStock > 0
-																		? "text-amber-600 dark:text-amber-400"
-																		: "text-rose-600"
-																}`}
-															>
-																{branchStock} {prod.unit} in {currentBranch.shortName}
-															</span>
+
+														<div className="min-w-0 flex-1">
+															<div className="flex items-center gap-2">
+																<span className="font-semibold text-xs text-foreground truncate">
+																	{prod.name}
+																</span>
+																<Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">
+																	{prod.bikeModel}
+																</Badge>
+															</div>
+															<div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+																<span>SKU: {prod.sku}</span>
+																<span>•</span>
+																<span className="text-foreground font-medium">
+																	Rs. {displayPrice.toLocaleString()} ({selectedPricingTier})
+																</span>
+																<span>•</span>
+																<span
+																	className={`font-semibold ${
+																		branchStock > 10
+																			? "text-emerald-600 dark:text-emerald-400"
+																			: branchStock > 0
+																			? "text-amber-600 dark:text-amber-400"
+																			: "text-rose-600"
+																	}`}
+																>
+																	{branchStock} {prod.unit} in {currentBranch.shortName}
+																</span>
+															</div>
 														</div>
 													</div>
 
@@ -754,35 +818,65 @@ export function CounterView() {
 														{index + 1}
 													</td>
 
-													{/* Product Name & Model selection */}
+													{/* Product Name, Thumbnail & Model selection */}
 													<td className="py-3 px-3">
-														<div className="font-semibold text-foreground leading-snug">
-															{item.name}
-														</div>
-														<div className="flex items-center gap-2 mt-1">
-															{/* Model Dropdown */}
-															<select
-																value={item.bikeModel}
-																onChange={(e) => updateItemModel(item.id, e.target.value)}
-																className="text-[10px] font-semibold bg-muted/60 hover:bg-muted rounded px-1.5 py-0.5 border text-foreground focus:outline-none cursor-pointer"
-															>
-																{BIKE_MODELS.map((m) => (
-																	<option key={m} value={m}>
-																		{m}
-																	</option>
-																))}
-															</select>
+														<div className="flex items-start gap-2.5">
+															{/* Visual Part Thumbnail */}
+															<div className="size-9 rounded-md bg-muted border flex items-center justify-center text-muted-foreground shrink-0 mt-0.5">
+																{item.category.includes("Engine") ? (
+																	<Sparkles className="size-4 text-primary" />
+																) : item.category.includes("Brake") ? (
+																	<ShieldCheck className="size-4 text-primary" />
+																) : (
+																	<Bike className="size-4 text-primary" />
+																)}
+															</div>
 
-															{isLowBranchStock && (
-																<Badge
-																	variant="destructive"
-																	className="text-[9px] py-0 px-1 font-normal flex items-center gap-0.5"
-																	title={`Branch has ${item.branchStock} in stock`}
-																>
-																	<AlertTriangle className="size-2.5" />
-																	Low Stock ({item.branchStock})
-																</Badge>
-															)}
+															<div className="min-w-0 flex-1">
+																<div className="font-semibold text-foreground leading-snug">
+																	{item.name}
+																</div>
+																<div className="flex items-center flex-wrap gap-1.5 mt-1">
+																	{/* Model Dropdown */}
+																	<select
+																		value={item.bikeModel}
+																		onChange={(e) => updateItemModel(item.id, e.target.value)}
+																		className="text-[10px] font-semibold bg-muted/60 hover:bg-muted rounded px-1.5 py-0.5 border text-foreground focus:outline-none cursor-pointer"
+																	>
+																		{BIKE_MODELS.map((m) => (
+																			<option key={m} value={m}>
+																				{m}
+																			</option>
+																		))}
+																	</select>
+
+																	{/* Wholesale Net Scheme Button (Video 1 Request) */}
+																	<button
+																		type="button"
+																		onClick={() => toggleNetScheme(item.id)}
+																		className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer flex items-center gap-1 ${
+																			item.isSchemeActive
+																				? "bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300 font-black shadow-2xs"
+																				: "bg-muted/40 hover:bg-muted text-muted-foreground border-border"
+																		}`}
+																		title="Toggle Wholesale Scheme Rate"
+																	>
+																		<BadgePercent className="size-2.5" />
+																		{item.isSchemeActive ? "Scheme Active" : "Net Scheme"}
+																	</button>
+
+																	{isLowBranchStock && (
+																		<Badge
+																			variant="destructive"
+																			className="text-[9px] py-0 px-1 font-normal flex items-center gap-0.5"
+																			title={`Branch has ${item.branchStock} in stock`}
+																		>
+																			<AlertTriangle className="size-2.5" />
+																			Low Stock ({item.branchStock})
+																		</Badge>
+																	)}
+																</div>
+															</div>
 														</div>
 													</td>
 
@@ -796,31 +890,41 @@ export function CounterView() {
 																onChange={(e) =>
 																	updateItemRate(item.id, parseInt(e.target.value) || 0)
 																}
-																className="w-16 h-7 px-1.5 font-mono font-bold text-xs rounded border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary"
+																className={`w-16 h-7 px-1.5 font-mono font-bold text-xs rounded border text-right focus:outline-none focus:ring-1 focus:ring-primary ${
+																	item.isSchemeActive
+																		? "bg-amber-500/10 border-amber-500/60 text-amber-900 dark:text-amber-200"
+																		: "bg-background text-foreground"
+																}`}
 															/>
 														</div>
 														<span className="text-[10px] text-muted-foreground block mt-0.5">
-															{item.pricingTier} Rate
+															{item.isSchemeActive ? "Scheme Rate" : `${item.pricingTier} Rate`}
 														</span>
 													</td>
 
-													{/* Quantity +/- controls */}
+													{/* Quantity +/- controls with DIRECT NUMERIC INPUT (Fix for Video 1) */}
 													<td className="py-3 px-3 text-center">
-														<div className="inline-flex items-center border rounded-lg overflow-hidden bg-background h-7">
+														<div className="inline-flex items-center border rounded-lg overflow-hidden bg-background h-7 shadow-2xs">
 															<button
 																type="button"
 																onClick={() => updateQuantity(item.id, -1)}
-																className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+																className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
 															>
 																<Minus className="size-3" />
 															</button>
-															<span className="w-8 text-center font-mono font-bold text-xs text-foreground">
-																{item.quantity}
-															</span>
+															<input
+																type="number"
+																min={1}
+																value={item.quantity}
+																onChange={(e) =>
+																	setDirectQuantity(item.id, parseInt(e.target.value) || 1)
+																}
+																className="w-12 h-full text-center font-mono font-bold text-xs text-foreground bg-transparent border-0 outline-none p-0 focus:bg-muted/20"
+															/>
 															<button
 																type="button"
 																onClick={() => updateQuantity(item.id, 1)}
-																className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+																className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
 															>
 																<Plus className="size-3" />
 															</button>
@@ -909,76 +1013,136 @@ export function CounterView() {
 							</div>
 						</div>
 
-						{/* Customer Details Form */}
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+						{/* Customer Quick Selector Dropdown & Details */}
+						<div className="space-y-3 pt-1">
 							<div className="space-y-1">
-								<label className="text-[11px] font-semibold text-muted-foreground">
-									Customer / Shop Name:
-								</label>
-								<Input
-									value={customer.name}
-									onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-									className="h-8 text-xs bg-background"
-									placeholder="e.g. Walk-in Customer"
-								/>
-							</div>
-
-							<div className="space-y-1">
-								<label className="text-[11px] font-semibold text-muted-foreground">
-									Contact Phone:
-								</label>
-								<Input
-									value={customer.phone}
-									onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-									className="h-8 text-xs bg-background"
-									placeholder="0333-1285556"
-								/>
-							</div>
-
-							<div className="space-y-1">
-								<label className="text-[11px] font-semibold text-muted-foreground">
-									City / Market:
-								</label>
-								<Input
-									value={customer.city}
-									onChange={(e) => setCustomer({ ...customer, city: e.target.value })}
-									className="h-8 text-xs bg-background"
-									placeholder="Karachi"
-								/>
-							</div>
-
-							{/* Payment Terms with shadcn Select */}
-							<div className="space-y-1">
-								<label className="text-[11px] font-semibold text-muted-foreground">
-									Payment Terms:
-								</label>
+								<div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+									<span>Select Registered Khata Customer:</span>
+									<Link
+										href="/dashboard/ledger"
+										className="text-[10px] text-primary hover:underline flex items-center gap-0.5 font-bold"
+									>
+										Open Ledgers <ArrowRight className="size-2.5" />
+									</Link>
+								</div>
 								<Select
-									value={customer.paymentMethod}
+									value={customer.id || ""}
 									onValueChange={(val) => {
-										if (val) {
-											setCustomer({
-												...customer,
-												paymentMethod: val as CustomerProfile["paymentMethod"],
-											});
-										}
+										if (val) handleSelectCustomer(val);
 									}}
 								>
-									<SelectTrigger className="h-8 text-xs w-full bg-background">
-										<SelectValue placeholder="Payment Mode..." />
+									<SelectTrigger className="h-8 text-xs w-full bg-background font-semibold">
+										<SelectValue placeholder="Choose customer khata..." />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="Cash on Counter" className="text-xs">
-											Cash on Counter
-										</SelectItem>
-										<SelectItem value="Online Transfer" className="text-xs">
-											Online Transfer (EasyPaisa/JazzCash/Bank)
-										</SelectItem>
-										<SelectItem value="Credit / Khata" className="text-xs">
-											Credit / Khata Ledger
-										</SelectItem>
+										{FREQUENT_CUSTOMERS.map((cust) => (
+											<SelectItem key={cust.id} value={cust.id || ""} className="text-xs">
+												<div className="flex items-center justify-between w-full gap-3">
+													<span className="font-semibold">{cust.name}</span>
+													<span className="text-[10px] font-mono text-muted-foreground">
+														{cust.currentBalance ? `Rs. ${cust.currentBalance.toLocaleString()}` : "Zero Bal"}
+													</span>
+												</div>
+											</SelectItem>
+										))}
 									</SelectContent>
 								</Select>
 							</div>
+
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<label className="text-[11px] font-semibold text-muted-foreground">
+										Customer / Shop Name:
+									</label>
+									<Input
+										value={customer.name}
+										onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+										className="h-8 text-xs bg-background"
+										placeholder="e.g. Walk-in Customer"
+									/>
+								</div>
+
+								<div className="space-y-1">
+									<label className="text-[11px] font-semibold text-muted-foreground">
+										Contact Phone:
+									</label>
+									<Input
+										value={customer.phone}
+										onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+										className="h-8 text-xs bg-background"
+										placeholder="0333-1285556"
+									/>
+								</div>
+
+								<div className="space-y-1">
+									<label className="text-[11px] font-semibold text-muted-foreground">
+										City / Market:
+									</label>
+									<Input
+										value={customer.city}
+										onChange={(e) => setCustomer({ ...customer, city: e.target.value })}
+										className="h-8 text-xs bg-background"
+										placeholder="Karachi"
+									/>
+								</div>
+
+								{/* Payment Terms with shadcn Select */}
+								<div className="space-y-1">
+									<label className="text-[11px] font-semibold text-muted-foreground">
+										Payment Terms:
+									</label>
+									<Select
+										value={customer.paymentMethod}
+										onValueChange={(val) => {
+											if (val) {
+												setCustomer({
+													...customer,
+													paymentMethod: val as CustomerProfile["paymentMethod"],
+												});
+											}
+										}}
+									>
+										<SelectTrigger className="h-8 text-xs w-full bg-background font-semibold">
+											<SelectValue placeholder="Payment Mode..." />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="Cash on Counter" className="text-xs">
+												Cash on Counter
+											</SelectItem>
+											<SelectItem value="Online Transfer" className="text-xs">
+												Online Transfer (EasyPaisa/JazzCash/Bank)
+											</SelectItem>
+											<SelectItem value="Credit / Khata" className="text-xs">
+												Credit / Khata Ledger
+											</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+
+							{/* Live Customer Khata Alert (Video 1 & 2 Request) */}
+							{customer.currentBalance !== undefined && customer.currentBalance > 0 && (
+								<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs space-y-1.5 animate-in fade-in">
+									<div className="flex items-center justify-between font-bold text-amber-950 dark:text-amber-200">
+										<span className="flex items-center gap-1.5">
+											<CreditCard className="size-3.5 text-amber-600" />
+											Previous Khata Balance:
+										</span>
+										<span className="font-mono text-sm font-black">
+											Rs. {customer.currentBalance.toLocaleString()}
+										</span>
+									</div>
+									<div className="text-[11px] text-amber-900/80 dark:text-amber-300/80 flex items-center justify-between">
+										<span>Route: {customer.route || "Saddar"} ({customer.salesman || "Tariq Mehmood"})</span>
+										<Link
+											href={`/dashboard/ledger?customer=${encodeURIComponent(customer.name)}`}
+											className="underline font-bold text-primary hover:text-primary/80"
+										>
+											View Statement
+										</Link>
+									</div>
+								</div>
+							)}
 						</div>
 					</div>
 
@@ -1081,7 +1245,7 @@ export function CounterView() {
 								>
 									<div>
 										<span className="text-xs font-bold block">
-											{changeReturn >= 0 ? "Change Due (Return to Customer):" : "Remaining Balance (Credit):"}
+											{changeReturn >= 0 ? "Change Due (Return to Customer):" : "Remaining Bill Due (Credit):"}
 										</span>
 										<span className="text-[10px] opacity-80">
 											{changeReturn >= 0 ? "Hand over change" : "Will post to Khata balance"}
@@ -1091,6 +1255,23 @@ export function CounterView() {
 										Rs. {Math.abs(changeReturn).toLocaleString()}
 									</span>
 								</div>
+
+								{/* Running Customer Khata Total (Previous Dues + Unpaid Current Bill) */}
+								{customer.currentBalance !== undefined && customer.currentBalance > 0 && (
+									<div className="rounded-xl p-3 bg-neutral-900 text-white dark:bg-neutral-800/90 flex items-center justify-between text-xs border border-neutral-700/60 shadow-xs">
+										<div>
+											<span className="text-[10px] text-neutral-400 uppercase font-semibold tracking-wider block">
+												Net Cumulative Khata Dues
+											</span>
+											<span className="text-[11px] text-neutral-300">
+												Previous Rs. {customer.currentBalance.toLocaleString()} {changeReturn < 0 ? `+ Rs. ${Math.abs(changeReturn).toLocaleString()}` : ""}
+											</span>
+										</div>
+										<span className="font-mono font-black text-amber-400 text-base">
+											Rs. {(customer.currentBalance + (changeReturn < 0 ? Math.abs(changeReturn) : 0)).toLocaleString()}
+										</span>
+									</div>
+								)}
 							</div>
 
 							{/* Default 7-day checking warranty notice */}

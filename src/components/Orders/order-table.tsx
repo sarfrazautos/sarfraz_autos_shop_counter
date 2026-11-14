@@ -28,6 +28,7 @@ import {
 	Eye,
 	CheckCircle2,
 	Package,
+	MessageCircle,
 } from "lucide-react";
 import type { OrderRecord, OrderStatus } from "./types";
 
@@ -120,37 +121,52 @@ export function OrderTable({
 		}
 	};
 
+	const handleDirectWhatsApp = (order: OrderRecord) => {
+		let rawPhone = (order.customerPhone || "").replace(/[^0-9]/g, "");
+		if (rawPhone.startsWith("0")) rawPhone = "92" + rawPhone.slice(1);
+
+		const msg =
+			`*SARFRAZ AUTOS (SHAHMIR) — ORDER ${order.invoiceNumber}*\n` +
+			`Customer: ${order.customerName} (${order.customerCity})\n` +
+			`Total Bill: Rs. ${order.netBill.toLocaleString()}\n` +
+			`Cash Paid: Rs. ${order.cashReceived.toLocaleString()}\n` +
+			`Balance: Rs. ${order.finalBalance.toLocaleString()}\n` +
+			`_Thank you for your business!_`;
+
+		window.open(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+	};
+
 	return (
 		<div className="w-full min-w-0 max-w-full rounded-xl border bg-card shadow-2xs overflow-hidden">
 			<div className="overflow-x-auto">
-				<Table className="min-w-[980px]">
+				<Table className="w-full text-xs">
 					<TableHeader>
 						<TableRow className="border-b bg-muted/40 hover:bg-muted/40">
-							<TableHead className="h-12 px-4 text-xs uppercase font-semibold text-foreground w-[120px]">
+							<TableHead className="h-10 px-3 text-[11px] uppercase font-semibold text-foreground w-[100px]">
 								Order ID
 							</TableHead>
-							<TableHead className="h-12 px-4 text-xs uppercase font-semibold text-foreground min-w-[140px]">
-								Dealer / Customer
+							<TableHead className="h-10 px-3 text-[11px] uppercase font-semibold text-foreground min-w-[130px]">
+								Customer / Dealer
 							</TableHead>
-							<TableHead className="h-12 px-4 text-xs uppercase font-semibold text-foreground min-w-[260px]">
-								Product
+							<TableHead className="h-10 px-3 text-[11px] uppercase font-semibold text-foreground min-w-[180px]">
+								Spare Parts Summary
 							</TableHead>
-							<TableHead className="h-12 px-3 text-center text-xs uppercase font-semibold text-foreground w-[80px]">
+							<TableHead className="h-10 px-2.5 text-center text-[11px] uppercase font-semibold text-foreground w-[60px]">
 								Qty
 							</TableHead>
-							<TableHead className="h-12 px-3 text-center text-xs uppercase font-semibold text-foreground w-[110px]">
+							<TableHead className="h-10 px-2.5 text-center text-[11px] uppercase font-semibold text-foreground w-[90px]">
 								Type
 							</TableHead>
-							<TableHead className="h-12 px-4 text-right text-xs uppercase font-semibold text-foreground w-[120px]">
-								Amount
+							<TableHead className="h-10 px-3 text-right text-[11px] uppercase font-semibold text-foreground w-[110px]">
+								Net Amount
 							</TableHead>
-							<TableHead className="h-12 px-3 text-center text-xs uppercase font-semibold text-foreground w-[120px]">
+							<TableHead className="h-10 px-2.5 text-center text-[11px] uppercase font-semibold text-foreground w-[110px]">
 								Status
 							</TableHead>
-							<TableHead className="h-12 px-4 text-xs uppercase font-semibold text-foreground w-[120px]">
+							<TableHead className="h-10 px-3 text-[11px] uppercase font-semibold text-foreground w-[95px]">
 								Date
 							</TableHead>
-							<TableHead className="h-12 px-4 text-right text-xs uppercase font-semibold text-foreground w-[150px]">
+							<TableHead className="h-10 px-3 text-right text-[11px] uppercase font-semibold text-foreground w-[140px]">
 								Actions
 							</TableHead>
 						</TableRow>
@@ -159,100 +175,104 @@ export function OrderTable({
 						{orders.length > 0 ? (
 							orders.map((order) => {
 								const primaryItem = order.items[0];
-								const secondaryItem = order.items[1];
-								const moreItemsCount = order.items.length > 2 ? order.items.length - 2 : 0;
+								const moreItemsCount = order.items.length > 1 ? order.items.length - 1 : 0;
 
 								return (
-									<TableRow key={order.id} className="hover:bg-muted/50 transition-colors">
+									<TableRow key={order.id} className="hover:bg-muted/30 transition-colors">
 										{/* Order ID */}
-										<TableCell className="h-16 px-4 font-bold text-sm text-foreground font-mono">
+										<TableCell className="py-2.5 px-3 font-bold text-xs text-foreground font-mono">
 											{order.id}
 										</TableCell>
 
 										{/* Dealer / Customer */}
-										<TableCell className="h-16 px-4">
+										<TableCell className="py-2.5 px-3">
 											<div className="flex flex-col">
-												<span className="font-semibold text-sm text-foreground truncate max-w-[140px]">
+												<span className="font-semibold text-xs text-foreground truncate max-w-[130px]">
 													{order.customerName}
 												</span>
-												<span className="text-xs text-muted-foreground truncate max-w-[140px]">
+												<span className="text-[10px] text-muted-foreground truncate max-w-[130px]">
 													{order.customerCity}
 												</span>
 											</div>
 										</TableCell>
 
 										{/* Products with individual quantities badges */}
-										<TableCell className="h-16 px-4">
-											<div className="flex flex-col gap-1 py-1">
+										<TableCell className="py-2.5 px-3">
+											<div className="flex items-center gap-1.5 flex-wrap">
 												{primaryItem && (
-													<div className="flex items-center gap-2 max-w-[260px]">
-														<span className="text-xs text-foreground font-medium truncate" title={primaryItem.name}>
-															{primaryItem.name}
-														</span>
-														<span className="px-1.5 py-0.2 text-[10px] font-mono font-semibold rounded bg-muted text-muted-foreground border shrink-0">
-															x{primaryItem.quantity}
-														</span>
-													</div>
-												)}
-												{secondaryItem && (
-													<div className="flex items-center gap-2 max-w-[260px]">
-														<span className="text-xs text-foreground font-medium truncate" title={secondaryItem.name}>
-															{secondaryItem.name}
-														</span>
-														<span className="px-1.5 py-0.2 text-[10px] font-mono font-semibold rounded bg-muted text-muted-foreground border shrink-0">
-															x{secondaryItem.quantity}
-														</span>
-													</div>
+													<span className="text-xs text-foreground font-medium truncate max-w-[180px]" title={primaryItem.name}>
+														{primaryItem.name}
+													</span>
 												)}
 												{moreItemsCount > 0 && (
-													<span className="text-[11px] text-muted-foreground font-normal">
-														+{moreItemsCount} more items
-													</span>
+													<Badge variant="outline" className="text-[9px] py-0 px-1 font-mono text-muted-foreground">
+														+{moreItemsCount} more
+													</Badge>
 												)}
 											</div>
 										</TableCell>
 
 										{/* Total Quantity */}
-										<TableCell className="h-16 px-3 text-center">
-											<span className="inline-flex items-center justify-center px-2.5 py-1 rounded-md bg-muted/80 text-foreground font-mono font-semibold text-xs border border-border/50">
+										<TableCell className="py-2.5 px-2.5 text-center">
+											<span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-muted/70 text-foreground font-mono font-semibold text-xs">
 												{order.totalQuantity}
 											</span>
 										</TableCell>
 
 										{/* Type */}
-										<TableCell className="h-16 px-3 text-center">
+										<TableCell className="py-2.5 px-2.5 text-center">
 											{getTypeBadge(order.type)}
 										</TableCell>
 
 										{/* Amount */}
-										<TableCell className="h-16 px-4 text-right">
-											<span className="font-bold font-mono text-sm text-foreground">
+										<TableCell className="py-2.5 px-3 text-right">
+											<span className="font-bold font-mono text-xs text-foreground">
 												Rs. {order.totalAmount.toLocaleString()}
 											</span>
 										</TableCell>
 
 										{/* Status */}
-										<TableCell className="h-16 px-3 text-center">
+										<TableCell className="py-2.5 px-2.5 text-center">
 											{getStatusBadge(order.status)}
 										</TableCell>
 
 										{/* Date */}
-										<TableCell className="h-16 px-4 text-xs font-mono text-muted-foreground">
+										<TableCell className="py-2.5 px-3 text-[11px] font-mono text-muted-foreground whitespace-nowrap">
 											{order.date}
 										</TableCell>
 
-										{/* Actions: Invoice button + Delete icon only */}
-										<TableCell className="h-16 px-4">
-											<div className="flex items-center justify-end gap-2">
+										{/* Actions: Invoice button + WhatsApp + Delete */}
+										<TableCell className="py-2.5 px-3">
+											<div className="flex items-center justify-end gap-1.5">
+												{/* WhatsApp Share Button */}
+												<TooltipProvider>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Button
+																	aria-label="WhatsApp Bill"
+																	size="icon"
+																	variant="outline"
+																	onClick={() => handleDirectWhatsApp(order)}
+																	className="size-7 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 cursor-pointer"
+																/>
+															}
+														>
+															<MessageCircle className="size-3.5" />
+														</TooltipTrigger>
+														<TooltipContent className="text-xs">Send on WhatsApp</TooltipContent>
+													</Tooltip>
+												</TooltipProvider>
+
 												{/* Printable Invoice Button */}
 												<Button
-													size="sm"
+													size="xs"
 													variant="outline"
 													onClick={() => onViewInvoice(order)}
-													className="h-8 px-3 gap-1.5 rounded-full border-neutral-300 hover:border-primary text-xs font-medium text-foreground hover:text-primary cursor-pointer shadow-2xs"
+													className="h-7 px-2 gap-1 rounded-md border-neutral-300 hover:border-primary text-[11px] font-medium text-foreground hover:text-primary cursor-pointer shadow-2xs"
 												>
-													<Printer className="size-3.5 text-primary" />
-													<span>Invoice</span>
+													<Printer className="size-3 text-primary" />
+													<span>Bill</span>
 												</Button>
 
 												{/* Delete Order Button */}
@@ -263,8 +283,8 @@ export function OrderTable({
 																<Button
 																	aria-label="Delete Order"
 																	size="icon"
-																	variant="outline"
-																	className="size-8 rounded-full text-muted-foreground hover:text-destructive hover:border-destructive/40 cursor-pointer"
+																	variant="ghost"
+																	className="size-7 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
 																	onClick={() => onDeleteOrder?.(order.id)}
 																/>
 															}
@@ -281,7 +301,7 @@ export function OrderTable({
 							})
 						) : (
 							<TableRow>
-								<TableCell colSpan={9} className="h-32 text-center text-muted-foreground text-sm">
+								<TableCell colSpan={9} className="h-28 text-center text-muted-foreground text-xs">
 									No orders match your current filters.
 								</TableCell>
 							</TableRow>

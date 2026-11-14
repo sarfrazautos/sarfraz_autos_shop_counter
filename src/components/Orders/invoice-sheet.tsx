@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
 	Sheet,
 	SheetContent,
@@ -10,7 +10,7 @@ import {
 	SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Printer, X, Download, Share2 } from "lucide-react";
+import { Printer, X, Download, Share2, MessageCircle, CheckCircle } from "lucide-react";
 import type { OrderRecord } from "./types";
 
 interface InvoiceSheetProps {
@@ -21,11 +21,49 @@ interface InvoiceSheetProps {
 
 export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 	const printAreaRef = useRef<HTMLDivElement>(null);
+	const [whatsappSent, setWhatsappSent] = useState(false);
 
 	if (!order) return null;
 
 	const handlePrint = () => {
 		window.print();
+	};
+
+	const handleWhatsAppShare = () => {
+		// Clean phone number (e.g. 0333-1285556 -> 923331285556)
+		let rawPhone = (order.customerPhone || "").replace(/[^0-9]/g, "");
+		if (rawPhone.startsWith("0")) {
+			rawPhone = "92" + rawPhone.slice(1);
+		} else if (!rawPhone.startsWith("92") && rawPhone.length === 10) {
+			rawPhone = "92" + rawPhone;
+		}
+
+		const itemsSummary = order.items
+			.map((it) => `• ${it.name} (${it.quantity}x @ Rs.${it.rate}) = Rs.${it.total}`)
+			.join("\n");
+
+		const message = `*SARFRAZ AUTOS (SHAHMIR) - INVOICE*\n` +
+			`━━━━━━━━━━━━━━━━━━━━\n` +
+			`*Invoice #:* ${order.invoiceNumber}\n` +
+			`*Customer:* ${order.customerName} (${order.customerCity})\n` +
+			`*Date:* ${order.dateTimeFull}\n` +
+			`*Godown/Branch:* ${order.godown}\n\n` +
+			`*Items Purchased:*\n${itemsSummary}\n\n` +
+			`━━━━━━━━━━━━━━━━━━━━\n` +
+			`*Total Bill:* Rs. ${order.netBill.toLocaleString()}\n` +
+			`*Payment Received:* Rs. ${order.cashReceived.toLocaleString()}\n` +
+			`*Remaining Balance:* Rs. ${order.finalBalance.toLocaleString()}\n` +
+			`━━━━━━━━━━━━━━━━━━━━\n` +
+			`7-Day Warranty Standard Applicable.\n` +
+			`_Thank you for choosing Sarfraz Autos!_`;
+
+		const waUrl = rawPhone
+			? `https://wa.me/${rawPhone}?text=${encodeURIComponent(message)}`
+			: `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+		window.open(waUrl, "_blank");
+		setWhatsappSent(true);
+		setTimeout(() => setWhatsappSent(false), 4000);
 	};
 
 	return (
@@ -45,6 +83,24 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 					</div>
 
 					<div className="flex items-center gap-2 shrink-0">
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={handleWhatsAppShare}
+							className="h-8 px-3 gap-1.5 border-emerald-600/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 cursor-pointer shadow-xs text-xs whitespace-nowrap"
+						>
+							{whatsappSent ? (
+								<>
+									<CheckCircle className="size-3.5 text-emerald-600" />
+									Sent!
+								</>
+							) : (
+								<>
+									<MessageCircle className="size-3.5 text-emerald-600" />
+									WhatsApp Bill
+								</>
+							)}
+						</Button>
 						<Button
 							size="sm"
 							onClick={handlePrint}
