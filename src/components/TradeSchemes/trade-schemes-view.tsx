@@ -53,6 +53,8 @@ import {
 	Info,
 	TrendingUp,
 	ShoppingCart,
+	AlertTriangle,
+	Loader2,
 } from "lucide-react";
 import { ProductSearchSelect } from "./product-search-select";
 import { Button } from "@/components/ui/button";
@@ -73,6 +75,16 @@ import {
 	DialogDescription,
 	DialogFooter,
 } from "@/components/ui/dialog";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
 	INITIAL_TRADE_SCHEMES,
 	type TradeScheme,
@@ -237,9 +249,16 @@ export function TradeSchemesView() {
 	};
 
 	// Delete scheme
-	const handleDeleteScheme = (schemeId: string) => {
-		if (confirm("Remove this trade scheme from the active counter catalog?")) {
-			deleteMutation.mutate(schemeId);
+	const [schemeToDelete, setSchemeToDelete] = useState<TradeScheme | null>(null);
+
+	const handleDeleteScheme = (scheme: TradeScheme) => {
+		setSchemeToDelete(scheme);
+	};
+
+	const handleConfirmDelete = () => {
+		if (schemeToDelete) {
+			deleteMutation.mutate(schemeToDelete.id);
+			setSchemeToDelete(null);
 		}
 	};
 
@@ -612,7 +631,7 @@ export function TradeSchemesView() {
 									<Button
 										size="icon-xs"
 										variant="ghost"
-										onClick={() => handleDeleteScheme(scheme.id)}
+										onClick={() => handleDeleteScheme(scheme)}
 										className="size-7 text-muted-foreground hover:text-rose-600 cursor-pointer"
 										title="Delete scheme"
 									>
@@ -897,6 +916,42 @@ export function TradeSchemesView() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* shadcn Delete Confirmation Dialog */}
+			<AlertDialog
+				open={!!schemeToDelete}
+				onOpenChange={(open) => !open && setSchemeToDelete(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
+							<AlertTriangle className="size-5" />
+						</div>
+						<AlertDialogTitle>Are you sure you want to delete this trade scheme?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This will remove the scheme <span className="font-semibold text-foreground">"{schemeToDelete?.title}"</span> for <span className="font-semibold text-foreground">{schemeToDelete?.productName}</span> from active counter promotions.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => setSchemeToDelete(null)} className="cursor-pointer">
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleConfirmDelete}
+							className="bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+						>
+							{deleteMutation.isPending ? (
+								<>
+									<Loader2 className="size-3.5 animate-spin mr-1.5" />
+									Deleting...
+								</>
+							) : (
+								"Yes, Delete Scheme"
+							)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

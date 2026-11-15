@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { deliveryRiders, orders } from '@/schema';
+import { deliveryRiders, riderLocationLogs, orders } from '@/schema';
 import { eq } from 'drizzle-orm';
 
 export async function GET(
@@ -91,6 +91,43 @@ export async function PATCH(
     console.error('PATCH /api/riders/[id] error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update rider' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const existing = await db.query.deliveryRiders.findFirst({
+      where: eq(deliveryRiders.id, id),
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Rider not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete location logs if any
+    await db.delete(riderLocationLogs).where(eq(riderLocationLogs.riderId, id)).catch(() => {});
+
+    // Delete rider
+    await db.delete(deliveryRiders).where(eq(deliveryRiders.id, id));
+
+    return NextResponse.json({
+      success: true,
+      message: 'Rider deleted successfully',
+    });
+  } catch (error) {
+    console.error('DELETE /api/riders/[id] error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete rider' },
       { status: 500 }
     );
   }

@@ -36,7 +36,7 @@ interface OrderTableProps {
 	orders: OrderRecord[];
 	onViewInvoice: (order: OrderRecord) => void;
 	onStatusChange?: (orderId: string, status: OrderStatus) => void;
-	onDeleteOrder?: (orderId: string) => void;
+	onDeleteOrder?: (order: OrderRecord) => void;
 }
 
 export function OrderTable({
@@ -285,7 +285,7 @@ export function OrderTable({
 																	size="icon"
 																	variant="ghost"
 																	className="size-7 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-																	onClick={() => onDeleteOrder?.(order.id)}
+																	onClick={() => onDeleteOrder?.(order)}
 																/>
 															}
 														>

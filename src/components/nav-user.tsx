@@ -16,7 +16,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
-import { UserIcon, BellIcon, LifeBuoyIcon, LogOutIcon, Loader2 } from "lucide-react";
+import { UsersIcon, BellIcon, LifeBuoyIcon, LogOutIcon, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { logoutAdminAction } from "@/app/actions/auth-actions";
 
@@ -77,8 +77,8 @@ export function NavUser() {
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
 					<DropdownMenuItem render={<Link href="/dashboard/team" />} nativeButton={false}>
-						<UserIcon />
-						Profile
+						<UsersIcon />
+						Team
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />

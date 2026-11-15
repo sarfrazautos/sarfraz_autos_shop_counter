@@ -22,7 +22,6 @@ import {
 	User,
 	Calculator,
 	Banknote,
-	ShieldCheck,
 	ArrowRight,
 	Check,
 	X,
@@ -68,6 +67,7 @@ const DEFAULT_WARRANTY_POLICY =
 export interface ItemSchemeCalculation {
 	hasScheme: boolean;
 	title: string;
+	shortLabel: string;
 	schemeType: "buy_x_get_y" | "net_rate" | "flat_discount" | "none";
 	buyQuantity: number;
 	freeQuantityPerTier: number;
@@ -85,6 +85,7 @@ export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculatio
 		return {
 			hasScheme: false,
 			title: "",
+			shortLabel: "",
 			schemeType: "none",
 			buyQuantity: 0,
 			freeQuantityPerTier: 0,
@@ -109,10 +110,12 @@ export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculatio
 		const lineSubtotal = item.rate * qty;
 		const effectiveRate = totalDelivered > 0 ? Math.round(lineSubtotal / totalDelivered) : item.rate;
 		const savingsAmount = freeUnits * item.rate;
+		const shortLabel = `${buyQty} + ${freePerTier} Free`;
 
 		return {
 			hasScheme: true,
 			title: scheme.title,
+			shortLabel,
 			schemeType: "buy_x_get_y",
 			buyQuantity: buyQty,
 			freeQuantityPerTier: freePerTier,
@@ -130,10 +133,12 @@ export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculatio
 		const isEligible = qty >= buyQty;
 		const effectiveRate = isEligible ? netRate : item.rate;
 		const savingsAmount = isEligible ? Math.max(0, (item.wholesaleRate - netRate) * qty) : 0;
+		const shortLabel = `Net Rs. ${netRate}`;
 
 		return {
 			hasScheme: true,
 			title: scheme.title,
+			shortLabel,
 			schemeType: "net_rate",
 			buyQuantity: buyQty,
 			freeQuantityPerTier: 0,
@@ -149,6 +154,7 @@ export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculatio
 	return {
 		hasScheme: true,
 		title: scheme.title,
+		shortLabel: "Scheme Active",
 		schemeType: "none",
 		buyQuantity: buyQty,
 		freeQuantityPerTier: freePerTier,
@@ -207,8 +213,19 @@ export function CounterView() {
 	const [isDebouncing, setIsDebouncing] = useState(false);
 	const [selectedCategory, setSelectedCategory] = useState("All");
 	const [selectedBikeModel, setSelectedBikeModel] = useState<string>("All Models");
-	const [selectedPricingTier, setSelectedPricingTier] = useState<"Retail" | "Wholesale">("Wholesale");
+	const [selectedPricingTier, setSelectedPricingTier] = useState<"Retail" | "Wholesale">("Retail");
 	const [inputQuantity, setInputQuantity] = useState<number>(1);
+	const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+	const handlePricingTierChange = (tier: "Retail" | "Wholesale") => {
+		setSelectedPricingTier(tier);
+		if (customer.id === "walkin") {
+			setCustomer((prev) => ({
+				...prev,
+				type: tier === "Retail" ? "Retail Customer" : "Wholesale Dealer",
+			}));
+		}
+	};
 
 	// Debounce user typing by 400ms before querying PostgreSQL database
 	useEffect(() => {
@@ -465,6 +482,7 @@ export function CounterView() {
 			freeUnits: number;
 			totalDelivered: number;
 			schemeTitle: string;
+			shortLabel: string;
 			schemeType: string;
 			effectiveRate: number;
 			savings: number;
@@ -489,6 +507,7 @@ export function CounterView() {
 					freeUnits: info.freeUnits,
 					totalDelivered: info.totalDeliveredUnits,
 					schemeTitle: info.title,
+					shortLabel: info.shortLabel,
 					schemeType: info.schemeType,
 					effectiveRate: info.effectiveRate,
 					savings: info.savingsAmount,
@@ -524,68 +543,71 @@ export function CounterView() {
 
 	// Generate Printable Invoice
 	const handleCreateInvoice = async (action: "print" | "save") => {
-		if (cart.length === 0) {
-			alert("Cart is empty. Please add parts before issuing invoice.");
+		if (cart.length === 0 || isSubmittingOrder) {
+			if (cart.length === 0) {
+				alert("Cart is empty. Please add parts before issuing invoice.");
+			}
 			return;
 		}
 
-		const invoiceNo = `SA-${Math.floor(10000 + Math.random() * 90000)}`;
-		const orderId = `#${invoiceNo}`;
+		setIsSubmittingOrder(true);
+		try {
+			const invoiceNo = `SA-${Math.floor(10000 + Math.random() * 90000)}`;
+			const orderId = `#${invoiceNo}`;
 
-		const totalFreeBonus = cartSchemesSummary.totalFreeUnits;
-		const schemeRemarks = totalFreeBonus > 0
-			? `${DEFAULT_WARRANTY_POLICY} | 🎁 Trade Scheme Applied: +${totalFreeBonus} Free Bonus Units Delivered`
-			: DEFAULT_WARRANTY_POLICY;
+			const totalFreeBonus = cartSchemesSummary.totalFreeUnits;
+			const schemeRemarks = totalFreeBonus > 0
+				? `${DEFAULT_WARRANTY_POLICY} | 🎁 Trade Scheme Applied: +${totalFreeBonus} Free Bonus Units Delivered`
+				: DEFAULT_WARRANTY_POLICY;
 
-		const generatedOrder: OrderRecord = {
-			id: orderId,
-			invoiceNumber: invoiceNo,
-			customerName: customer.name || "Walk-in Retail Customer",
-			customerCity: customer.city || "Karachi",
-			customerPhone: customer.phone,
-			type: customer.type.includes("Wholesale") ? "Wholesale" : "Retail",
-			items: cart.map((ci) => {
-				const sch = calculateItemScheme(ci);
-				const bonusLabel = sch.freeUnits > 0 ? ` [🎁 +${sch.freeUnits} Free Bonus Included]` : "";
-				return {
-					name: ci.name,
-					subLabel: `${ci.bikeModel.toUpperCase()} (${ci.category})${bonusLabel}`,
-					quantity: ci.quantity,
-					rate: ci.rate,
-					total: ci.rate * ci.quantity,
-				};
-			}),
-			totalQuantity: totalItemsCount,
-			totalAmount: subtotal,
-			shippingCharges: shippingOrFitting,
-			cashReceived: cashReceived,
-			netBill: netBill,
-			finalBalance: changeReturn < 0 ? Math.abs(changeReturn) : 0,
-			status: "Completed",
-			date: new Date().toLocaleDateString("en-GB", {
-				day: "2-digit",
-				month: "short",
-				year: "numeric",
-			}),
-			dateTimeFull: `${new Date()
-				.toLocaleDateString("en-GB", {
+			const generatedOrder: OrderRecord = {
+				id: orderId,
+				invoiceNumber: invoiceNo,
+				customerName: customer.name || "Walk-in Retail Customer",
+				customerCity: customer.city || "Karachi",
+				customerPhone: customer.phone,
+				type: customer.type.includes("Wholesale") ? "Wholesale" : "Retail",
+				items: cart.map((ci) => {
+					const sch = calculateItemScheme(ci);
+					const bonusLabel = sch.freeUnits > 0 ? ` [🎁 +${sch.freeUnits} Free Bonus Included]` : "";
+					return {
+						name: ci.name,
+						subLabel: `${ci.bikeModel.toUpperCase()} (${ci.category})${bonusLabel}`,
+						quantity: ci.quantity,
+						rate: ci.rate,
+						total: ci.rate * ci.quantity,
+					};
+				}),
+				totalQuantity: totalItemsCount,
+				totalAmount: subtotal,
+				shippingCharges: shippingOrFitting,
+				cashReceived: cashReceived,
+				netBill: netBill,
+				finalBalance: changeReturn < 0 ? Math.abs(changeReturn) : 0,
+				status: "Completed",
+				date: new Date().toLocaleDateString("en-GB", {
 					day: "2-digit",
 					month: "short",
-					year: "2-digit",
-				})
-				.toUpperCase()} ${currentTime || "12:00 PM"}`,
-			paymentMethod:
-				customer.paymentMethod === "Credit / Khata"
-					? "On Credit / COD"
-					: customer.paymentMethod === "Online Transfer"
-					? "Online Transfer"
-					: "Cash on Counter",
-			godown: currentBranch.name.toUpperCase(),
-			remarks: schemeRemarks,
-		};
+					year: "numeric",
+				}),
+				dateTimeFull: `${new Date()
+					.toLocaleDateString("en-GB", {
+						day: "2-digit",
+						month: "short",
+						year: "2-digit",
+					})
+					.toUpperCase()} ${currentTime || "12:00 PM"}`,
+				paymentMethod:
+					customer.paymentMethod === "Credit / Khata"
+						? "On Credit / COD"
+						: customer.paymentMethod === "Online Transfer"
+						? "Online Transfer"
+						: "Cash on Counter",
+				godown: currentBranch.name.toUpperCase(),
+				remarks: schemeRemarks,
+			};
 
-		// Push order to Neon PostgreSQL database
-		try {
+			// Push order to Neon PostgreSQL database
 			await createOrder({
 				customerId: customer.id || "walkin",
 				customerName: customer.name || "Walk-in Retail Rider",
@@ -624,19 +646,22 @@ export function CounterView() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.customers.all });
 			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+
+			setActiveInvoiceOrder(generatedOrder);
+
+			if (action === "print") {
+				setIsInvoiceOpen(true);
+			} else {
+				showFlashNotice(`Order ${generatedOrder.invoiceNumber} recorded successfully!`);
+				setCart([]);
+				setDiscountValue(0);
+				setShippingOrFitting(0);
+			}
 		} catch (err: any) {
 			console.error("Failed to save order to database:", err);
-		}
-
-		setActiveInvoiceOrder(generatedOrder);
-
-		if (action === "print") {
-			setIsInvoiceOpen(true);
-		} else {
-			showFlashNotice(`Order ${generatedOrder.invoiceNumber} recorded successfully!`);
-			setCart([]);
-			setDiscountValue(0);
-			setShippingOrFitting(0);
+			alert(err.message || "Failed to save order invoice");
+		} finally {
+			setIsSubmittingOrder(false);
 		}
 	};
 
@@ -734,39 +759,13 @@ export function CounterView() {
 				<div className="lg:col-span-7 flex flex-col gap-4">
 					{/* PRODUCT ENTRY / SEARCH CARD */}
 					<div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-xs space-y-4">
-						{/* Header: Title & Pricing Tier Toggle */}
+						{/* Header: Title */}
 						<div className="flex items-center justify-between border-b pb-3 gap-2">
 							<div className="flex items-center gap-2">
 								<Layers className="size-4 text-primary" />
 								<h2 className="font-heading font-bold text-sm text-foreground">
 									Spare Parts Inventory Catalog
 								</h2>
-							</div>
-
-							{/* Pricing Tier Toggle (Retail vs Wholesale) */}
-							<div className="flex items-center gap-1.5 bg-muted/60 p-0.5 rounded-lg border">
-								<button
-									type="button"
-									onClick={() => setSelectedPricingTier("Wholesale")}
-									className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-										selectedPricingTier === "Wholesale"
-											? "bg-background text-foreground shadow-xs"
-											: "text-muted-foreground hover:text-foreground"
-									}`}
-								>
-									Wholesale
-								</button>
-								<button
-									type="button"
-									onClick={() => setSelectedPricingTier("Retail")}
-									className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-										selectedPricingTier === "Retail"
-											? "bg-background text-foreground shadow-xs"
-											: "text-muted-foreground hover:text-foreground"
-									}`}
-								>
-									Retail
-								</button>
 							</div>
 						</div>
 
@@ -894,6 +893,26 @@ export function CounterView() {
 										<X className="size-4" />
 									</button>
 								)}
+							</div>
+
+							{/* Pricing Tier Selector (Full Width below Search Bar) */}
+							<div className="grid grid-cols-2 gap-2 w-full">
+								<Button
+									type="button"
+									variant={selectedPricingTier === "Retail" ? "default" : "outline"}
+									onClick={() => handlePricingTierChange("Retail")}
+									className="w-full h-8 text-xs font-normal cursor-pointer"
+								>
+									Retail
+								</Button>
+								<Button
+									type="button"
+									variant={selectedPricingTier === "Wholesale" ? "default" : "outline"}
+									onClick={() => handlePricingTierChange("Wholesale")}
+									className="w-full h-8 text-xs font-normal cursor-pointer"
+								>
+									Wholesale
+								</Button>
 							</div>
 
 							{/* Autocomplete / Suggested Products dropdown */}
@@ -1059,26 +1078,26 @@ export function CounterView() {
 
 											return (
 												<tr key={item.id} className="hover:bg-muted/30 transition-colors">
-													<td className="py-3 px-3 text-center font-mono text-muted-foreground">
+													<td className="py-2.5 px-3 text-center font-mono text-muted-foreground align-middle">
 														{index + 1}
 													</td>
 
 													{/* Product Name, Thumbnail & Model selection */}
-													<td className="py-3 px-3">
-														<div className="flex items-start gap-2.5">
+													<td className="py-2.5 px-3 align-middle">
+														<div className="flex items-center gap-2.5">
 															{/* Visual Part Thumbnail Image */}
-															<div className="size-10 rounded-lg border bg-muted/30 p-1 flex items-center justify-center shrink-0 mt-0.5 overflow-hidden shadow-2xs">
+															<div className="size-9 rounded-lg border bg-muted/30 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
 																<Image
 																	src={item.imageUrl || "/logo.png"}
 																	alt={item.name}
-																	width={36}
-																	height={36}
+																	width={32}
+																	height={32}
 																	className="size-full object-contain"
 																/>
 															</div>
 
 															<div className="min-w-0 flex-1">
-																<div className="font-semibold text-foreground leading-snug">
+																<div className="font-semibold text-foreground text-xs leading-snug truncate max-w-[280px] sm:max-w-md">
 																	{item.name}
 																</div>
 																<div className="flex items-center flex-wrap gap-1.5 mt-1">
@@ -1094,6 +1113,28 @@ export function CounterView() {
 																			</option>
 																		))}
 																	</select>
+
+																	{/* Short Scheme Badge: e.g. "10 + 1 Free" */}
+																	{schemeInfo.hasScheme && (
+																		<Badge
+																			variant="outline"
+																			className="text-[10px] py-0 px-1.5 font-bold border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 flex items-center gap-1 shadow-2xs"
+																			title={schemeInfo.title}
+																		>
+																			<Gift className="size-2.5 text-amber-600" />
+																			{schemeInfo.shortLabel}
+																		</Badge>
+																	)}
+
+																	{/* Free Bonus Earned Badge - e.g. "+2 Free (28 total)" */}
+																	{schemeInfo.hasScheme && schemeInfo.freeUnits > 0 && (
+																		<Badge
+																			className="text-[10px] py-0 px-1.5 font-black bg-emerald-600 text-white font-mono shadow-2xs flex items-center gap-0.5"
+																			title={`Total ${schemeInfo.totalDeliveredUnits} units delivered (${item.quantity} billed + ${schemeInfo.freeUnits} free)`}
+																		>
+																			+{schemeInfo.freeUnits} Free ({schemeInfo.totalDeliveredUnits} Total)
+																		</Badge>
+																	)}
 
 																	{/* Wholesale Net Scheme Button (Video 1 Request) */}
 																	<button
@@ -1121,46 +1162,12 @@ export function CounterView() {
 																		</Badge>
 																	)}
 																</div>
-
-																{/* Dynamic Trade Scheme Indicator & Bonus Alert (Left Side Cart Row) */}
-																{schemeInfo.hasScheme && (
-																	<div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs space-y-1">
-																		<div className="flex items-center justify-between gap-1.5 flex-wrap">
-																			<span className="font-bold text-[11px] text-amber-900 dark:text-amber-200 flex items-center gap-1">
-																				<Gift className="size-3 text-amber-600 shrink-0" />
-																				{schemeInfo.title}
-																			</span>
-																			{schemeInfo.freeUnits > 0 ? (
-																				<Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[10px] py-0 px-2 font-black shadow-2xs">
-																					+{schemeInfo.freeUnits} Free {item.unit} Earned
-																				</Badge>
-																			) : (
-																				<span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">
-																					Add {schemeInfo.nextFreeAt} more to get +{schemeInfo.freeQuantityPerTier} Free
-																				</span>
-																			)}
-																		</div>
-
-																		<div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 border-t border-amber-500/15">
-																			<span>
-																				Delivering:{" "}
-																				<strong className="text-foreground">
-																					{schemeInfo.totalDeliveredUnits} {item.unit}
-																				</strong>{" "}
-																				({item.quantity} Billed + {schemeInfo.freeUnits} Free Bonus)
-																			</span>
-																			<span className="text-emerald-700 dark:text-emerald-400 font-bold">
-																				Eff. Rate: Rs. {schemeInfo.effectiveRate} / {item.unit}
-																			</span>
-																		</div>
-																	</div>
-																)}
 															</div>
 														</div>
 													</td>
 
 													{/* Price and Rate Edit */}
-													<td className="py-3 px-3">
+													<td className="py-2.5 px-3 align-middle">
 														<div className="flex items-center gap-1">
 															<span className="text-[10px] text-muted-foreground">Rs.</span>
 															<input
@@ -1176,13 +1183,13 @@ export function CounterView() {
 																}`}
 															/>
 														</div>
-														<span className="text-[10px] text-muted-foreground block mt-0.5">
+														<span className="text-[10px] text-muted-foreground block mt-0.5 whitespace-nowrap">
 															{item.isSchemeActive ? "Scheme Rate" : `${item.pricingTier} Rate`}
 														</span>
 													</td>
 
 													{/* Quantity +/- controls with DIRECT NUMERIC INPUT (Fix for Video 1) */}
-													<td className="py-3 px-3 text-center">
+													<td className="py-2.5 px-3 text-center align-middle">
 														<div className="inline-flex items-center border rounded-lg overflow-hidden bg-background h-7 shadow-2xs">
 															<button
 																type="button"
@@ -1214,12 +1221,12 @@ export function CounterView() {
 													</td>
 
 													{/* Line Total */}
-													<td className="py-3 px-3 text-right font-mono font-bold text-foreground">
+													<td className="py-2.5 px-3 text-right font-mono font-bold text-foreground align-middle">
 														Rs. {lineTotal.toLocaleString()}
 													</td>
 
 													{/* Delete action */}
-													<td className="py-3 px-3 text-center">
+													<td className="py-2.5 px-3 text-center align-middle">
 														<button
 															type="button"
 															onClick={() => removeItem(item.id)}
@@ -1454,7 +1461,7 @@ export function CounterView() {
 											)}
 										</div>
 										<div className="flex items-center justify-between text-[11px] text-muted-foreground">
-											<span className="truncate max-w-[180px]">{sch.schemeTitle}</span>
+											<span className="font-bold text-amber-700 dark:text-amber-300 text-[11px]">{sch.shortLabel}</span>
 											{sch.freeUnits > 0 ? (
 												<span className="font-medium text-foreground text-[10.5px]">
 													Total: <strong>{sch.totalDelivered} {sch.unit}</strong> ({sch.quantity} Paid + {sch.freeUnits} Free)
@@ -1629,43 +1636,26 @@ export function CounterView() {
 									</div>
 								)}
 							</div>
-
-							{/* Default 7-day checking warranty notice */}
-							<div className="pt-2">
-								<div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-start gap-2.5">
-									<ShieldCheck className="size-4 text-primary shrink-0 mt-0.5" />
-									<div className="space-y-0.5">
-										<span className="text-xs font-bold text-foreground block">
-											Warranty Standard:
-										</span>
-										<p className="text-[11px] text-muted-foreground leading-snug">
-											{DEFAULT_WARRANTY_POLICY}
-										</p>
-									</div>
-								</div>
-							</div>
 						</div>
 
-						{/* INVOICE ACTION BUTTONS (Hold bill removed) */}
-						<div className="pt-2 space-y-2 border-t">
+						{/* INVOICE ACTION BUTTON */}
+						<div className="pt-2 border-t">
 							<Button
 								onClick={() => handleCreateInvoice("print")}
-								disabled={cart.length === 0}
-								className="w-full h-11 text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-md transition-all active:scale-98"
+								disabled={cart.length === 0 || isSubmittingOrder}
+								className="w-full h-10 gap-2 cursor-pointer font-normal"
 							>
-								<Printer className="size-4" />
-								<span>Generate & Print Thermal Invoice</span>
-								<ArrowRight className="size-4 ml-auto" />
-							</Button>
-
-							<Button
-								variant="outline"
-								onClick={() => handleCreateInvoice("save")}
-								disabled={cart.length === 0}
-								className="w-full h-9 text-xs font-semibold gap-1.5 cursor-pointer text-foreground"
-							>
-								<Check className="size-3.5 text-emerald-600" />
-								<span>Save Order (No Print)</span>
+								{isSubmittingOrder ? (
+									<>
+										<Loader2 className="size-4 animate-spin" />
+										<span>Saving and Printing...</span>
+									</>
+								) : (
+									<>
+										<Printer className="size-4" />
+										<span>Save and Print</span>
+									</>
+								)}
 							</Button>
 						</div>
 					</div>

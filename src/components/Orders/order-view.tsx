@@ -14,11 +14,22 @@ import {
 	PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
 	Search,
 	Download,
 	Package,
 	Loader2,
 	AlertTriangle,
+	X,
 } from "lucide-react";
 import { queryKeys } from "@/lib/query-keys";
 import {
@@ -36,10 +47,12 @@ export function OrderView() {
 
 	const [selectedType, setSelectedType] = useState<string>("all");
 	const [selectedStatus, setSelectedStatus] = useState<string>("all");
-	const [searchQuery, setSearchQuery] = useState("");
+	const [searchInput, setSearchInput] = useState("");
+	const [activeSearch, setActiveSearch] = useState("");
 	const [currentPage, setCurrentPage] = useState(1);
 	const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<OrderRecord | null>(null);
 	const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+	const [deleteTargetOrder, setDeleteTargetOrder] = useState<OrderRecord | null>(null);
 
 	const typeTabs = [
 		{ id: "all", label: "All Orders" },
@@ -51,19 +64,25 @@ export function OrderView() {
 	const { data, isLoading, isError, error } = useQuery({
 		queryKey: queryKeys.orders.list({
 			page: currentPage,
-			search: searchQuery,
+			search: activeSearch,
 			status: selectedStatus,
 			type: selectedType,
 		}),
 		queryFn: () =>
 			fetchOrders({
 				page: currentPage,
-				search: searchQuery,
+				search: activeSearch,
 				status: selectedStatus,
 				type: selectedType,
 			}),
 		staleTime: 1000 * 60 * 5,
 	});
+
+	const handleSearchSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		setActiveSearch(searchInput.trim());
+		setCurrentPage(1);
+	};
 
 	const ordersList: OrderRecord[] = data?.data || [];
 	const totalPages = data?.pagination?.totalPages || 1;
@@ -94,9 +113,14 @@ export function OrderView() {
 		statusMutation.mutate({ id: orderId, status: newStatus });
 	};
 
-	const handleDeleteOrder = (orderId: string) => {
-		if (confirm("Cancel this order and restore product stock?")) {
-			deleteMutation.mutate(orderId);
+	const handleDeleteOrder = (order: OrderRecord) => {
+		setDeleteTargetOrder(order);
+	};
+
+	const handleConfirmDelete = () => {
+		if (deleteTargetOrder) {
+			deleteMutation.mutate(deleteTargetOrder.id);
+			setDeleteTargetOrder(null);
 		}
 	};
 
@@ -131,19 +155,42 @@ export function OrderView() {
 
 			{/* Filter Controls Bar */}
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-				{/* Search Bar */}
-				<div className="relative flex-1 max-w-md">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-					<Input
-						placeholder="Search by Order ID (#SA-...), dealer name, city, or product..."
-						value={searchQuery}
-						onChange={(e) => {
-							setSearchQuery(e.target.value);
-							setCurrentPage(1);
-						}}
-						className="pl-9 h-9 text-sm"
-					/>
-				</div>
+				{/* Search Form with Search Button */}
+				<form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 max-w-md">
+					<div className="relative flex-1">
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+						<Input
+							placeholder="Search Order ID (#SA-...), dealer, city, product..."
+							value={searchInput}
+							onChange={(e) => setSearchInput(e.target.value)}
+							className="pl-9 pr-8 h-9 text-xs sm:text-sm bg-background"
+						/>
+						{searchInput && (
+							<button
+								type="button"
+								onClick={() => {
+									setSearchInput("");
+									if (activeSearch) {
+										setActiveSearch("");
+										setCurrentPage(1);
+									}
+								}}
+								className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+								title="Clear search"
+							>
+								<X className="size-3.5" />
+							</button>
+						)}
+					</div>
+					<Button
+						type="submit"
+						size="sm"
+						className="h-9 px-3.5 gap-1.5 cursor-pointer text-xs font-normal shrink-0"
+					>
+						<Search className="size-3.5" />
+						<span>Search</span>
+					</Button>
+				</form>
 
 				{/* Order Type Tabs */}
 				<div className="flex flex-wrap items-center gap-1.5">
@@ -245,6 +292,42 @@ export function OrderView() {
 				isOpen={isInvoiceOpen}
 				onClose={() => setIsInvoiceOpen(false)}
 			/>
+
+			{/* shadcn Delete Confirmation Dialog */}
+			<AlertDialog
+				open={!!deleteTargetOrder}
+				onOpenChange={(open) => !open && setDeleteTargetOrder(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
+							<AlertTriangle className="size-5" />
+						</div>
+						<AlertDialogTitle>Are you sure you want to delete this order?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This will cancel invoice <span className="font-semibold text-foreground">#{deleteTargetOrder?.invoiceNumber}</span> for <span className="font-semibold text-foreground">{deleteTargetOrder?.customerName}</span> (Rs. {deleteTargetOrder?.totalAmount?.toLocaleString()}) and restore inventory stock to the branch.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => setDeleteTargetOrder(null)} className="cursor-pointer">
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleConfirmDelete}
+							className="bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+						>
+							{deleteMutation.isPending ? (
+								<>
+									<Loader2 className="size-3.5 animate-spin mr-1.5" />
+									Deleting...
+								</>
+							) : (
+								"Yes, Delete Order"
+							)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

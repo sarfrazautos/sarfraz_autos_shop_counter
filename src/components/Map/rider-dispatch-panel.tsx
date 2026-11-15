@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { fetchRiders, addRider, type RiderItem } from "@/lib/api/riders/riders-api";
+import { fetchRiders, addRider, deleteRider, type RiderItem } from "@/lib/api/riders/riders-api";
 import {
     Bike,
     Phone,
@@ -17,6 +17,9 @@ import {
     Clock,
     UserCheck,
     Radio,
+    Trash2,
+    AlertTriangle,
+    Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +33,16 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast";
@@ -74,6 +87,28 @@ export function RiderDispatchPanel() {
         onError: (err: any) => {
             toast.add({
                 title: "Failed to Add Rider",
+                description: err.message || "An error occurred",
+                type: "error",
+            });
+        },
+    });
+
+    const [riderToDelete, setRiderToDelete] = useState<RiderItem | null>(null);
+
+    const deleteRiderMutation = useMutation({
+        mutationFn: (riderId: string) => deleteRider(riderId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.riders.all });
+            setRiderToDelete(null);
+            toast.add({
+                title: "Rider Deleted",
+                description: "Delivery rider removed from fleet.",
+                type: "success",
+            });
+        },
+        onError: (err: any) => {
+            toast.add({
+                title: "Failed to Delete Rider",
                 description: err.message || "An error occurred",
                 type: "error",
             });
@@ -308,7 +343,7 @@ export function RiderDispatchPanel() {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-7 text-[11px] gap-1 px-2"
+                                        className="h-7 text-[11px] gap-1 px-2 cursor-pointer"
                                         onClick={() => handleCopyLink(r)}
                                         title="Copy Rider GPS tracking link"
                                     >
@@ -328,7 +363,7 @@ export function RiderDispatchPanel() {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-7 text-[11px] gap-1 px-2 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/10"
+                                        className="h-7 text-[11px] gap-1 px-2 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
                                         onClick={() => handleWhatsAppLink(r)}
                                         title="Send tracking link via WhatsApp"
                                     >
@@ -347,11 +382,62 @@ export function RiderDispatchPanel() {
                                         <span>Open App</span>
                                     </a>
                                 </div>
+
+                                {/* Full Width Delete Rider Button (shadcn destructive) */}
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="w-full h-7 text-[11px] gap-1.5 cursor-pointer font-normal"
+                                    onClick={() => setRiderToDelete(r)}
+                                >
+                                    <Trash2 className="size-3" />
+                                    <span>Delete Rider</span>
+                                </Button>
                             </div>
                         );
                     })
                 )}
             </CardContent>
+
+            {/* Delete Rider Confirmation Dialog */}
+            <AlertDialog
+                open={!!riderToDelete}
+                onOpenChange={(open) => !open && setRiderToDelete(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
+                            <AlertTriangle className="size-5" />
+                        </div>
+                        <AlertDialogTitle>Are you sure you want to delete this rider?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will remove <span className="font-semibold text-foreground">{riderToDelete?.name}</span> ({riderToDelete?.vehicle || "Rider"}) from the delivery fleet.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setRiderToDelete(null)} className="cursor-pointer">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (riderToDelete) {
+                                    deleteRiderMutation.mutate(riderToDelete.id);
+                                }
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+                        >
+                            {deleteRiderMutation.isPending ? (
+                                <>
+                                    <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                "Yes, Delete Rider"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     );
 }

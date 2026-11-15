@@ -80,3 +80,17 @@ export async function updateRiderLocation(
 
   return res.json();
 }
+
+export async function deleteRider(riderId: string): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`/api/riders/${encodeURIComponent(riderId)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to delete rider');
+  }
+
+  return res.json();
+}
