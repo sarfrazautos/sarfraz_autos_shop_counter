@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchAttendanceRecords, markAttendance } from "@/lib/api/attendance/attendance-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,12 +27,56 @@ import { AttendanceStats } from "./attendance-stats";
 import { AttendanceTable } from "./attendance-table";
 
 export function AttendanceView() {
-	const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
+	const queryClient = useQueryClient();
+
 	const [selectedBranch, setSelectedBranch] = useState<BranchId>("all");
 	const [selectedStatus, setSelectedStatus] = useState<string>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isMarkingAll, setIsMarkingAll] = useState(false);
 	const [todayDateString, setTodayDateString] = useState("Today's Roster");
+
+	const { data: attData } = useQuery({
+		queryKey: queryKeys.attendance.list({
+			branchId: selectedBranch,
+			status: selectedStatus,
+		}),
+		queryFn: () =>
+			fetchAttendanceRecords({
+				branchId: selectedBranch,
+				status: selectedStatus,
+			}),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
+
+	useEffect(() => {
+		if (attData?.data && attData.data.length > 0) {
+			setRecords(
+				attData.data.map((r) => ({
+					id: r.id,
+					employeeId: r.employeeId,
+					employeeName: r.name,
+					employeeRole: r.role,
+					branchId: (r.branch.includes("Saddar") ? "main" : r.branch.includes("Gulshan") ? "branch-2" : "branch-3") as any,
+					branchName: r.branch,
+					status: r.status as AttendanceStatus,
+					checkInTime: r.checkIn,
+					checkOutTime: r.checkOut,
+					shiftTiming: r.shift,
+					notes: r.notes,
+					overtimeHours: r.overtime,
+				}))
+			);
+		}
+	}, [attData]);
+
+	const markMutation = useMutation({
+		mutationFn: (payload: any) => markAttendance(payload),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+		},
+	});
 
 	useEffect(() => {
 		setTodayDateString(
@@ -55,6 +102,18 @@ export function AttendanceView() {
 		checkInTime?: string,
 		checkOutTime?: string
 	) => {
+		const target = records.find((r) => r.id === recordId);
+		if (target) {
+			markMutation.mutate({
+				employeeId: target.employeeId,
+				branchId: target.branchId,
+				status,
+				checkInTime: checkInTime || target.checkInTime,
+				checkOutTime: checkOutTime || target.checkOutTime,
+				notes: target.notes,
+			});
+		}
+
 		setRecords((prev) =>
 			prev.map((r) => {
 				if (r.id !== recordId) return r;

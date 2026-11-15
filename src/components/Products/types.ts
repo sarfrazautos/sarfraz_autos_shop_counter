@@ -42,6 +42,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 15,
 		unit: "Kit",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "12 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 45 },
@@ -62,6 +63,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 12,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "11 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 34 },
@@ -82,6 +84,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 50,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "10 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 180 },
@@ -102,6 +105,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 20,
 		unit: "Pcs",
 		status: "Low Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "13 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 8 },
@@ -122,6 +126,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 30,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "09 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 110 },
@@ -142,6 +147,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 15,
 		unit: "Pcs",
 		status: "Low Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "11 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 5 },
@@ -162,6 +168,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 25,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "10 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 80 },
@@ -182,6 +189,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 20,
 		unit: "Bottle",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "12 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 24 },
@@ -202,6 +210,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 40,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "08 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 120 },
@@ -222,6 +231,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 10,
 		unit: "Set",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "11 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 10 },
@@ -242,6 +252,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 10,
 		unit: "Pair",
 		status: "Out of Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "07 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 0 },
@@ -262,6 +273,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 8,
 		unit: "Pair",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "12 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 12 },
@@ -282,6 +294,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 10,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "10 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 18 },
@@ -302,6 +315,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 10,
 		unit: "Set",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "09 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 14 },
@@ -322,6 +336,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 12,
 		unit: "Pair",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "11 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 22 },
@@ -342,6 +357,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 30,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "13 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 80 },
@@ -362,6 +378,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 20,
 		unit: "Set",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "13 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 45 },
@@ -382,6 +399,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 15,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "13 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 35 },
@@ -402,6 +420,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 12,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "13 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 25 },
@@ -422,6 +441,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
 		lowStockThreshold: 10,
 		unit: "Pcs",
 		status: "In Stock",
+		imageUrl: "/logo.png",
 		updatedAt: "13 Nov 2026",
 		branches: [
 			{ branchId: "main", branchName: "1st Branch (Saddar)", stock: 20 },

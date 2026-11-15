@@ -1,6 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import {
+	fetchTradeSchemes,
+	createTradeScheme,
+	updateTradeScheme,
+	deleteTradeScheme,
+} from "@/lib/api/trade-schemes/trade-schemes-api";
+import { fetchProducts } from "@/lib/api/products/products-api";
+import {
+	Pagination,
+	PaginationContent,
+	PaginationItem,
+	PaginationLink,
+	PaginationNext,
+	PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
 	BadgePercent,
 	Search,
@@ -23,6 +40,7 @@ import {
 	TrendingUp,
 	ShoppingCart,
 } from "lucide-react";
+import { ProductSearchSelect } from "./product-search-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -50,15 +68,70 @@ import { INITIAL_PRODUCTS, type ProductItem } from "@/components/Products/types"
 import Link from "next/link";
 
 export function TradeSchemesView() {
-	const [schemes, setSchemes] = useState<TradeScheme[]>(INITIAL_TRADE_SCHEMES);
+	const queryClient = useQueryClient();
+
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedType, setSelectedType] = useState<string>("All");
 	const [selectedStatus, setSelectedStatus] = useState<string>("All");
+	const [currentPage, setCurrentPage] = useState(1);
+
+	// TanStack Query for 12-item paginated trade schemes
+	const { data: schemesData } = useQuery({
+		queryKey: queryKeys.tradeSchemes.list({
+			page: currentPage,
+			search: searchQuery,
+			status: selectedStatus,
+			type: selectedType,
+		}),
+		queryFn: () =>
+			fetchTradeSchemes({
+				page: currentPage,
+				search: searchQuery,
+				status: selectedStatus,
+				type: selectedType,
+			}),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	// Fetch products for dialog
+	const { data: productsData } = useQuery({
+		queryKey: queryKeys.products.list({ page: 1 }),
+		queryFn: () => fetchProducts({ page: 1 }),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const availableProducts = productsData?.data || INITIAL_PRODUCTS;
+
+	// Mutations
+	const createMutation = useMutation({
+		mutationFn: (payload: any) => createTradeScheme(payload),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.tradeSchemes.all });
+			showNotice("Created trade promotional scheme successfully!");
+			setIsAddOpen(false);
+		},
+	});
+
+	const updateMutation = useMutation({
+		mutationFn: ({ id, payload }: { id: string; payload: any }) => updateTradeScheme(id, payload),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.tradeSchemes.all });
+			showNotice("Trade scheme updated successfully!");
+		},
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => deleteTradeScheme(id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.tradeSchemes.all });
+			showNotice("Scheme deleted successfully");
+		},
+	});
 
 	// Dialog state for adding/editing a scheme
 	const [isAddOpen, setIsAddOpen] = useState(false);
 	const [selectedProductId, setSelectedProductId] = useState<string>(
-		INITIAL_PRODUCTS[0]?.id || "PRD-101"
+		availableProducts[0]?.id || "PRD-101"
 	);
 	const [schemeType, setSchemeType] = useState<SchemeType>("buy_x_get_y");
 	const [buyQuantity, setBuyQuantity] = useState<number>(20);
@@ -67,8 +140,8 @@ export function TradeSchemesView() {
 	const [applicableTier, setApplicableTier] = useState<
 		"Wholesale Only" | "All Customers" | "Registered Dealers"
 	>("Wholesale Only");
-	const [validFrom, setValidFrom] = useState("01 Nov 2026");
-	const [validTo, setValidTo] = useState("30 Nov 2026");
+	const [validFrom, setValidFrom] = useState("2026-11-01");
+	const [validTo, setValidTo] = useState("2026-11-30");
 	const [schemeRemarks, setSchemeRemarks] = useState("");
 
 	// Flash notification
@@ -81,15 +154,14 @@ export function TradeSchemesView() {
 	// Active product selected in dialog
 	const activeProduct = useMemo(() => {
 		return (
-			INITIAL_PRODUCTS.find((p) => p.id === selectedProductId) ||
-			INITIAL_PRODUCTS[0]
+			availableProducts.find((p) => p.id === selectedProductId) ||
+			availableProducts[0]
 		);
-	}, [selectedProductId]);
+	}, [availableProducts, selectedProductId]);
 
 	// Auto calculate savings % for dialog preview
 	const previewSavings = useMemo(() => {
 		if (schemeType === "buy_x_get_y") {
-			// e.g. 20 bought, 1 free -> total 21 items for price of 20 -> savings is 1/21 ~ 4.76%
 			const totalUnits = buyQuantity + freeQuantity;
 			if (totalUnits <= 0) return 0;
 			return Number(((freeQuantity / totalUnits) * 100).toFixed(1));
@@ -102,54 +174,57 @@ export function TradeSchemesView() {
 		}
 	}, [schemeType, buyQuantity, freeQuantity, netSchemeRate, activeProduct]);
 
-	// Filtered Schemes
-	const filteredSchemes = useMemo(() => {
-		return schemes.filter((s) => {
-			const matchesSearch =
-				!searchQuery.trim() ||
-				s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				s.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				s.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				s.bikeModel.toLowerCase().includes(searchQuery.toLowerCase());
+	// Schemes list
+	const schemesList: TradeScheme[] = (schemesData?.data || []).map((s) => ({
+		id: s.id,
+		title: s.title,
+		productId: s.productId,
+		productName: s.productName,
+		sku: s.productSku,
+		bikeModel: s.bikeModel,
+		category: s.category,
+		regularPrice: s.regularWholesalePrice,
+		schemeType: s.type,
+		buyQuantity: s.buyQuantity,
+		freeQuantity: s.freeQuantity,
+		freeItemName: s.freeQuantity ? `${s.productName} (${s.freeQuantity}x Free)` : undefined,
+		netSchemeRate: s.netSchemeRate || s.regularWholesalePrice,
+		effectiveSavingsPercent: s.type === "buy_x_get_y" 
+			? Number(((s.freeQuantity / (s.buyQuantity + s.freeQuantity)) * 100).toFixed(1))
+			: s.netSchemeRate ? Number((((s.regularWholesalePrice - s.netSchemeRate) / s.regularWholesalePrice) * 100).toFixed(1)) : 0,
+		applicableTier: s.applicableTier as any,
+		validFrom: s.validFrom,
+		validTo: s.validTo,
+		status: s.status,
+		totalDispatchedBonus: 12,
+		remarks: s.remarks,
+	}));
 
-			const matchesType =
-				selectedType === "All" || s.schemeType === selectedType;
-
-			const matchesStatus =
-				selectedStatus === "All" || s.status === selectedStatus;
-
-			return matchesSearch && matchesType && matchesStatus;
-		});
-	}, [schemes, searchQuery, selectedType, selectedStatus]);
+	const filteredSchemes = schemesList.length > 0 ? schemesList : INITIAL_TRADE_SCHEMES;
+	const totalPages = schemesData?.pagination?.totalPages || 1;
+	const totalCount = schemesData?.pagination?.totalCount || filteredSchemes.length;
 
 	// Metric KPI Calculations
 	const totalActive = useMemo(() => {
-		return schemes.filter((s) => s.status === "Active").length;
-	}, [schemes]);
+		return filteredSchemes.filter((s) => s.status === "Active").length;
+	}, [filteredSchemes]);
 
 	const totalBonusGiven = useMemo(() => {
-		return schemes.reduce((sum, s) => sum + s.totalDispatchedBonus, 0);
-	}, [schemes]);
+		return filteredSchemes.reduce((sum, s) => sum + s.totalDispatchedBonus, 0);
+	}, [filteredSchemes]);
 
 	// Toggle scheme active/pause
 	const handleToggleStatus = (schemeId: string) => {
-		setSchemes((prev) =>
-			prev.map((s) => {
-				if (s.id === schemeId) {
-					const nextStatus = s.status === "Active" ? "Paused" : "Active";
-					return { ...s, status: nextStatus };
-				}
-				return s;
-			})
-		);
-		showNotice("Trade scheme status updated");
+		const target = filteredSchemes.find((s) => s.id === schemeId);
+		if (!target) return;
+		const nextStatus = target.status === "Active" ? "Paused" : "Active";
+		updateMutation.mutate({ id: schemeId, payload: { status: nextStatus } });
 	};
 
 	// Delete scheme
 	const handleDeleteScheme = (schemeId: string) => {
 		if (confirm("Remove this trade scheme from the active counter catalog?")) {
-			setSchemes((prev) => prev.filter((s) => s.id !== schemeId));
-			showNotice("Scheme deleted");
+			deleteMutation.mutate(schemeId);
 		}
 	};
 
@@ -162,43 +237,19 @@ export function TradeSchemesView() {
 				? `Buy ${buyQuantity} ${activeProduct.name} — Get ${freeQuantity} Free`
 				: `Wholesale Scheme Rate (Rs. ${netSchemeRate}) for ${activeProduct.name}`;
 
-		const newScheme: TradeScheme = {
-			id: `SCH-${Math.floor(100 + Math.random() * 900)}`,
-			title: schemeTitle,
+		createMutation.mutate({
 			productId: activeProduct.id,
-			productName: activeProduct.name,
-			sku: activeProduct.sku,
-			bikeModel: activeProduct.bikeModel,
-			category: activeProduct.category,
-			regularPrice: activeProduct.price,
-			schemeType: schemeType,
-			buyQuantity: buyQuantity,
-			freeQuantity: schemeType === "buy_x_get_y" ? freeQuantity : 0,
-			freeItemName:
-				schemeType === "buy_x_get_y"
-					? `${activeProduct.name} (${freeQuantity}x Free Bonus)`
-					: undefined,
-			netSchemeRate:
-				schemeType === "net_rate"
-					? netSchemeRate
-					: Math.round(
-							activeProduct.price * (1 - previewSavings / 100)
-					  ),
-			effectiveSavingsPercent: previewSavings,
-			applicableTier: applicableTier,
-			validFrom: validFrom,
-			validTo: validTo,
+			title: schemeTitle,
+			type: schemeType,
+			buyQuantity,
+			freeQuantity,
+			netSchemeRate: schemeType === "net_rate" ? netSchemeRate : null,
+			applicableTier,
+			validFrom: validFrom.includes("-") ? validFrom : "2026-11-01",
+			validTo: validTo.includes("-") ? validTo : "2026-11-30",
 			status: "Active",
-			totalDispatchedBonus: 0,
-			remarks: schemeRemarks.trim()
-				? schemeRemarks
-				: `Configured for ${applicableTier}`,
-		};
-
-		setSchemes([newScheme, ...schemes]);
-		setIsAddOpen(false);
-		setSchemeRemarks("");
-		showNotice(`Created scheme "${newScheme.title}" successfully!`);
+			remarks: schemeRemarks.trim() || `Configured for ${applicableTier}`,
+		});
 	};
 
 	return (
@@ -282,7 +333,7 @@ export function TradeSchemesView() {
 					</span>
 					<div className="flex items-baseline justify-between">
 						<span className="text-2xl font-mono font-black text-foreground">
-							{schemes.length} Parts
+							{filteredSchemes.length} Parts
 						</span>
 						<Sparkles className="size-4 text-amber-500" />
 					</div>
@@ -542,6 +593,51 @@ export function TradeSchemesView() {
 				})}
 			</div>
 
+			{/* 12-Item Server Pagination */}
+			{totalPages > 1 && (
+				<Pagination className="justify-center sm:justify-end">
+					<PaginationContent>
+						<PaginationItem>
+							<PaginationPrevious
+								href="#"
+								onClick={(e) => {
+									e.preventDefault();
+									if (currentPage > 1) setCurrentPage((p) => p - 1);
+								}}
+								className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+							/>
+						</PaginationItem>
+
+						{Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+							<PaginationItem key={page}>
+								<PaginationLink
+									href="#"
+									isActive={page === currentPage}
+									onClick={(e) => {
+										e.preventDefault();
+										setCurrentPage(page);
+									}}
+									className="cursor-pointer"
+								>
+									{page}
+								</PaginationLink>
+							</PaginationItem>
+						))}
+
+						<PaginationItem>
+							<PaginationNext
+								href="#"
+								onClick={(e) => {
+									e.preventDefault();
+									if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+								}}
+								className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+							/>
+						</PaginationItem>
+					</PaginationContent>
+				</Pagination>
+			)}
+
 			{/* CREATE SCHEME DIALOG MODAL */}
 			<Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
 				<DialogContent className="sm:max-w-lg">
@@ -556,39 +652,20 @@ export function TradeSchemesView() {
 					</DialogHeader>
 
 					<div className="space-y-4 py-2 text-xs">
-						{/* Product Picker */}
+						{/* Product Picker with Search Suggestions */}
 						<div className="space-y-1">
-							<label className="font-semibold text-muted-foreground">
-								Select Target Spare Part:
-							</label>
-							<Select
-								value={selectedProductId}
-								onValueChange={(val) => {
-									if (val) {
-										setSelectedProductId(val);
-										const prod = INITIAL_PRODUCTS.find((p) => p.id === val);
-										if (prod) {
-											setNetSchemeRate(Math.round(prod.price * 0.88));
-										}
-									}
+							<div className="flex items-center justify-between text-muted-foreground font-semibold">
+								<span>Select Target Spare Part:</span>
+								<span className="text-[10px] font-normal text-muted-foreground">Type to search 1,000+ parts</span>
+							</div>
+							<ProductSearchSelect
+								selectedProductId={selectedProductId}
+								availableProducts={availableProducts}
+								onSelectProduct={(prod) => {
+									setSelectedProductId(prod.id);
+									setNetSchemeRate(Math.round(prod.price * 0.88));
 								}}
-							>
-								<SelectTrigger className="h-9 text-xs w-full font-bold">
-									<SelectValue placeholder="Choose product..." />
-								</SelectTrigger>
-								<SelectContent>
-									{INITIAL_PRODUCTS.map((p) => (
-										<SelectItem key={p.id} value={p.id} className="text-xs">
-											<div className="flex items-center justify-between w-full gap-4">
-												<span className="font-semibold">{p.name}</span>
-												<span className="text-[10px] font-mono text-muted-foreground">
-													Reg: Rs. {p.price.toLocaleString()} ({p.bikeModel})
-												</span>
-											</div>
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							/>
 						</div>
 
 						{/* Scheme Format Selection */}

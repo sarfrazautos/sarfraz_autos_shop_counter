@@ -227,6 +227,7 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 1650,
 		wholesalePrice: 1450,
 		unit: "Kit",
+		imageUrl: "/logo.png",
 	},
 	{
 		name: "Crown Clutch Gear Big OEM",
@@ -235,6 +236,7 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 1250,
 		wholesalePrice: 1120,
 		unit: "Pcs",
+		imageUrl: "/logo.png",
 	},
 	{
 		name: "Crown Rear Wheel Sleeve",
@@ -243,6 +245,7 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 95,
 		wholesalePrice: 78,
 		unit: "Pcs",
+		imageUrl: "/logo.png",
 	},
 	{
 		name: "Crown 420 Heavy Drive Chain",
@@ -251,6 +254,7 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 920,
 		wholesalePrice: 805,
 		unit: "Pcs",
+		imageUrl: "/logo.png",
 	},
 	{
 		name: "Crown CD70 Front Brake Shoe",
@@ -259,6 +263,7 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 380,
 		wholesalePrice: 310,
 		unit: "Sets",
+		imageUrl: "/logo.png",
 	},
 	{
 		name: "Crown Clutch Friction Plates",
@@ -267,6 +272,7 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 1150,
 		wholesalePrice: 980,
 		unit: "Sets",
+		imageUrl: "/logo.png",
 	},
 	{
 		name: "Crown CG125 Head Light Unit",
@@ -275,6 +281,7 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 890,
 		wholesalePrice: 750,
 		unit: "Pcs",
+		imageUrl: "/logo.png",
 	},
 	{
 		name: "Crown NGK Spark Plug C7HSA",
@@ -283,5 +290,6 @@ export const COMMON_COUNTER_ITEMS = [
 		retailPrice: 280,
 		wholesalePrice: 220,
 		unit: "Pcs",
+		imageUrl: "/logo.png",
 	},
 ];

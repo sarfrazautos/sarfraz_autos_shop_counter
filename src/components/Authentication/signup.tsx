@@ -1,7 +1,4 @@
 import Image from "next/image";
-import { ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { SignUpForm } from "@/components/Authentication/signup-form";
 
 const SignUp = () => (
@@ -15,7 +12,7 @@ const SignUp = () => (
         className="mx-auto h-14 w-auto object-contain"
         priority
       />
-      <h1 className="mt-4 text-center font-medium text-2xl tracking-[-0.015em]">
+      <h1 className="mt-4 text-center font-bold text-2xl tracking-[-0.015em]">
         Shop Counter Admin Portal
       </h1>
       <p className="mt-1.5 text-center text-sm text-muted-foreground">
@@ -23,17 +20,6 @@ const SignUp = () => (
       </p>
 
       <div className="mt-8">
-        <Button className="w-full" size="lg" type="button">
-          <ShieldCheck className="mr-2 size-4" />
-          Sign in with Admin Credentials
-        </Button>
-
-        <div className="my-6 flex items-center justify-center gap-2 overflow-hidden">
-          <Separator />
-          <span className="text-muted-foreground text-sm">OR</span>
-          <Separator />
-        </div>
-
         <SignUpForm />
       </div>
 

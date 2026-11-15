@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Image from "next/image";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchProducts } from "@/lib/api/products/products-api";
+import { fetchCustomers } from "@/lib/api/customers/customers-api";
+import { createOrder } from "@/lib/api/orders/orders-api";
 import {
 	Store,
 	Search,
@@ -47,6 +53,7 @@ import {
 } from "./types";
 import { INITIAL_PRODUCTS, type ProductItem } from "@/components/Products/types";
 import { InvoiceSheet } from "@/components/Orders/invoice-sheet";
+import { CustomerSearchSelect } from "./customer-search-select";
 import type { OrderRecord } from "@/components/Orders/types";
 import Link from "next/link";
 
@@ -55,9 +62,21 @@ const DEFAULT_WARRANTY_POLICY =
 	"7 Days Check Warranty Only (Return / Exchange within 7 days)";
 
 export function CounterView() {
+	const queryClient = useQueryClient();
+
 	// Branch selection with localStorage persistence
 	const [activeBranchId, setActiveBranchId] = useState<BranchId>("main");
 	const [isHydrated, setIsHydrated] = useState(false);
+
+	// TanStack Query for products in active branch
+	const { data: dbProducts } = useQuery({
+		queryKey: queryKeys.products.list({ branchId: activeBranchId }),
+		queryFn: () => fetchProducts({ branchId: activeBranchId }),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const catalogProducts: ProductItem[] =
+		dbProducts?.data && dbProducts.data.length > 0 ? dbProducts.data : INITIAL_PRODUCTS;
 
 	// Load stored branch from localStorage on mount
 	useEffect(() => {
@@ -107,6 +126,7 @@ export function CounterView() {
 			unit: "Kit",
 			branchStock: 45,
 			pricingTier: "Wholesale",
+			imageUrl: "/logo.png",
 		},
 		{
 			id: "cart-init-2",
@@ -124,6 +144,7 @@ export function CounterView() {
 			unit: "Pcs",
 			branchStock: 34,
 			pricingTier: "Wholesale",
+			imageUrl: "/logo.png",
 		},
 	]);
 
@@ -165,7 +186,7 @@ export function CounterView() {
 
 	// Filtered catalog products based on query & branch stock
 	const matchingProducts = useMemo(() => {
-		return INITIAL_PRODUCTS.filter((prod) => {
+		return catalogProducts.filter((prod) => {
 			const matchesQuery =
 				!searchQuery.trim() ||
 				prod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -178,7 +199,7 @@ export function CounterView() {
 				prod.bikeModel.includes("Universal");
 			return matchesQuery && matchesCategory && matchesModel;
 		}).slice(0, 8);
-	}, [searchQuery, selectedCategory, selectedBikeModel]);
+	}, [catalogProducts, searchQuery, selectedCategory, selectedBikeModel]);
 
 	// Stock lookup helper for active branch
 	const getBranchStock = (product: ProductItem): number => {
@@ -280,11 +301,16 @@ export function CounterView() {
 	};
 
 	// Quick Customer Switcher
-	const handleSelectCustomer = (custId: string) => {
-		const found = FREQUENT_CUSTOMERS.find((c) => c.id === custId);
-		if (found) {
-			setCustomer(found);
-			showFlashNotice(`Loaded ${found.name} (Khata: Rs. ${(found.currentBalance || 0).toLocaleString()})`);
+	const handleSelectCustomer = (selected: CustomerProfile | string) => {
+		if (typeof selected === "string") {
+			const found = FREQUENT_CUSTOMERS.find((c) => c.id === selected);
+			if (found) {
+				setCustomer(found);
+				showFlashNotice(`Loaded ${found.name} (Khata: Rs. ${(found.currentBalance || 0).toLocaleString()})`);
+			}
+		} else {
+			setCustomer(selected);
+			showFlashNotice(`Loaded ${selected.name} (Khata: Rs. ${(selected.currentBalance || 0).toLocaleString()})`);
 		}
 	};
 
@@ -347,16 +373,14 @@ export function CounterView() {
 	}, [cashReceived, netBill]);
 
 	// Generate Printable Invoice
-	const handleCreateInvoice = (action: "print" | "save") => {
+	const handleCreateInvoice = async (action: "print" | "save") => {
 		if (cart.length === 0) {
 			alert("Cart is empty. Please add parts before issuing invoice.");
 			return;
 		}
 
-		const invoiceNo = `INV-${currentBranch.shortName.substring(0, 3).toUpperCase()}-${Math.floor(
-			10000 + Math.random() * 90000
-		)}`;
-		const orderId = `#SA-${Math.floor(10000 + Math.random() * 90000)}`;
+		const invoiceNo = `SA-${Math.floor(10000 + Math.random() * 90000)}`;
+		const orderId = `#${invoiceNo}`;
 
 		const generatedOrder: OrderRecord = {
 			id: orderId,
@@ -400,6 +424,47 @@ export function CounterView() {
 			godown: currentBranch.name.toUpperCase(),
 			remarks: DEFAULT_WARRANTY_POLICY,
 		};
+
+		// Push order to Neon PostgreSQL database
+		try {
+			await createOrder({
+				customerId: customer.id || "CUST-001",
+				customerName: customer.name || "Walk-in Retail Customer",
+				customerPhone: customer.phone || "0300-0000000",
+				customerCity: customer.city || "Karachi",
+				branchId: activeBranchId,
+				orderType: customer.type.includes("Wholesale") ? "Wholesale" : "Retail",
+				paymentMethod: customer.paymentMethod,
+				items: cart.map((ci) => ({
+					productId: ci.productId || ci.id,
+					productName: ci.name,
+					sku: ci.sku || "SKU-GEN",
+					bikeModel: ci.bikeModel,
+					category: ci.category,
+					unitRate: ci.rate,
+					pricingTier: ci.pricingTier,
+					isSchemeApplied: Boolean(ci.isSchemeActive),
+					schemeRate: ci.schemeRate || null,
+					quantity: ci.quantity,
+					lineTotal: ci.rate * ci.quantity,
+				})),
+				subtotalAmount: subtotal,
+				discountAmount: discountValue,
+				shippingCharges: shippingOrFitting,
+				totalAmount: netBill,
+				cashReceived: cashReceived,
+				changeReturned: changeReturn > 0 ? changeReturn : 0,
+				netBalanceAdded: changeReturn < 0 ? Math.abs(changeReturn) : 0,
+				remarks: DEFAULT_WARRANTY_POLICY,
+			});
+
+			queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.customers.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+		} catch (err: any) {
+			console.error("Failed to save order to database:", err);
+		}
 
 		setActiveInvoiceOrder(generatedOrder);
 
@@ -687,17 +752,15 @@ export function CounterView() {
 													onClick={() => handleAddCatalogItem(prod)}
 												>
 													<div className="flex items-center gap-3 min-w-0 flex-1">
-														{/* Product Thumbnail / Icon */}
-														<div className="size-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform">
-															{prod.category.includes("Engine") ? (
-																<Sparkles className="size-5" />
-															) : prod.category.includes("Brake") ? (
-																<ShieldCheck className="size-5" />
-															) : prod.category.includes("Electrical") ? (
-																<Layers className="size-5" />
-															) : (
-																<Bike className="size-5" />
-															)}
+														{/* Product Thumbnail Image */}
+														<div className="size-10 rounded-lg border bg-muted/30 p-1 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden shadow-2xs">
+															<Image
+																src={prod.imageUrl || "/logo.png"}
+																alt={prod.name}
+																width={36}
+																height={36}
+																className="size-full object-contain"
+															/>
 														</div>
 
 														<div className="min-w-0 flex-1">
@@ -821,15 +884,15 @@ export function CounterView() {
 													{/* Product Name, Thumbnail & Model selection */}
 													<td className="py-3 px-3">
 														<div className="flex items-start gap-2.5">
-															{/* Visual Part Thumbnail */}
-															<div className="size-9 rounded-md bg-muted border flex items-center justify-center text-muted-foreground shrink-0 mt-0.5">
-																{item.category.includes("Engine") ? (
-																	<Sparkles className="size-4 text-primary" />
-																) : item.category.includes("Brake") ? (
-																	<ShieldCheck className="size-4 text-primary" />
-																) : (
-																	<Bike className="size-4 text-primary" />
-																)}
+															{/* Visual Part Thumbnail Image */}
+															<div className="size-10 rounded-lg border bg-muted/30 p-1 flex items-center justify-center shrink-0 mt-0.5 overflow-hidden shadow-2xs">
+																<Image
+																	src={item.imageUrl || "/logo.png"}
+																	alt={item.name}
+																	width={36}
+																	height={36}
+																	className="size-full object-contain"
+																/>
 															</div>
 
 															<div className="min-w-0 flex-1">
@@ -1025,28 +1088,11 @@ export function CounterView() {
 										Open Ledgers <ArrowRight className="size-2.5" />
 									</Link>
 								</div>
-								<Select
-									value={customer.id || ""}
-									onValueChange={(val) => {
-										if (val) handleSelectCustomer(val);
-									}}
-								>
-									<SelectTrigger className="h-8 text-xs w-full bg-background font-semibold">
-										<SelectValue placeholder="Choose customer khata..." />
-									</SelectTrigger>
-									<SelectContent>
-										{FREQUENT_CUSTOMERS.map((cust) => (
-											<SelectItem key={cust.id} value={cust.id || ""} className="text-xs">
-												<div className="flex items-center justify-between w-full gap-3">
-													<span className="font-semibold">{cust.name}</span>
-													<span className="text-[10px] font-mono text-muted-foreground">
-														{cust.currentBalance ? `Rs. ${cust.currentBalance.toLocaleString()}` : "Zero Bal"}
-													</span>
-												</div>
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<CustomerSearchSelect
+									selectedCustomerId={customer.id}
+									fallbackCustomers={FREQUENT_CUSTOMERS}
+									onSelectCustomer={handleSelectCustomer}
+								/>
 							</div>
 
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

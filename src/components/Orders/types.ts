@@ -108,7 +108,7 @@ export const INITIAL_ORDERS: OrderRecord[] = [
 	},
 	{
 		id: "#SA-64276",
-		invoiceNumber: "SA-64276",
+		invoiceNumber: "SA-64277",
 		customerName: "Afraz",
 		customerCity: "Karachi",
 		customerAddress: "Taj Mehal Qasim Auto Mkt, Karachi",

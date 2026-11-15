@@ -15,15 +15,34 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserIcon, BellIcon, LifeBuoyIcon, LogOutIcon } from "lucide-react";
+import { useState } from "react";
+import { UserIcon, BellIcon, LifeBuoyIcon, LogOutIcon, Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/toast";
+import { logoutAdminAction } from "@/app/actions/auth-actions";
 
 const user = {
-	name: "Sarfraz Admin",
-	email: "admin@sarfrazautos.com",
+	name: "Shahmeer (Owner)",
+	email: "admin@sarfrazautos-counter.com",
 	avatar: "/logo.png",
 };
 
 export function NavUser() {
+	const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+	const handleLogout = async () => {
+		setIsLoggingOut(true);
+		toast.add({
+			title: "Signing Out",
+			description: "Closing administrative session safely...",
+			type: "info",
+		});
+		try {
+			await logoutAdminAction();
+			window.location.href = "/auth";
+		} catch {
+			window.location.href = "/auth";
+		}
+	};
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -78,9 +97,18 @@ export function NavUser() {
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
-					<DropdownMenuItem variant="destructive" render={<Link href="/auth" />} nativeButton={false}>
-						<LogOutIcon />
-						Log out
+					<DropdownMenuItem
+						variant="destructive"
+						disabled={isLoggingOut}
+						onClick={handleLogout}
+						className="cursor-pointer"
+					>
+						{isLoggingOut ? (
+							<Loader2 className="size-4 animate-spin" />
+						) : (
+							<LogOutIcon className="size-4" />
+						)}
+						<span>{isLoggingOut ? "Signing out..." : "Log out"}</span>
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 			</DropdownMenuContent>

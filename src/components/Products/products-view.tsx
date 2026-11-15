@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,31 +32,31 @@ import {
 	PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
-	Package,
 	Search,
 	Trash2,
 	Plus,
 	SlidersHorizontal,
-	Download,
-	Store,
 	Building2,
-	MapPin,
-	CheckCircle2,
 	AlertTriangle,
 	Filter,
-	Bike,
+	Loader2,
 } from "lucide-react";
 
-import { INITIAL_PRODUCTS, type ProductItem, type BikeModel, type ProductCategory } from "./types";
+import { queryKeys } from "@/lib/query-keys";
+import {
+	fetchProducts,
+	deleteProduct,
+	adjustProductStock,
+} from "@/lib/api/products/products-api";
+import type { ProductItem } from "./types";
 import { ProductStatsCards } from "./product-stats";
 import { ProductTable } from "./product-table";
 import { ProductDetailDialog } from "./product-detail-dialog";
 import { QuickStockDialog } from "./quick-stock-dialog";
 
-const ITEMS_PER_PAGE = 12;
-
 export function ProductsView() {
-	const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
+	const queryClient = useQueryClient();
+
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedBranch, setSelectedBranch] = useState<"all" | "main" | "branch-2" | "branch-3">("all");
 	const [selectedModel, setSelectedModel] = useState<string>("all");
@@ -94,43 +95,55 @@ export function ProductsView() {
 		{ id: "Out of Stock", label: "Out of Stock" },
 	];
 
-	// Filter logic
-	const filteredProducts = useMemo(() => {
-		return products.filter((p) => {
-			const matchesModel = selectedModel === "all" || p.bikeModel === selectedModel;
-			const matchesStatus = selectedStatus === "all" || p.status === selectedStatus;
+	// TanStack Query for 12-item paginated server data with caching
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: queryKeys.products.list({
+			page: currentPage,
+			search: searchQuery,
+			branchId: selectedBranch,
+			bikeModel: selectedModel,
+			status: selectedStatus,
+		}),
+		queryFn: () =>
+			fetchProducts({
+				page: currentPage,
+				search: searchQuery,
+				branchId: selectedBranch,
+				bikeModel: selectedModel,
+				status: selectedStatus,
+			}),
+		staleTime: 1000 * 60 * 5, // 5 minutes fresh in cache
+	});
 
-			const matchesBranch =
-				selectedBranch === "all" ||
-				(p.branches.find((b) => b.branchId === selectedBranch)?.stock ?? 0) > 0;
+	const products: ProductItem[] = data?.data || [];
+	const totalPages = data?.pagination?.totalPages || 1;
+	const totalCount = data?.pagination?.totalCount || 0;
 
-			const q = searchQuery.trim().toLowerCase();
-			if (!q) return matchesModel && matchesStatus && matchesBranch;
+	// Delete mutation
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => deleteProduct(id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+			setDeleteTarget(null);
+		},
+	});
 
-			const matchesQuery =
-				p.name.toLowerCase().includes(q) ||
-				p.sku.toLowerCase().includes(q) ||
-				p.category.toLowerCase().includes(q) ||
-				(p.type && p.type.toLowerCase().includes(q)) ||
-				p.bikeModel.toLowerCase().includes(q);
-
-			return matchesModel && matchesStatus && matchesBranch && matchesQuery;
-		});
-	}, [products, selectedModel, selectedStatus, selectedBranch, searchQuery]);
-
-	// Pagination slicing
-	const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) || 1;
-	const paginatedProducts = useMemo(() => {
-		const start = (currentPage - 1) * ITEMS_PER_PAGE;
-		return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
-	}, [filteredProducts, currentPage]);
+	// Stock adjustment mutation
+	const stockMutation = useMutation({
+		mutationFn: (payload: { productId: string; branchId: string; quantityChange: number }) =>
+			adjustProductStock(payload),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+			setStockProduct(null);
+		},
+	});
 
 	// Handlers
 	const handleToggleSelectAll = () => {
-		if (selectedIds.length === paginatedProducts.length) {
+		if (selectedIds.length === products.length) {
 			setSelectedIds([]);
 		} else {
-			setSelectedIds(paginatedProducts.map((p) => p.id));
+			setSelectedIds(products.map((p) => p.id));
 		}
 	};
 
@@ -142,13 +155,14 @@ export function ProductsView() {
 
 	const handleConfirmSingleDelete = () => {
 		if (!deleteTarget) return;
-		setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-		setSelectedIds((prev) => prev.filter((id) => id !== deleteTarget.id));
-		setDeleteTarget(null);
+		deleteMutation.mutate(deleteTarget.id);
 	};
 
-	const handleConfirmBulkDelete = () => {
-		setProducts((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
+	const handleConfirmBulkDelete = async () => {
+		for (const id of selectedIds) {
+			await deleteProduct(id);
+		}
+		queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
 		setSelectedIds([]);
 		setBulkDeleteConfirmOpen(false);
 	};
@@ -158,29 +172,11 @@ export function ProductsView() {
 		branchId: "main" | "branch-2" | "branch-3",
 		addedQty: number
 	) => {
-		setProducts((prev) =>
-			prev.map((p) => {
-				if (p.id !== productId) return p;
-				const updatedBranches = p.branches.map((b) =>
-					b.branchId === branchId ? { ...b, stock: b.stock + addedQty } : b
-				);
-				const newTotal = updatedBranches.reduce((acc, b) => acc + b.stock, 0);
-				const newStatus =
-					newTotal === 0
-						? "Out of Stock"
-						: newTotal <= p.lowStockThreshold
-						? "Low Stock"
-						: "In Stock";
-
-				return {
-					...p,
-					totalStock: newTotal,
-					status: newStatus,
-					branches: updatedBranches,
-					updatedAt: "Just now",
-				};
-			})
-		);
+		stockMutation.mutate({
+			productId,
+			branchId,
+			quantityChange: addedQty,
+		});
 	};
 
 	return (
@@ -202,31 +198,33 @@ export function ProductsView() {
 				</div>
 
 				<div className="flex items-center gap-2">
-					{selectedIds.length > 0 && (
-						<Button
-							variant="destructive"
-							size="sm"
-							onClick={() => setBulkDeleteConfirmOpen(true)}
-							className="gap-2 cursor-pointer shadow-xs animate-in fade-in-50"
-						>
-							<Trash2 className="size-3.5" />
-							Delete Selected ({selectedIds.length})
-						</Button>
-					)}
-
-					<Button variant="outline" size="sm" className="gap-2 cursor-pointer">
-						<Download className="size-3.5" />
-						Export CSV
+					<Button
+						variant="outline"
+						size="sm"
+						className="text-xs gap-1.5"
+						render={<Link href="/dashboard/products/price-updater" />}
+						nativeButton={false}
+					>
+						<SlidersHorizontal className="size-3.5" />
+						Price Updater
 					</Button>
-
+					<Button
+						variant="outline"
+						size="sm"
+						className="text-xs gap-1.5"
+						render={<Link href="/dashboard/trade-schemes" />}
+						nativeButton={false}
+					>
+						Trade Schemes
+					</Button>
 					<Button
 						size="sm"
-						className="gap-1.5 cursor-pointer shadow-xs"
+						className="text-xs gap-1.5"
 						render={<Link href="/dashboard/products/add" />}
 						nativeButton={false}
 					>
 						<Plus className="size-3.5" />
-						Add Product
+						Add New Product
 					</Button>
 				</div>
 			</div>
@@ -234,48 +232,48 @@ export function ProductsView() {
 			{/* Top Stats Cards */}
 			<ProductStatsCards products={products} />
 
-			{/* Filter & Search Bar with Compact Dropdowns */}
-			<div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-				{/* Search Bar */}
-				<div className="relative flex-1 max-w-md">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-					<Input
-						placeholder="Search product name, SKU (e.g. CRN-CD70)..."
-						value={searchQuery}
-						onChange={(e) => {
-							setSearchQuery(e.target.value);
-							setCurrentPage(1);
-						}}
-						className="pl-9 h-9 text-sm"
-					/>
-				</div>
-
-				{/* Dropdowns Row: Branch, Bike Model, Stock Status */}
-				<div className="flex flex-wrap items-center gap-2">
-					{/* 1. Branch Dropdown */}
-					<Select
-						value={selectedBranch}
-						onValueChange={(val) => {
-							if (val) {
-								setSelectedBranch(val as typeof selectedBranch);
+			{/* Branch Location Switcher Tabs */}
+			<div className="flex items-center gap-1.5 border-b pb-2 overflow-x-auto">
+				{branchTabs.map((tab) => {
+					const isActive = selectedBranch === tab.id;
+					return (
+						<button
+							key={tab.id}
+							type="button"
+							onClick={() => {
+								setSelectedBranch(tab.id);
 								setCurrentPage(1);
-							}
-						}}
-					>
-						<SelectTrigger className="h-9 min-w-[145px] text-xs">
-							<Store className="size-3.5 text-muted-foreground mr-1" />
-							<SelectValue placeholder="Branch" />
-						</SelectTrigger>
-						<SelectContent>
-							{branchTabs.map((b) => (
-								<SelectItem key={b.id} value={b.id} className="text-xs">
-									{b.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+							}}
+							className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+								isActive
+									? "bg-primary text-primary-foreground shadow-xs"
+									: "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+							}`}
+						>
+							<Building2 className="size-3.5" />
+							{tab.label}
+						</button>
+					);
+				})}
+			</div>
 
-					{/* 2. Bike Model Dropdown */}
+			{/* Search, Filter & Bulk Action Toolbar */}
+			<div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+				<div className="flex flex-1 items-center gap-2 max-w-lg">
+					<div className="relative flex-1">
+						<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+						<Input
+							placeholder="Search by part name, SKU, category, or motorcycle..."
+							value={searchQuery}
+							onChange={(e) => {
+								setSearchQuery(e.target.value);
+								setCurrentPage(1);
+							}}
+							className="pl-9 h-9 text-xs"
+						/>
+					</div>
+
+					{/* Bike Model Filter */}
 					<Select
 						value={selectedModel}
 						onValueChange={(val) => {
@@ -285,20 +283,19 @@ export function ProductsView() {
 							}
 						}}
 					>
-						<SelectTrigger className="h-9 min-w-[150px] text-xs">
-							<Bike className="size-3.5 text-muted-foreground mr-1" />
-							<SelectValue placeholder="Bike Model" />
+						<SelectTrigger className="h-9 text-xs w-[140px] shrink-0">
+							<SelectValue placeholder="All Models" />
 						</SelectTrigger>
 						<SelectContent>
-							{bikeModelFilters.map((m) => (
-								<SelectItem key={m} value={m} className="text-xs">
-									{m === "all" ? "All Bike Models" : m}
+							{bikeModelFilters.map((model) => (
+								<SelectItem key={model} value={model} className="text-xs">
+									{model === "all" ? "All Models" : model}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
 
-					{/* 3. Stock Status Dropdown */}
+					{/* Stock Status Filter */}
 					<Select
 						value={selectedStatus}
 						onValueChange={(val) => {
@@ -308,9 +305,8 @@ export function ProductsView() {
 							}
 						}}
 					>
-						<SelectTrigger className="h-9 min-w-[140px] text-xs">
-							<Filter className="size-3.5 text-muted-foreground mr-1" />
-							<SelectValue placeholder="Stock Status" />
+						<SelectTrigger className="h-9 text-xs w-[130px] shrink-0">
+							<SelectValue placeholder="All Status" />
 						</SelectTrigger>
 						<SelectContent>
 							{statusFilters.map((st) => (
@@ -321,28 +317,54 @@ export function ProductsView() {
 						</SelectContent>
 					</Select>
 				</div>
+
+				{/* Right Side: Bulk Actions & Results Count */}
+				<div className="flex items-center gap-2 justify-end">
+					{selectedIds.length > 0 && (
+						<Button
+							variant="destructive"
+							size="sm"
+							onClick={() => setBulkDeleteConfirmOpen(true)}
+							className="text-xs gap-1.5 h-9 animate-in fade-in cursor-pointer"
+						>
+							<Trash2 className="size-3.5" />
+							Delete Selected ({selectedIds.length})
+						</Button>
+					)}
+					<span className="text-xs text-muted-foreground whitespace-nowrap">
+						Showing <strong>{products.length}</strong> of <strong>{totalCount}</strong> parts (12/page)
+					</span>
+				</div>
 			</div>
 
-			{/* Products Data Table */}
-			<ProductTable
-				products={paginatedProducts}
-				selectedIds={selectedIds}
-				onToggleSelectAll={handleToggleSelectAll}
-				onToggleSelectOne={handleToggleSelectOne}
-				onViewProduct={(product) => setViewProduct(product)}
-				onAddStock={(product) => setStockProduct(product)}
-				onDeleteProduct={(product) => setDeleteTarget(product)}
-			/>
+			{/* Products Table with 12 items server pagination */}
+			<div className="space-y-4">
+				{isLoading ? (
+					<div className="flex flex-col items-center justify-center py-20 bg-card rounded-xl border">
+						<Loader2 className="size-8 animate-spin text-primary mb-2" />
+						<p className="text-xs text-muted-foreground">Loading catalog from database...</p>
+					</div>
+				) : isError ? (
+					<div className="flex flex-col items-center justify-center py-20 bg-card rounded-xl border border-destructive/20 text-destructive">
+						<AlertTriangle className="size-8 mb-2" />
+						<p className="text-sm font-semibold">Failed to load products</p>
+						<p className="text-xs text-muted-foreground mt-1">{(error as Error)?.message}</p>
+					</div>
+				) : (
+					<ProductTable
+						products={products}
+						selectedIds={selectedIds}
+						onToggleSelectAll={handleToggleSelectAll}
+						onToggleSelectOne={handleToggleSelectOne}
+						onViewProduct={(p: ProductItem) => setViewProduct(p)}
+						onAddStock={(p: ProductItem) => setStockProduct(p)}
+						onDeleteProduct={(p: ProductItem) => setDeleteTarget(p)}
+					/>
+				)}
 
-			{/* Pagination Controls */}
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-				<p className="text-xs text-muted-foreground font-mono">
-					Showing {paginatedProducts.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} to{" "}
-					{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} items
-				</p>
-
+				{/* 12-Item Server Pagination */}
 				{totalPages > 1 && (
-					<Pagination className="mx-0 w-auto justify-end">
+					<Pagination className="justify-center sm:justify-end">
 						<PaginationContent>
 							<PaginationItem>
 								<PaginationPrevious
@@ -455,4 +477,3 @@ export function ProductsView() {
 		</div>
 	);
 }
-

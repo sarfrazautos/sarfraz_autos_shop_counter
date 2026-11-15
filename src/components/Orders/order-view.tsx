@@ -1,28 +1,43 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-	ShoppingBag,
+	Pagination,
+	PaginationContent,
+	PaginationItem,
+	PaginationLink,
+	PaginationNext,
+	PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
 	Search,
-	Filter,
 	Download,
-	Plus,
-	Building2,
 	Package,
+	Loader2,
+	AlertTriangle,
 } from "lucide-react";
-import { INITIAL_ORDERS, type OrderRecord, type OrderStatus, type OrderType } from "./types";
+import { queryKeys } from "@/lib/query-keys";
+import {
+	fetchOrders,
+	updateOrderStatus,
+	cancelOrder,
+} from "@/lib/api/orders/orders-api";
+import { INITIAL_ORDERS, type OrderRecord, type OrderStatus } from "./types";
 import { OrderStatsCards } from "./order-stats";
 import { OrderTable } from "./order-table";
 import { InvoiceSheet } from "./invoice-sheet";
 
 export function OrderView() {
-	const [orders, setOrders] = useState<OrderRecord[]>(INITIAL_ORDERS);
+	const queryClient = useQueryClient();
+
 	const [selectedType, setSelectedType] = useState<string>("all");
 	const [selectedStatus, setSelectedStatus] = useState<string>("all");
 	const [searchQuery, setSearchQuery] = useState("");
+	const [currentPage, setCurrentPage] = useState(1);
 	const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<OrderRecord | null>(null);
 	const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
 
@@ -32,13 +47,43 @@ export function OrderView() {
 		{ id: "Retail", label: "Retail" },
 	];
 
-	const statusFilters = [
-		{ id: "all", label: "All Status" },
-		{ id: "Completed", label: "Completed" },
-		{ id: "In-Progress", label: "In-Progress" },
-		{ id: "Pending", label: "Pending" },
-		{ id: "Cancelled", label: "Cancelled" },
-	];
+	// TanStack Query for 12-item paginated orders
+	const { data, isLoading, isError, error } = useQuery({
+		queryKey: queryKeys.orders.list({
+			page: currentPage,
+			search: searchQuery,
+			status: selectedStatus,
+			type: selectedType,
+		}),
+		queryFn: () =>
+			fetchOrders({
+				page: currentPage,
+				search: searchQuery,
+				status: selectedStatus,
+				type: selectedType,
+			}),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const ordersList: OrderRecord[] = data?.data && data.data.length > 0 ? data.data : INITIAL_ORDERS;
+	const totalPages = data?.pagination?.totalPages || 1;
+	const totalCount = data?.pagination?.totalCount || ordersList.length;
+
+	// Mutations
+	const statusMutation = useMutation({
+		mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
+			updateOrderStatus(id, status),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+		},
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => cancelOrder(id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+		},
+	});
 
 	const handleOpenInvoice = (order: OrderRecord) => {
 		setSelectedInvoiceOrder(order);
@@ -46,33 +91,14 @@ export function OrderView() {
 	};
 
 	const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
-		setOrders((prev) =>
-			prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-		);
+		statusMutation.mutate({ id: orderId, status: newStatus });
 	};
 
 	const handleDeleteOrder = (orderId: string) => {
-		setOrders((prev) => prev.filter((o) => o.id !== orderId));
+		if (confirm("Cancel this order and restore product stock?")) {
+			deleteMutation.mutate(orderId);
+		}
 	};
-
-	const filteredOrders = useMemo(() => {
-		return orders.filter((order) => {
-			const matchesType = selectedType === "all" || order.type === selectedType;
-			const matchesStatus = selectedStatus === "all" || order.status === selectedStatus;
-
-			const q = searchQuery.trim().toLowerCase();
-			if (!q) return matchesType && matchesStatus;
-
-			const matchesQuery =
-				order.id.toLowerCase().includes(q) ||
-				order.invoiceNumber.toLowerCase().includes(q) ||
-				order.customerName.toLowerCase().includes(q) ||
-				order.customerCity.toLowerCase().includes(q) ||
-				order.items.some((i) => i.name.toLowerCase().includes(q));
-
-			return matchesType && matchesStatus && matchesQuery;
-		});
-	}, [orders, selectedType, selectedStatus, searchQuery]);
 
 	return (
 		<div className="flex flex-col gap-6 w-full max-w-full min-w-0">
@@ -101,7 +127,7 @@ export function OrderView() {
 			</div>
 
 			{/* 3 Metric Cards */}
-			<OrderStatsCards orders={orders} />
+			<OrderStatsCards orders={ordersList} />
 
 			{/* Filter Controls Bar */}
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
@@ -111,7 +137,10 @@ export function OrderView() {
 					<Input
 						placeholder="Search by Order ID (#SA-...), dealer name, city, or product..."
 						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
+						onChange={(e) => {
+							setSearchQuery(e.target.value);
+							setCurrentPage(1);
+						}}
 						className="pl-9 h-9 text-sm"
 					/>
 				</div>
@@ -127,7 +156,10 @@ export function OrderView() {
 							<button
 								key={tab.id}
 								type="button"
-								onClick={() => setSelectedType(tab.id)}
+								onClick={() => {
+									setSelectedType(tab.id);
+									setCurrentPage(1);
+								}}
 								className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 cursor-pointer ${
 									active
 										? "bg-primary text-primary-foreground shadow-2xs"
@@ -141,13 +173,71 @@ export function OrderView() {
 				</div>
 			</div>
 
-			{/* Main Order Table */}
-			<OrderTable
-				orders={filteredOrders}
-				onViewInvoice={handleOpenInvoice}
-				onStatusChange={handleStatusChange}
-				onDeleteOrder={handleDeleteOrder}
-			/>
+			{/* Main Order Table with Loading and Error states */}
+			{isLoading ? (
+				<div className="flex flex-col items-center justify-center py-20 bg-card rounded-xl border">
+					<Loader2 className="size-8 animate-spin text-primary mb-2" />
+					<p className="text-xs text-muted-foreground">Loading orders from database...</p>
+				</div>
+			) : isError ? (
+				<div className="flex flex-col items-center justify-center py-20 bg-card rounded-xl border border-destructive/20 text-destructive">
+					<AlertTriangle className="size-8 mb-2" />
+					<p className="text-sm font-semibold">Failed to load orders</p>
+					<p className="text-xs text-muted-foreground mt-1">{(error as Error)?.message}</p>
+				</div>
+			) : (
+				<OrderTable
+					orders={ordersList}
+					onViewInvoice={handleOpenInvoice}
+					onStatusChange={handleStatusChange}
+					onDeleteOrder={handleDeleteOrder}
+				/>
+			)}
+
+			{/* 12-Item Server Pagination */}
+			{totalPages > 1 && (
+				<Pagination className="justify-center sm:justify-end">
+					<PaginationContent>
+						<PaginationItem>
+							<PaginationPrevious
+								href="#"
+								onClick={(e) => {
+									e.preventDefault();
+									if (currentPage > 1) setCurrentPage((p) => p - 1);
+								}}
+								className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+							/>
+						</PaginationItem>
+
+						{Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+							<PaginationItem key={page}>
+								<PaginationLink
+									href="#"
+									isActive={page === currentPage}
+									onClick={(e) => {
+										e.preventDefault();
+										setCurrentPage(page);
+									}}
+									className="cursor-pointer"
+								>
+									{page}
+								</PaginationLink>
+							</PaginationItem>
+						))}
+
+						<PaginationItem>
+							<PaginationNext
+								href="#"
+								onClick={(e) => {
+									e.preventDefault();
+									if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+								}}
+								className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+							/>
+						</PaginationItem>
+					</PaginationContent>
+				</Pagination>
+			)}
 
 			{/* Left-Side Sheet Invoice Drawer with Print Button */}
 			<InvoiceSheet
@@ -158,4 +248,3 @@ export function OrderView() {
 		</div>
 	);
 }
-

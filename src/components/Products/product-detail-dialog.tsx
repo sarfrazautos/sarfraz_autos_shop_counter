@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
 	Dialog,
 	DialogContent,
@@ -34,43 +35,58 @@ export function ProductDetailDialog({ product, isOpen, onClose }: ProductDetailD
 		<Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
-					<div className="flex items-center gap-2">
-						<span className="font-mono text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
-							{product.sku}
-						</span>
-						<Badge
-							variant="outline"
-							className={`text-xs ${
-								product.status === "In Stock"
-									? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-									: product.status === "Low Stock"
-									? "bg-amber-500/10 text-amber-600 border-amber-500/20"
-									: "bg-rose-500/10 text-rose-600 border-rose-500/20"
-							}`}
-						>
-							{product.status}
-						</Badge>
-						{product.type && (
-							<Badge
-								variant="outline"
-								className={`text-xs ${
-									product.type === "Wholesale"
-										? "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900"
-										: product.type === "Retail"
-										? "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-900"
-										: "bg-muted text-muted-foreground"
-								}`}
-							>
-								{product.type}
-							</Badge>
-						)}
+					<div className="flex items-start gap-4 pb-1">
+						{/* Product Image Thumbnail */}
+						<div className="size-20 rounded-xl border bg-muted/30 p-2 shrink-0 flex items-center justify-center overflow-hidden shadow-xs">
+							<Image
+								src={product.imageUrl || "/logo.png"}
+								alt={product.name}
+								width={80}
+								height={80}
+								className="size-full object-contain"
+							/>
+						</div>
+
+						<div className="flex-1 min-w-0 space-y-1.5">
+							<div className="flex flex-wrap items-center gap-1.5">
+								<span className="font-mono text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
+									{product.sku}
+								</span>
+								<Badge
+									variant="outline"
+									className={`text-xs ${
+										product.status === "In Stock"
+											? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+											: product.status === "Low Stock"
+											? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+											: "bg-rose-500/10 text-rose-600 border-rose-500/20"
+									}`}
+								>
+									{product.status}
+								</Badge>
+								{product.type && (
+									<Badge
+										variant="outline"
+										className={`text-xs ${
+											product.type === "Wholesale"
+												? "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900"
+												: product.type === "Retail"
+												? "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-900"
+												: "bg-muted text-muted-foreground"
+										}`}
+									>
+										{product.type}
+									</Badge>
+								)}
+							</div>
+							<DialogTitle className="text-base font-bold font-heading text-foreground leading-snug line-clamp-2">
+								{product.name}
+							</DialogTitle>
+							<DialogDescription className="text-xs text-muted-foreground">
+								Spare part profile & branch inventory distribution
+							</DialogDescription>
+						</div>
 					</div>
-					<DialogTitle className="text-lg font-bold font-heading text-foreground pt-1">
-						{product.name}
-					</DialogTitle>
-					<DialogDescription className="text-xs text-muted-foreground">
-						Complete spare part profile, pricing, and branch inventory distribution.
-					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4 py-2 text-sm">

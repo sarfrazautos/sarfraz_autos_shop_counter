@@ -126,7 +126,7 @@ export function OrderTable({
 		if (rawPhone.startsWith("0")) rawPhone = "92" + rawPhone.slice(1);
 
 		const msg =
-			`*SARFRAZ AUTOS (SHAHMIR) — ORDER ${order.invoiceNumber}*\n` +
+			`*SARFRAZ AUTOS — ORDER ${order.invoiceNumber}*\n` +
 			`Customer: ${order.customerName} (${order.customerCity})\n` +
 			`Total Bill: Rs. ${order.netBill.toLocaleString()}\n` +
 			`Cash Paid: Rs. ${order.cashReceived.toLocaleString()}\n` +

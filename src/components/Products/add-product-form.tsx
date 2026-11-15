@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { toast } from "@/components/ui/toast";
 import {
 	Package,
 	Plus,
@@ -25,6 +27,9 @@ import {
 	PencilLine,
 	ShieldCheck,
 	TrendingUp,
+	ImageIcon,
+	UploadCloud,
+	Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +102,42 @@ export function AddProductForm() {
 	const [brandName, setBrandName] = useState("Crown");
 	const [category, setCategory] = useState<ProductCategory>("Engine & Transmission");
 	const [sku, setSku] = useState("CRN-70CC-842");
+	const [productImage, setProductImage] = useState<string>("/logo.png");
+	const [isUploadingImage, setIsUploadingImage] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		try {
+			setIsUploadingImage(true);
+			const formData = new FormData();
+			formData.append("file", file);
+
+			const res = await fetch("/api/upload", {
+				method: "POST",
+				body: formData,
+			});
+
+			const json = await res.json();
+			if (json.success && json.url) {
+				setProductImage(json.url);
+				toast.add({
+					title: "Photo Uploaded",
+					description: "Uploaded product image to Vercel Blob successfully!",
+					type: "success",
+				});
+			} else {
+				alert(json.error || "Failed to upload image to Vercel Blob");
+			}
+		} catch (err: any) {
+			console.error("Upload error:", err);
+			alert("Error uploading image: " + err.message);
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
 
 	// Multi-select bike models (70cc, 100cc, 110cc, etc.)
 	const [selectedModels, setSelectedModels] = useState<string[]>(["70cc", "100cc", "Honda CD70"]);
@@ -186,16 +227,41 @@ export function AddProductForm() {
 	};
 
 	// Form Submit handler
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsSubmitting(true);
 		setShowSuccessBanner(false);
 
-		// Simulate API call with realistic latency
-		setTimeout(() => {
+		try {
+			const { createProduct } = await import("@/lib/api/products/products-api");
+			await createProduct({
+				name: productName,
+				sku,
+				brand: brandName,
+				category,
+				type: listingType,
+				bikeModel: selectedModels.join(", ") || "Universal",
+				costPrice,
+				retailPrice,
+				price: wholesalePrice,
+				wholesalePrice,
+				totalStock,
+				lowStockThreshold: LOW_STOCK_THRESHOLD,
+				unit: "Pcs",
+				imageUrl: productImage || "/logo.png",
+				status: totalStock === 0 ? "Out of Stock" : totalStock <= LOW_STOCK_THRESHOLD ? "Low Stock" : "In Stock",
+				saddarStock,
+				gulshanStock,
+				dhaStock,
+			} as any);
+
 			setIsSubmitting(false);
 			setShowSuccessBanner(true);
-		}, 1200);
+		} catch (err: any) {
+			console.error("Failed to add product:", err);
+			alert(err.message || "Failed to create product");
+			setIsSubmitting(false);
+		}
 	};
 
 	// Profit Calculations
@@ -471,6 +537,98 @@ export function AddProductForm() {
 								>
 									Automatic
 								</Badge>
+							</div>
+						</div>
+					</div>
+
+					{/* PRODUCT IMAGE & VISUAL ASSETS SECTION */}
+					<div className="rounded-xl border bg-card p-5 shadow-xs space-y-4">
+						<div className="flex items-center justify-between border-b pb-3">
+							<div className="flex items-center gap-2">
+								<div className="size-7 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400">
+									<ImageIcon className="size-4" />
+								</div>
+								<div>
+									<h2 className="text-sm font-semibold text-foreground">Product Image & Visuals</h2>
+									<p className="text-[11px] text-muted-foreground">Attach product photo for counter catalog & invoice display</p>
+								</div>
+							</div>
+							<Badge variant="outline" className={`text-[10px] font-mono ${productImage.startsWith("http") ? "bg-sky-500/10 text-sky-600 border-sky-500/30 font-semibold" : ""}`}>
+								{productImage.startsWith("http") ? "Vercel Blob Hosted" : "Default Store Logo"}
+							</Badge>
+						</div>
+
+						<div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+							{/* Image preview box */}
+							<div className="sm:col-span-4 flex flex-col items-center justify-center p-3 rounded-xl border bg-muted/20 border-dashed">
+								<div className="size-24 rounded-lg bg-card border p-2 flex items-center justify-center shadow-xs overflow-hidden">
+									<Image
+										src={productImage || "/logo.png"}
+										alt="Product Preview"
+										width={80}
+										height={80}
+										className="size-full object-contain"
+									/>
+								</div>
+								<span className="text-[10px] font-mono text-muted-foreground mt-2 truncate max-w-full">
+									{productImage.startsWith("http") ? "Vercel Blob Active" : "public/logo.png"}
+								</span>
+							</div>
+
+							{/* Upload controls */}
+							<div className="sm:col-span-8 space-y-2.5">
+								<div className="p-3 rounded-lg border bg-background/50 space-y-2">
+									<div className="flex items-center justify-between text-xs">
+										<span className="font-semibold text-foreground flex items-center gap-1.5">
+											<UploadCloud className="size-3.5 text-primary" />
+											Product Photo File
+										</span>
+										<Badge variant="secondary" className="text-[10px]">
+											{productImage.startsWith("http") ? "CDN Linked" : "Placeholder"}
+										</Badge>
+									</div>
+									<p className="text-[11px] text-muted-foreground">
+										Upload clear spare parts photos to Vercel Blob storage (1.0 GB Free). PNG, JPG or WebP supported.
+									</p>
+									<div className="flex items-center gap-2 pt-1">
+										<input
+											ref={fileInputRef}
+											type="file"
+											accept="image/*"
+											className="hidden"
+											onChange={handleFileChange}
+										/>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={isUploadingImage}
+											onClick={() => fileInputRef.current?.click()}
+											className="h-8 text-xs cursor-pointer gap-1.5"
+										>
+											{isUploadingImage ? (
+												<>
+													<Loader2 className="size-3 animate-spin text-primary" /> Uploading to Blob...
+												</>
+											) : (
+												<>
+													<UploadCloud className="size-3 text-primary" /> Upload Photo
+												</>
+											)}
+										</Button>
+										{productImage !== "/logo.png" && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												onClick={() => setProductImage("/logo.png")}
+												className="h-8 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+											>
+												Reset to Logo
+											</Button>
+										)}
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -1070,6 +1228,20 @@ export function AddProductForm() {
 								>
 									{stockStatus}
 								</Badge>
+							</div>
+
+							{/* Product Image Preview in Card */}
+							<div className="w-full h-32 rounded-lg border bg-muted/30 p-2 flex items-center justify-center overflow-hidden relative">
+								<Image
+									src={productImage || "/logo.png"}
+									alt={productName || "Product"}
+									width={100}
+									height={100}
+									className="max-h-full max-w-full object-contain"
+								/>
+								<span className="absolute bottom-1.5 right-1.5 text-[9px] font-mono bg-background/80 px-1.5 py-0.5 rounded text-muted-foreground border">
+									PNG
+								</span>
 							</div>
 
 							{/* Product Title */}

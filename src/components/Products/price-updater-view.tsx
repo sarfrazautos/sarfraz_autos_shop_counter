@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchProducts, bulkUpdatePrices } from "@/lib/api/products/products-api";
 import {
 	BadgeDollarSign,
 	Search,
@@ -91,8 +95,23 @@ const BIKE_MODELS = [
 ];
 
 export function PriceUpdaterView() {
+	const queryClient = useQueryClient();
+
 	// Main Products state
 	const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
+
+	// Fetch database products
+	const { data: dbProductsData } = useQuery({
+		queryKey: queryKeys.products.list({ page: 1 }),
+		queryFn: () => fetchProducts({ page: 1 }),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	useEffect(() => {
+		if (dbProductsData?.data && dbProductsData.data.length > 0) {
+			setProducts(dbProductsData.data);
+		}
+	}, [dbProductsData]);
 
 	// Filter states
 	const [searchQuery, setSearchQuery] = useState("");
@@ -244,19 +263,34 @@ export function PriceUpdaterView() {
 	};
 
 	// Save and commit updated prices
-	const handleSavePrices = () => {
+	const handleSavePrices = async () => {
 		setIsSaving(true);
 		const targetIds = selectedIds.length > 0 ? selectedIds : filteredIds;
 
-		setTimeout(() => {
+		const updates = targetIds.map((id) => {
+			const prod = products.find((p) => p.id === id);
+			const newPrice = calculateNewPrice(prod?.price || 0);
+			return {
+				id,
+				newPrice,
+				field: (targetPriceField === "wholesale" ? "wholesale" : "retail") as "wholesale" | "retail",
+				reason: `Bulk price adjustment ${adjustmentDirection === "increase" ? "+" : "-"}${adjustmentValue}${
+					adjustmentType === "percentage" ? "%" : " Rs."
+				}`,
+			};
+		});
+
+		try {
+			await bulkUpdatePrices(updates);
+			queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+
 			setProducts((prev) =>
 				prev.map((p) => {
 					if (!targetIds.includes(p.id)) return p;
-					const newRetail =
-						targetPriceField === "wholesale" ? p.price : calculateNewPrice(p.price);
+					const newPrice = calculateNewPrice(p.price);
 					return {
 						...p,
-						price: newRetail,
+						price: newPrice,
 						updatedAt: "Just now",
 					};
 				})
@@ -270,9 +304,13 @@ export function PriceUpdaterView() {
 				count: targetIds.length,
 				adjustmentText: adjLabel,
 			});
+		} catch (err: any) {
+			console.error("Bulk price update error:", err);
+			alert(err.message || "Failed to update prices");
+		} finally {
 			setIsSaving(false);
 			setIsPreviewActive(false);
-		}, 1200);
+		}
 	};
 
 	// Pagination slicing
@@ -816,13 +854,24 @@ export function PriceUpdaterView() {
 												</TableCell>
 
 												<TableCell className="py-3">
-													<div className="flex flex-col gap-0.5">
-														<span className="font-semibold text-foreground text-xs leading-tight">
-															{p.name}
-														</span>
-														<span className="font-mono text-[10px] text-muted-foreground">
-															{p.sku}
-														</span>
+													<div className="flex items-center gap-2.5">
+														<div className="size-9 rounded-md border bg-muted/30 p-1 shrink-0 flex items-center justify-center overflow-hidden shadow-2xs">
+															<Image
+																src={p.imageUrl || "/logo.png"}
+																alt={p.name}
+																width={32}
+																height={32}
+																className="size-full object-contain"
+															/>
+														</div>
+														<div className="flex flex-col gap-0.5 min-w-0">
+															<span className="font-semibold text-foreground text-xs leading-tight truncate max-w-[240px]">
+																{p.name}
+															</span>
+															<span className="font-mono text-[10px] text-muted-foreground">
+																{p.sku}
+															</span>
+														</div>
 													</div>
 												</TableCell>
 

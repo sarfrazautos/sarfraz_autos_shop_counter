@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchTeamMembers, createTeamMember, deleteTeamMember } from "@/lib/api/team/team-api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,15 +14,67 @@ import { TeamCard } from "./team-card";
 import { AddMemberSheet } from "./add-member-sheet";
 
 export function TeamView() {
-	const [members, setMembers] = useState<TeamMember[]>(INITIAL_MEMBERS);
+	const queryClient = useQueryClient();
+
 	const [selectedBranch, setSelectedBranch] = useState<BranchId>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 
+	const { data: teamData } = useQuery({
+		queryKey: queryKeys.team.list(selectedBranch),
+		queryFn: () => fetchTeamMembers(selectedBranch),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const [members, setMembers] = useState<TeamMember[]>(INITIAL_MEMBERS);
+
+	useEffect(() => {
+		if (teamData?.data && teamData.data.length > 0) {
+			setMembers(
+				teamData.data.map((m) => ({
+					id: m.id,
+					name: m.name,
+					role: m.role,
+					email: m.email,
+					phone: m.phone,
+					branchId: m.branchId as any,
+					branch: m.branchName || (m.branchId === "main" ? "1st Branch (Saddar)" : m.branchId === "branch-2" ? "2nd Branch (Gulshan)" : "3rd Branch (DHA)"),
+					status: m.status as any,
+					avatarUrl: m.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+					joinedDate: m.joinedDate ? new Date(m.joinedDate).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "Jan 2024",
+				}))
+			);
+		}
+	}, [teamData]);
+
+	const addMutation = useMutation({
+		mutationFn: (payload: any) => createTeamMember(payload),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.team.all });
+		},
+	});
+
+	const deleteMut = useMutation({
+		mutationFn: (id: string) => deleteTeamMember(id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.team.all });
+		},
+	});
+
 	const handleAddMember = (newMember: TeamMember) => {
+		addMutation.mutate({
+			name: newMember.name,
+			role: newMember.role,
+			email: newMember.email,
+			phone: newMember.phone,
+			branchId: newMember.branchId,
+			status: newMember.status,
+			avatarUrl: newMember.avatarUrl,
+		});
 		setMembers((prev) => [newMember, ...prev]);
 	};
 
 	const handleDeleteMember = (id: string) => {
+		deleteMut.mutate(id);
 		setMembers((prev) => prev.filter((m) => m.id !== id));
 	};
 

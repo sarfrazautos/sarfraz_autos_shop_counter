@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchLedgerAccounts, addLedgerTransaction } from "@/lib/api/ledger/ledger-api";
 import {
 	BookOpen,
 	Search,
@@ -47,10 +50,40 @@ import {
 } from "./types";
 
 export function LedgerView() {
-	const [accounts, setAccounts] = useState<CustomerLedgerAccount[]>(INITIAL_LEDGER_ACCOUNTS);
+	const queryClient = useQueryClient();
+
 	const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
 		INITIAL_LEDGER_ACCOUNTS[0].id
 	);
+
+	// TanStack Query for customer ledger accounts & transactions
+	const { data: ledgerData } = useQuery({
+		queryKey: queryKeys.ledger.accounts(selectedCustomerId),
+		queryFn: () => fetchLedgerAccounts(selectedCustomerId),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const [accounts, setAccounts] = useState<CustomerLedgerAccount[]>(INITIAL_LEDGER_ACCOUNTS);
+
+	useEffect(() => {
+		if (ledgerData?.data?.accounts && ledgerData.data.accounts.length > 0) {
+			setAccounts(ledgerData.data.accounts);
+		}
+	}, [ledgerData]);
+
+	// Mutation for recording payment recovery
+	const recoveryMutation = useMutation({
+		mutationFn: (payload: { customerId: string; amount: number; type: string; notes?: string; collector?: string }) =>
+			addLedgerTransaction(payload.customerId, {
+				transactionType: payload.type,
+				amount: payload.amount,
+				description: payload.notes,
+				collectorName: payload.collector,
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ledger.all });
+		},
+	});
 	const [searchFilter, setSearchFilter] = useState("");
 	const [dateFrom, setDateFrom] = useState("2026-11-01");
 	const [dateTo, setDateTo] = useState("2026-11-14");
@@ -111,6 +144,14 @@ export function LedgerView() {
 			alert("Please enter a valid recovery amount.");
 			return;
 		}
+
+		recoveryMutation.mutate({
+			customerId: currentAccount.id,
+			amount: recoveryAmount,
+			type: recoveryMode,
+			notes: recoveryNotes.trim() ? recoveryNotes : `Payment collected by ${recoveryCollector}`,
+			collector: recoveryCollector,
+		});
 
 		const newBalance = currentAccount.currentBalance - recoveryAmount;
 		const newTx: LedgerTransaction = {
@@ -181,7 +222,7 @@ export function LedgerView() {
 		if (rawPhone.startsWith("0")) rawPhone = "92" + rawPhone.slice(1);
 
 		const msg =
-			`*SARFRAZ AUTOS (SHAHMIR) — CUSTOMER KHATA STATEMENT*\n` +
+			`*SARFRAZ AUTOS — CUSTOMER KHATA STATEMENT*\n` +
 			`━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
 			`*Customer:* ${currentAccount.name}\n` +
 			`*Market/Route:* ${currentAccount.route} (${currentAccount.city})\n` +

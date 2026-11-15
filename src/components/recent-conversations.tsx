@@ -21,13 +21,22 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { ShoppingBag, ArrowRight } from "lucide-react";
-import { INITIAL_ORDERS } from "@/components/Orders/types";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchOrders } from "@/lib/api/orders/orders-api";
+import { INITIAL_ORDERS, type OrderRecord } from "@/components/Orders/types";
 
 export function RecentConversations({
 	className,
 	...props
 }: ComponentProps<typeof Card>) {
-	const recentOrders = INITIAL_ORDERS.slice(0, 5);
+	const { data: ordersData } = useQuery({
+		queryKey: queryKeys.orders.list({ page: 1 }),
+		queryFn: () => fetchOrders({ page: 1 }),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const recentOrders = ordersData?.data && ordersData.data.length > 0 ? ordersData.data.slice(0, 5) : INITIAL_ORDERS.slice(0, 5);
 
 	return (
 		<Card

@@ -7,6 +7,18 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+      {
+        protocol: "https",
+        hostname: "vercel-storage.com",
+      },
+    ],
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794706784406,
+      "tag": "0000_medical_proteus",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794707408915,
+      "tag": "0001_low_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794709778618,
+      "tag": "0002_amusing_thing",
+      "breakpoints": true
+    }
+  ]
+}

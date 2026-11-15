@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import {
 	Dialog,
 	DialogContent,
@@ -42,15 +43,25 @@ export function QuickStockDialog({ product, isOpen, onClose, onAddStock }: Quick
 		<Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-						<Plus className="size-4" />
+					<div className="flex items-center gap-3">
+						<div className="size-12 rounded-lg border bg-muted/30 p-1.5 shrink-0 flex items-center justify-center overflow-hidden shadow-2xs">
+							<Image
+								src={product.imageUrl || "/logo.png"}
+								alt={product.name}
+								width={40}
+								height={40}
+								className="size-full object-contain"
+							/>
+						</div>
+						<div>
+							<DialogTitle className="text-base font-semibold">
+								Restock Inventory
+							</DialogTitle>
+							<DialogDescription className="text-xs text-muted-foreground line-clamp-1">
+								{product.name} ({product.sku})
+							</DialogDescription>
+						</div>
 					</div>
-					<DialogTitle className="text-base font-semibold">
-						Restock Product Inventory
-					</DialogTitle>
-					<DialogDescription className="text-xs text-muted-foreground">
-						Add new incoming stock for <span className="font-semibold text-foreground">{product.name}</span>.
-					</DialogDescription>
 				</DialogHeader>
 
 				<form onSubmit={handleSave} className="space-y-4 py-2">

@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import {
+	fetchNotifications,
+	markNotificationRead,
+	markAllNotificationsRead,
+} from "@/lib/api/notifications/notifications-api";
 import {
 	Bell,
 	CheckCheck,
@@ -134,11 +141,50 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export function NotificationsView() {
-	const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+	const queryClient = useQueryClient();
+
 	const [selectedTab, setSelectedTab] = useState<"all" | "unread" | NotificationType>("all");
 
+	// TanStack Query for notifications
+	const { data: notifData } = useQuery({
+		queryKey: queryKeys.notifications.list({
+			type: selectedTab !== "all" && selectedTab !== "unread" ? selectedTab : undefined,
+			unread: selectedTab === "unread",
+		}),
+		queryFn: () =>
+			fetchNotifications({
+				type: selectedTab !== "all" && selectedTab !== "unread" ? selectedTab : undefined,
+				unread: selectedTab === "unread",
+			}),
+		staleTime: 1000 * 60 * 3,
+	});
+
+	const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+
+	useEffect(() => {
+		if (notifData?.data && notifData.data.length > 0) {
+			setNotifications(
+				notifData.data.map((n) => ({
+					id: n.id,
+					title: n.title,
+					description: n.description,
+					type: n.type as NotificationType,
+					time: n.formattedTime || "Just now",
+					timestamp: n.time ? new Date(n.time).toLocaleString() : "Recent",
+					branch: "Saddar (Main)",
+					read: n.isRead,
+					actionUrl: n.actionUrl || undefined,
+					actionLabel: n.actionLabel || undefined,
+					urgent: n.isUrgent,
+				}))
+			);
+		}
+	}, [notifData]);
+
 	// Mark all as read
-	const handleMarkAllAsRead = () => {
+	const handleMarkAllAsRead = async () => {
+		await markAllNotificationsRead();
+		queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 	};
 
@@ -148,7 +194,9 @@ export function NotificationsView() {
 	};
 
 	// Toggle individual read
-	const handleToggleRead = (id: string) => {
+	const handleToggleRead = async (id: string) => {
+		await markNotificationRead(id);
+		queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
 		setNotifications((prev) =>
 			prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
 		);
@@ -160,7 +208,7 @@ export function NotificationsView() {
 	};
 
 	// Unread count
-	const unreadCount = notifications.filter((n) => !n.read).length;
+	const unreadCount = notifData?.unreadCount ?? notifications.filter((n) => !n.read).length;
 
 	// Filter notifications
 	const filteredNotifications = useMemo(() => {

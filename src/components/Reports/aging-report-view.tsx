@@ -1,6 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchAgingReport } from "@/lib/api/reports/reports-api";
+import {
+	Pagination,
+	PaginationContent,
+	PaginationItem,
+	PaginationLink,
+	PaginationNext,
+	PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
 	Clock,
 	Search,
@@ -37,37 +48,38 @@ import {
 import Link from "next/link";
 
 export function AgingReportView() {
-	const [agingData, setAgingData] = useState<CustomerAgingRow[]>(INITIAL_AGING_DATA);
 	const [selectedRoute, setSelectedRoute] = useState("All Routes");
 	const [selectedSalesman, setSelectedSalesman] = useState("All Collectors");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [filterMinDays, setFilterMinDays] = useState<"All" | "30+" | "60+" | "90+">("All");
+	const [currentPage, setCurrentPage] = useState(1);
+
+	// TanStack Query for 12-item paginated aging receivables
+	const { data: reportResponse } = useQuery({
+		queryKey: queryKeys.reports.aging({
+			page: currentPage,
+			search: searchQuery,
+			route: selectedRoute,
+			salesman: selectedSalesman,
+			minDays: filterMinDays,
+		}),
+		queryFn: () =>
+			fetchAgingReport({
+				page: currentPage,
+				search: searchQuery,
+				route: selectedRoute,
+				salesman: selectedSalesman,
+				minDays: filterMinDays,
+			}),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const agingRows: CustomerAgingRow[] = reportResponse?.data && reportResponse.data.length > 0 ? reportResponse.data : INITIAL_AGING_DATA;
+	const totalPages = reportResponse?.pagination?.totalPages || 1;
+	const totalCount = reportResponse?.pagination?.totalCount || agingRows.length;
 
 	// Filtered Rows
-	const filteredRows = useMemo(() => {
-		return agingData.filter((row) => {
-			const matchesRoute =
-				selectedRoute === "All Routes" || row.route === selectedRoute;
-			const matchesSalesman =
-				selectedSalesman === "All Collectors" || row.salesman === selectedSalesman;
-			const matchesSearch =
-				!searchQuery.trim() ||
-				row.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				row.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				row.route.toLowerCase().includes(searchQuery.toLowerCase());
-
-			let matchesDays = true;
-			if (filterMinDays === "30+") {
-				matchesDays = row.bucket31To60 > 0 || row.bucket61To90 > 0 || row.bucketAbove90 > 0;
-			} else if (filterMinDays === "60+") {
-				matchesDays = row.bucket61To90 > 0 || row.bucketAbove90 > 0;
-			} else if (filterMinDays === "90+") {
-				matchesDays = row.bucketAbove90 > 0;
-			}
-
-			return matchesRoute && matchesSalesman && matchesSearch && matchesDays;
-		});
-	}, [agingData, selectedRoute, selectedSalesman, searchQuery, filterMinDays]);
+	const filteredRows = agingRows;
 
 	// KPI Metrics Totals
 	const totalReceivables = useMemo(() => {
@@ -97,7 +109,7 @@ export function AgingReportView() {
 
 		const overdueTotal = row.bucket31To60 + row.bucket61To90 + row.bucketAbove90;
 		const msg =
-			`*SARFRAZ AUTOS (SHAHMIR) — PAYMENT RECOVERY REMINDER*\n` +
+			`*SARFRAZ AUTOS — PAYMENT RECOVERY REMINDER*\n` +
 			`━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
 			`*Dear:* ${row.customerName} (${row.city})\n` +
 			`*Route:* ${row.route} | *Collector:* ${row.salesman}\n\n` +
@@ -437,6 +449,51 @@ export function AgingReportView() {
 					</div>
 				</div>
 			</div>
+
+			{/* 12-Item Server Pagination */}
+			{totalPages > 1 && (
+				<Pagination className="justify-center sm:justify-end">
+					<PaginationContent>
+						<PaginationItem>
+							<PaginationPrevious
+								href="#"
+								onClick={(e) => {
+									e.preventDefault();
+									if (currentPage > 1) setCurrentPage((p) => p - 1);
+								}}
+								className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+							/>
+						</PaginationItem>
+
+						{Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+							<PaginationItem key={page}>
+								<PaginationLink
+									href="#"
+									isActive={page === currentPage}
+									onClick={(e) => {
+										e.preventDefault();
+										setCurrentPage(page);
+									}}
+									className="cursor-pointer"
+								>
+									{page}
+								</PaginationLink>
+							</PaginationItem>
+						))}
+
+						<PaginationItem>
+							<PaginationNext
+								href="#"
+								onClick={(e) => {
+									e.preventDefault();
+									if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+								}}
+								className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+							/>
+						</PaginationItem>
+					</PaginationContent>
+				</Pagination>
+			)}
 		</div>
 	);
 }

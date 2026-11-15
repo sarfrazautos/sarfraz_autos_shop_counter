@@ -1,15 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
 	Database,
-	HardDrive,
 	Image as ImageIcon,
-	Network,
-	Cpu,
 	Zap,
-	ShieldCheck,
-	CheckCircle2,
 } from "lucide-react";
 import type { StorageQuota } from "./types";
 
@@ -20,11 +14,11 @@ interface StorageMetricsProps {
 export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 	const dbQuota = quotas.find((q) => q.service.includes("Database Storage")) ?? quotas[0];
 	const blobQuota = quotas.find((q) => q.service.includes("Vercel Blob")) ?? quotas[1];
-	const bandwidthQuota = quotas.find((q) => q.service.includes("Bandwidth")) ?? quotas[3];
+	const bandwidthQuota = quotas.find((q) => q.service.includes("Bandwidth")) ?? quotas[2] ?? quotas[0];
 
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-			{/* 1. Database Storage */}
+			{/* 1. Database Storage (Neon Serverless PostgreSQL) */}
 			<Card className="rounded-xl border bg-card p-4 shadow-2xs hover:shadow-xs transition-shadow">
 				<CardContent className="p-0 flex flex-col justify-between h-full gap-3">
 					<div className="flex items-start justify-between gap-2">
@@ -33,12 +27,12 @@ export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 								<Database className="size-4" />
 							</div>
 							<div>
-								<h3 className="font-semibold text-xs text-foreground">Database Storage</h3>
-								<p className="text-[11px] text-muted-foreground">Postgres Free Tier (500 MB)</p>
+								<h3 className="font-semibold text-xs text-foreground">Postgres Database Storage</h3>
+								<p className="text-[11px] text-muted-foreground">Neon Serverless (512 MB Free)</p>
 							</div>
 						</div>
-						<Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-0">
-							Healthy
+						<Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-0 font-medium">
+							Live Neon
 						</Badge>
 					</div>
 
@@ -50,12 +44,12 @@ export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 						<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
 							<div
 								className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-								style={{ width: `${dbQuota.percentUsed}%` }}
+								style={{ width: `${Math.max(2, Math.min(100, dbQuota.percentUsed))}%` }}
 							/>
 						</div>
 						<div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
 							<span>{dbQuota.percentUsed}% used</span>
-							<span>{dbQuota.details.split(" ")[0]} {dbQuota.details.split(" ")[1]} left</span>
+							<span className="font-medium text-foreground/80">{dbQuota.details}</span>
 						</div>
 					</div>
 				</CardContent>
@@ -70,12 +64,12 @@ export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 								<ImageIcon className="size-4" />
 							</div>
 							<div>
-								<h3 className="font-semibold text-xs text-foreground">Vercel Blob Storage</h3>
-								<p className="text-[11px] text-muted-foreground">Product Images (1.0 GB Free)</p>
+								<h3 className="font-semibold text-xs text-foreground">Vercel Blob Media</h3>
+								<p className="text-[11px] text-muted-foreground">Product Photos & Catalog (1.0 GB)</p>
 							</div>
 						</div>
-						<Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 border-0">
-							Optimal
+						<Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 border-0 font-medium">
+							Blob Connected
 						</Badge>
 					</div>
 
@@ -87,12 +81,12 @@ export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 						<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
 							<div
 								className="h-full rounded-full bg-sky-500 transition-all duration-300"
-								style={{ width: `${blobQuota.percentUsed}%` }}
+								style={{ width: `${Math.max(1, Math.min(100, blobQuota.percentUsed))}%` }}
 							/>
 						</div>
 						<div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
 							<span>{blobQuota.percentUsed}% used</span>
-							<span>{blobQuota.details.split(" ")[0]} {blobQuota.details.split(" ")[1]} left</span>
+							<span className="font-medium text-foreground/80">{blobQuota.details}</span>
 						</div>
 					</div>
 				</CardContent>
@@ -107,12 +101,12 @@ export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 								<Zap className="size-4" />
 							</div>
 							<div>
-								<h3 className="font-semibold text-xs text-foreground">Vercel Fast Edge</h3>
-								<p className="text-[11px] text-muted-foreground">100 GB Monthly Quota</p>
+								<h3 className="font-semibold text-xs text-foreground">Vercel Fast Edge CDN</h3>
+								<p className="text-[11px] text-muted-foreground">100 GB Fast Data Delivery</p>
 							</div>
 						</div>
-						<Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-0">
-							Fast
+						<Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-0 font-medium">
+							Fast CDN
 						</Badge>
 					</div>
 
@@ -129,7 +123,7 @@ export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 						</div>
 						<div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
 							<span>{bandwidthQuota.percentUsed}% consumed</span>
-							<span>81.6 GB left</span>
+							<span className="font-medium text-foreground/80">{bandwidthQuota.details}</span>
 						</div>
 					</div>
 				</CardContent>
@@ -137,4 +131,3 @@ export function StorageMetricsCards({ quotas }: StorageMetricsProps) {
 		</div>
 	);
 }
-

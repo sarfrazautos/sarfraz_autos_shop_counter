@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -202,16 +203,27 @@ export function ProductTable({
 											/>
 										</TableCell>
 
-										{/* Product Name & SKU */}
+										{/* Product Image, Name & SKU */}
 										<TableCell className="h-16 px-4">
-											<div className="flex flex-col">
-												<span className="font-semibold text-sm text-foreground truncate max-w-[260px]" title={product.name}>
-													{product.name}
-												</span>
-												<div className="flex items-center gap-2 mt-0.5">
-													<span className="text-[11px] font-mono text-muted-foreground">
-														{product.sku}
+											<div className="flex items-center gap-3">
+												<div className="size-11 rounded-lg border bg-muted/30 p-1 shrink-0 flex items-center justify-center overflow-hidden shadow-2xs group-hover:border-primary/40 transition-colors">
+													<Image
+														src={product.imageUrl || "/logo.png"}
+														alt={product.name}
+														width={40}
+														height={40}
+														className="size-full object-contain"
+													/>
+												</div>
+												<div className="flex flex-col min-w-0">
+													<span className="font-semibold text-sm text-foreground truncate max-w-[260px]" title={product.name}>
+														{product.name}
 													</span>
+													<div className="flex items-center gap-2 mt-0.5">
+														<span className="text-[11px] font-mono text-muted-foreground">
+															{product.sku}
+														</span>
+													</div>
 												</div>
 											</div>
 										</TableCell>
