@@ -33,6 +33,9 @@ import {
 	CreditCard,
 	Share2,
 	Loader2,
+	Gift,
+	Tag,
+	Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +64,102 @@ import Link from "next/link";
 const LOCAL_STORAGE_BRANCH_KEY = "sarfraz_active_branch_id";
 const DEFAULT_WARRANTY_POLICY =
 	"7 Days Check Warranty Only (Return / Exchange within 7 days)";
+
+export interface ItemSchemeCalculation {
+	hasScheme: boolean;
+	title: string;
+	schemeType: "buy_x_get_y" | "net_rate" | "flat_discount" | "none";
+	buyQuantity: number;
+	freeQuantityPerTier: number;
+	freeUnits: number;
+	nextFreeAt: number;
+	isEligible: boolean;
+	effectiveRate: number;
+	savingsAmount: number;
+	totalDeliveredUnits: number;
+}
+
+export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculation {
+	const scheme = item.tradeScheme;
+	if (!scheme || scheme.status !== "Active") {
+		return {
+			hasScheme: false,
+			title: "",
+			schemeType: "none",
+			buyQuantity: 0,
+			freeQuantityPerTier: 0,
+			freeUnits: 0,
+			nextFreeAt: 0,
+			isEligible: false,
+			effectiveRate: item.rate,
+			savingsAmount: 0,
+			totalDeliveredUnits: item.quantity,
+		};
+	}
+
+	const qty = item.quantity;
+	const buyQty = scheme.buyQuantity > 0 ? scheme.buyQuantity : 1;
+	const freePerTier = scheme.freeQuantity || 0;
+
+	if (scheme.schemeType === "buy_x_get_y") {
+		const freeUnits = Math.floor(qty / buyQty) * freePerTier;
+		const remainder = qty % buyQty;
+		const nextFreeAt = remainder === 0 ? buyQty : buyQty - remainder;
+		const totalDelivered = qty + freeUnits;
+		const lineSubtotal = item.rate * qty;
+		const effectiveRate = totalDelivered > 0 ? Math.round(lineSubtotal / totalDelivered) : item.rate;
+		const savingsAmount = freeUnits * item.rate;
+
+		return {
+			hasScheme: true,
+			title: scheme.title,
+			schemeType: "buy_x_get_y",
+			buyQuantity: buyQty,
+			freeQuantityPerTier: freePerTier,
+			freeUnits,
+			nextFreeAt,
+			isEligible: freeUnits > 0,
+			effectiveRate,
+			savingsAmount,
+			totalDeliveredUnits: totalDelivered,
+		};
+	}
+
+	if (scheme.schemeType === "net_rate") {
+		const netRate = scheme.netSchemeRate ? Number(scheme.netSchemeRate) : (item.schemeRate || item.wholesaleRate);
+		const isEligible = qty >= buyQty;
+		const effectiveRate = isEligible ? netRate : item.rate;
+		const savingsAmount = isEligible ? Math.max(0, (item.wholesaleRate - netRate) * qty) : 0;
+
+		return {
+			hasScheme: true,
+			title: scheme.title,
+			schemeType: "net_rate",
+			buyQuantity: buyQty,
+			freeQuantityPerTier: 0,
+			freeUnits: 0,
+			nextFreeAt: Math.max(0, buyQty - qty),
+			isEligible,
+			effectiveRate,
+			savingsAmount,
+			totalDeliveredUnits: qty,
+		};
+	}
+
+	return {
+		hasScheme: true,
+		title: scheme.title,
+		schemeType: "none",
+		buyQuantity: buyQty,
+		freeQuantityPerTier: freePerTier,
+		freeUnits: 0,
+		nextFreeAt: 0,
+		isEligible: false,
+		effectiveRate: item.rate,
+		savingsAmount: 0,
+		totalDeliveredUnits: qty,
+	};
+}
 
 export function CounterView() {
 	const queryClient = useQueryClient();
@@ -201,7 +300,9 @@ export function CounterView() {
 			selectedPricingTier === "Retail"
 				? Math.round(product.retailPrice || product.price * 1.15)
 				: product.price;
-		const schemeRate = Math.round(product.price * 0.88); // 12% wholesale scheme discount
+		const schemeRate = product.tradeScheme?.netSchemeRate
+			? Number(product.tradeScheme.netSchemeRate)
+			: Math.round(product.price * 0.88); // 12% wholesale scheme discount
 		const targetModel = selectedBikeModel === "All Models" ? product.bikeModel : selectedBikeModel;
 
 		setCart((prev) => {
@@ -213,6 +314,7 @@ export function CounterView() {
 				updated[existingIndex] = {
 					...updated[existingIndex],
 					quantity: updated[existingIndex].quantity + (inputQuantity || 1),
+					tradeScheme: product.tradeScheme || updated[existingIndex].tradeScheme,
 				};
 				return updated;
 			}
@@ -227,7 +329,8 @@ export function CounterView() {
 				retailRate: Math.round(product.retailPrice || product.price * 1.15),
 				wholesaleRate: product.price,
 				schemeRate: schemeRate,
-				isSchemeActive: false,
+				isSchemeActive: Boolean(product.tradeScheme),
+				tradeScheme: product.tradeScheme || null,
 				quantity: inputQuantity > 0 ? inputQuantity : 1,
 				unit: product.unit,
 				branchStock: stock,
@@ -239,7 +342,11 @@ export function CounterView() {
 
 		setSearchQuery("");
 		setInputQuantity(1);
-		showFlashNotice(`Added "${product.name}" to counter cart`);
+		showFlashNotice(
+			product.tradeScheme
+				? `Added "${product.name}" (🎁 Scheme Active: ${product.tradeScheme.title})`
+				: `Added "${product.name}" to counter cart`
+		);
 	};
 
 	// Cart manipulations
@@ -271,7 +378,10 @@ export function CounterView() {
 			prev.map((item) => {
 				if (item.id === id) {
 					const willBeActive = !item.isSchemeActive;
-					const schemePrice = item.schemeRate || Math.round(item.wholesaleRate * 0.88);
+					const schemePrice =
+						item.tradeScheme?.netSchemeRate != null
+							? Number(item.tradeScheme.netSchemeRate)
+							: item.schemeRate || Math.round(item.wholesaleRate * 0.88);
 					return {
 						...item,
 						isSchemeActive: willBeActive,
@@ -285,7 +395,7 @@ export function CounterView() {
 				return item;
 			})
 		);
-		showFlashNotice("Applied Wholesale Scheme Net Rate");
+		showFlashNotice("Toggled Wholesale Trade Scheme");
 	};
 
 	// Quick Customer Switcher
@@ -343,6 +453,59 @@ export function CounterView() {
 		return cart.reduce((sum, item) => sum + item.quantity, 0);
 	}, [cart]);
 
+	// Trade Scheme Benefits and Free Units aggregation
+	const cartSchemesSummary = useMemo(() => {
+		let totalFreeUnits = 0;
+		let totalSchemeSavings = 0;
+		const activeSchemeItems: {
+			id: string;
+			name: string;
+			unit: string;
+			quantity: number;
+			freeUnits: number;
+			totalDelivered: number;
+			schemeTitle: string;
+			schemeType: string;
+			effectiveRate: number;
+			savings: number;
+			isEligible: boolean;
+			nextFreeAt: number;
+		}[] = [];
+
+		cart.forEach((item) => {
+			const info = calculateItemScheme(item);
+			if (info.hasScheme) {
+				if (info.freeUnits > 0) {
+					totalFreeUnits += info.freeUnits;
+				}
+				if (info.savingsAmount > 0) {
+					totalSchemeSavings += info.savingsAmount;
+				}
+				activeSchemeItems.push({
+					id: item.id,
+					name: item.name,
+					unit: item.unit,
+					quantity: item.quantity,
+					freeUnits: info.freeUnits,
+					totalDelivered: info.totalDeliveredUnits,
+					schemeTitle: info.title,
+					schemeType: info.schemeType,
+					effectiveRate: info.effectiveRate,
+					savings: info.savingsAmount,
+					isEligible: info.isEligible,
+					nextFreeAt: info.nextFreeAt,
+				});
+			}
+		});
+
+		return {
+			totalFreeUnits,
+			totalSchemeSavings,
+			activeSchemeItems,
+			hasAnyScheme: activeSchemeItems.length > 0,
+		};
+	}, [cart]);
+
 	const netBill = useMemo(() => {
 		const total = subtotal - (discountValue || 0) + (shippingOrFitting || 0);
 		return Math.max(0, total);
@@ -369,6 +532,11 @@ export function CounterView() {
 		const invoiceNo = `SA-${Math.floor(10000 + Math.random() * 90000)}`;
 		const orderId = `#${invoiceNo}`;
 
+		const totalFreeBonus = cartSchemesSummary.totalFreeUnits;
+		const schemeRemarks = totalFreeBonus > 0
+			? `${DEFAULT_WARRANTY_POLICY} | 🎁 Trade Scheme Applied: +${totalFreeBonus} Free Bonus Units Delivered`
+			: DEFAULT_WARRANTY_POLICY;
+
 		const generatedOrder: OrderRecord = {
 			id: orderId,
 			invoiceNumber: invoiceNo,
@@ -376,13 +544,17 @@ export function CounterView() {
 			customerCity: customer.city || "Karachi",
 			customerPhone: customer.phone,
 			type: customer.type.includes("Wholesale") ? "Wholesale" : "Retail",
-			items: cart.map((ci) => ({
-				name: ci.name,
-				subLabel: `${ci.bikeModel.toUpperCase()} (${ci.category})`,
-				quantity: ci.quantity,
-				rate: ci.rate,
-				total: ci.rate * ci.quantity,
-			})),
+			items: cart.map((ci) => {
+				const sch = calculateItemScheme(ci);
+				const bonusLabel = sch.freeUnits > 0 ? ` [🎁 +${sch.freeUnits} Free Bonus Included]` : "";
+				return {
+					name: ci.name,
+					subLabel: `${ci.bikeModel.toUpperCase()} (${ci.category})${bonusLabel}`,
+					quantity: ci.quantity,
+					rate: ci.rate,
+					total: ci.rate * ci.quantity,
+				};
+			}),
 			totalQuantity: totalItemsCount,
 			totalAmount: subtotal,
 			shippingCharges: shippingOrFitting,
@@ -409,32 +581,35 @@ export function CounterView() {
 					? "Online Transfer"
 					: "Cash on Counter",
 			godown: currentBranch.name.toUpperCase(),
-			remarks: DEFAULT_WARRANTY_POLICY,
+			remarks: schemeRemarks,
 		};
 
 		// Push order to Neon PostgreSQL database
 		try {
 			await createOrder({
-				customerId: customer.id || "CUST-001",
-				customerName: customer.name || "Walk-in Retail Customer",
+				customerId: customer.id || "walkin",
+				customerName: customer.name || "Walk-in Retail Rider",
 				customerPhone: customer.phone || "0300-0000000",
 				customerCity: customer.city || "Karachi",
 				branchId: activeBranchId,
 				orderType: customer.type.includes("Wholesale") ? "Wholesale" : "Retail",
 				paymentMethod: customer.paymentMethod,
-				items: cart.map((ci) => ({
-					productId: ci.productId || ci.id,
-					productName: ci.name,
-					sku: ci.sku || "SKU-GEN",
-					bikeModel: ci.bikeModel,
-					category: ci.category,
-					unitRate: ci.rate,
-					pricingTier: ci.pricingTier,
-					isSchemeApplied: Boolean(ci.isSchemeActive),
-					schemeRate: ci.schemeRate || null,
-					quantity: ci.quantity,
-					lineTotal: ci.rate * ci.quantity,
-				})),
+				items: cart.map((ci) => {
+					const sch = calculateItemScheme(ci);
+					return {
+						productId: ci.productId || ci.id,
+						productName: ci.name,
+						sku: ci.sku || "SKU-GEN",
+						bikeModel: ci.bikeModel,
+						category: ci.category,
+						unitRate: ci.rate,
+						pricingTier: ci.pricingTier,
+						isSchemeApplied: Boolean(ci.isSchemeActive || sch.hasScheme),
+						schemeRate: ci.schemeRate || (sch.hasScheme ? sch.effectiveRate : null),
+						quantity: ci.quantity,
+						lineTotal: ci.rate * ci.quantity,
+					};
+				}),
 				subtotalAmount: subtotal,
 				discountAmount: discountValue,
 				shippingCharges: shippingOrFitting,
@@ -442,7 +617,7 @@ export function CounterView() {
 				cashReceived: cashReceived,
 				changeReturned: changeReturn > 0 ? changeReturn : 0,
 				netBalanceAdded: changeReturn < 0 ? Math.abs(changeReturn) : 0,
-				remarks: DEFAULT_WARRANTY_POLICY,
+				remarks: schemeRemarks,
 			});
 
 			queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
@@ -760,13 +935,23 @@ export function CounterView() {
 														</div>
 
 														<div className="min-w-0 flex-1">
-															<div className="flex items-center gap-2">
+															<div className="flex items-center gap-2 flex-wrap">
 																<span className="font-semibold text-xs text-foreground truncate">
 																	{prod.name}
 																</span>
 																<Badge variant="secondary" className="text-[10px] py-0 px-1.5 shrink-0">
 																	{prod.bikeModel}
 																</Badge>
+																{prod.tradeScheme && (
+																	<Badge
+																		className="text-[10px] py-0 px-2 bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1 font-bold shrink-0 animate-pulse"
+																	>
+																		<Gift className="size-3 text-amber-600" />
+																		{prod.tradeScheme.schemeType === "buy_x_get_y"
+																			? `Buy ${prod.tradeScheme.buyQuantity} Get ${prod.tradeScheme.freeQuantity} Free`
+																			: `Net Scheme Rs. ${prod.tradeScheme.netSchemeRate}`}
+																	</Badge>
+																)}
 															</div>
 															<div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
 																<span>SKU: {prod.sku}</span>
@@ -870,6 +1055,7 @@ export function CounterView() {
 											const lineTotal = item.rate * item.quantity;
 											const isLowBranchStock =
 												item.branchStock > 0 && item.quantity > item.branchStock;
+											const schemeInfo = calculateItemScheme(item);
 
 											return (
 												<tr key={item.id} className="hover:bg-muted/30 transition-colors">
@@ -935,6 +1121,40 @@ export function CounterView() {
 																		</Badge>
 																	)}
 																</div>
+
+																{/* Dynamic Trade Scheme Indicator & Bonus Alert (Left Side Cart Row) */}
+																{schemeInfo.hasScheme && (
+																	<div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs space-y-1">
+																		<div className="flex items-center justify-between gap-1.5 flex-wrap">
+																			<span className="font-bold text-[11px] text-amber-900 dark:text-amber-200 flex items-center gap-1">
+																				<Gift className="size-3 text-amber-600 shrink-0" />
+																				{schemeInfo.title}
+																			</span>
+																			{schemeInfo.freeUnits > 0 ? (
+																				<Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[10px] py-0 px-2 font-black shadow-2xs">
+																					+{schemeInfo.freeUnits} Free {item.unit} Earned
+																				</Badge>
+																			) : (
+																				<span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">
+																					Add {schemeInfo.nextFreeAt} more to get +{schemeInfo.freeQuantityPerTier} Free
+																				</span>
+																			)}
+																		</div>
+
+																		<div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5 border-t border-amber-500/15">
+																			<span>
+																				Delivering:{" "}
+																				<strong className="text-foreground">
+																					{schemeInfo.totalDeliveredUnits} {item.unit}
+																				</strong>{" "}
+																				({item.quantity} Billed + {schemeInfo.freeUnits} Free Bonus)
+																			</span>
+																			<span className="text-emerald-700 dark:text-emerald-400 font-bold">
+																				Eff. Rate: Rs. {schemeInfo.effectiveRate} / {item.unit}
+																			</span>
+																		</div>
+																	</div>
+																)}
 															</div>
 														</div>
 													</td>
@@ -1187,6 +1407,81 @@ export function CounterView() {
 						</div>
 					</div>
 
+					{/* TRADE SCHEME & FREE BONUS SUMMARY CARD (Right Side) */}
+					{cartSchemesSummary.hasAnyScheme && (
+						<div className="rounded-2xl border border-amber-500/30 bg-linear-to-br from-amber-500/10 via-amber-500/5 to-transparent p-4 sm:p-5 shadow-xs space-y-3 animate-in fade-in">
+							<div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
+								<div className="flex items-center gap-2">
+									<div className="size-7 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold">
+										<Gift className="size-4" />
+									</div>
+									<div>
+										<h4 className="font-heading font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
+											Trade Schemes & Bonus Units
+										</h4>
+										<span className="text-[10px] text-muted-foreground block">
+											Live promotional margin & free spare parts
+										</span>
+									</div>
+								</div>
+								{cartSchemesSummary.totalFreeUnits > 0 ? (
+									<Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[11px] font-bold px-2 py-0.5 animate-pulse shadow-2xs">
+										+{cartSchemesSummary.totalFreeUnits} Free Pcs
+									</Badge>
+								) : (
+									<Badge variant="outline" className="text-[10px] text-amber-700 dark:text-amber-300 border-amber-500/40">
+										Scheme Active
+									</Badge>
+								)}
+							</div>
+
+							<div className="space-y-2">
+								{cartSchemesSummary.activeSchemeItems.map((sch, i) => (
+									<div
+										key={sch.id || i}
+										className="rounded-xl border bg-background/90 p-2.5 text-xs space-y-1 shadow-2xs"
+									>
+										<div className="flex items-start justify-between gap-2">
+											<span className="font-semibold text-foreground truncate">{sch.name}</span>
+											{sch.freeUnits > 0 ? (
+												<span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono text-xs shrink-0">
+													+{sch.freeUnits} FREE {sch.unit}
+												</span>
+											) : (
+												<span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium shrink-0">
+													Add {sch.nextFreeAt} for +1 Free
+												</span>
+											)}
+										</div>
+										<div className="flex items-center justify-between text-[11px] text-muted-foreground">
+											<span className="truncate max-w-[180px]">{sch.schemeTitle}</span>
+											{sch.freeUnits > 0 ? (
+												<span className="font-medium text-foreground text-[10.5px]">
+													Total: <strong>{sch.totalDelivered} {sch.unit}</strong> ({sch.quantity} Paid + {sch.freeUnits} Free)
+												</span>
+											) : (
+												<span className="text-[10.5px]">
+													Purchasing {sch.quantity} {sch.unit}
+												</span>
+											)}
+										</div>
+									</div>
+								))}
+							</div>
+
+							{cartSchemesSummary.totalFreeUnits > 0 && (
+								<div className="pt-2 border-t border-amber-500/20 flex items-center justify-between text-xs font-bold text-amber-950 dark:text-amber-200">
+									<span className="flex items-center gap-1.5">
+										<Sparkles className="size-3.5 text-amber-600" /> Total Free Units Dispatched:
+									</span>
+									<span className="font-mono text-sm text-emerald-600 dark:text-emerald-400 font-black">
+										+{cartSchemesSummary.totalFreeUnits} Free Units
+									</span>
+								</div>
+							)}
+						</div>
+					)}
+
 					{/* BILL CALCULATION & CASH REGISTER CARD */}
 					<div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-xs space-y-4">
 						<div className="flex items-center justify-between border-b pb-2.5">
@@ -1237,6 +1532,26 @@ export function CounterView() {
 									/>
 								</div>
 							</div>
+
+							{cartSchemesSummary.totalFreeUnits > 0 && (
+								<div className="flex items-center justify-between py-1 border-b border-border/40 text-emerald-700 dark:text-emerald-400 font-semibold">
+									<span className="flex items-center gap-1">
+										<Gift className="size-3.5" /> Free Promotional Bonus Items:
+									</span>
+									<span className="font-mono font-bold">
+										+{cartSchemesSummary.totalFreeUnits} Pcs (Complimentary)
+									</span>
+								</div>
+							)}
+
+							{cartSchemesSummary.totalSchemeSavings > 0 && (
+								<div className="flex items-center justify-between py-1 border-b border-border/40 text-emerald-700 dark:text-emerald-400 text-[11px]">
+									<span>Scheme Margin Benefit:</span>
+									<span className="font-mono font-bold">
+										Rs. {cartSchemesSummary.totalSchemeSavings.toLocaleString()} (Saved)
+									</span>
+								</div>
+							)}
 
 							{/* NET TOTAL DISPLAY */}
 							<div className="rounded-xl bg-primary/10 border-2 border-primary/30 p-3.5 flex items-center justify-between">

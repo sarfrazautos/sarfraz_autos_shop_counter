@@ -70,6 +70,16 @@ export interface CounterCartItem {
 	branchStock: number;
 	pricingTier: "Retail" | "Wholesale";
 	imageUrl?: string;
+	tradeScheme?: {
+		id: string;
+		title: string;
+		schemeType: "buy_x_get_y" | "net_rate" | "flat_discount";
+		buyQuantity: number;
+		freeQuantity: number;
+		netSchemeRate?: number | null;
+		applicableTier?: string;
+		status: string;
+	} | null;
 }
 
 export interface CustomerProfile {

@@ -79,6 +79,7 @@ import {
 	type SchemeType,
 } from "./types";
 import { INITIAL_PRODUCTS, type ProductItem } from "@/components/Products/types";
+import { TradeSchemesCardsSkeleton } from "@/components/Skeletons/trade-schemes-skeleton";
 import Link from "next/link";
 
 export function TradeSchemesView() {
@@ -90,7 +91,7 @@ export function TradeSchemesView() {
 	const [currentPage, setCurrentPage] = useState(1);
 
 	// TanStack Query for 12-item paginated trade schemes
-	const { data: schemesData } = useQuery({
+	const { data: schemesData, isLoading: isSchemesLoading } = useQuery({
 		queryKey: queryKeys.tradeSchemes.list({
 			page: currentPage,
 			search: searchQuery,
@@ -439,159 +440,190 @@ export function TradeSchemesView() {
 			</div>
 
 			{/* SCHEMES GRID / CARDS */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-				{filteredSchemes.map((scheme) => {
-					const isBuyXGetY = scheme.schemeType === "buy_x_get_y";
+			{isSchemesLoading ? (
+				<TradeSchemesCardsSkeleton count={6} />
+			) : filteredSchemes.length === 0 ? (
+				<div className="rounded-2xl border border-dashed bg-card/60 p-12 text-center flex flex-col items-center justify-center gap-3">
+					<div className="size-12 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center shadow-xs">
+						<Tag className="size-5" />
+					</div>
+					<div className="max-w-md space-y-1">
+						<h3 className="font-heading text-base font-semibold text-foreground">
+							No Trade Schemes Found
+						</h3>
+						<p className="text-xs text-muted-foreground leading-relaxed">
+							No promotional schemes match your current search or status filter. Try clearing your filters or create a new scheme.
+						</p>
+					</div>
+					<Button
+						size="sm"
+						onClick={() => {
+							setSearchQuery("");
+							setSelectedType("All");
+							setSelectedStatus("All");
+							setCurrentPage(1);
+						}}
+						variant="outline"
+						className="text-xs"
+					>
+						Reset All Filters
+					</Button>
+				</div>
+			) : (
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					{filteredSchemes.map((scheme) => {
+						const isBuyXGetY = scheme.schemeType === "buy_x_get_y";
 
-					return (
-						<div
-							key={scheme.id}
-							className={`rounded-2xl border bg-card p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md ${
-								scheme.status === "Paused"
-									? "opacity-60 bg-muted/20"
-									: "border-border"
-							}`}
-						>
-							{/* Card Top: Header & Badges */}
-							<div className="space-y-3">
-								<div className="flex items-start justify-between gap-2">
-									<div className="flex items-center gap-2">
-										<div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-											{isBuyXGetY ? (
-												<Gift className="size-4.5 text-amber-600 dark:text-amber-400" />
-											) : (
-												<Tag className="size-4.5 text-primary" />
-											)}
+						return (
+							<div
+								key={scheme.id}
+								className={`rounded-2xl border bg-card p-5 shadow-xs flex flex-col justify-between transition-all hover:shadow-md ${
+									scheme.status === "Paused"
+										? "opacity-60 bg-muted/20"
+										: "border-border"
+								}`}
+							>
+								{/* Card Top: Header & Badges */}
+								<div className="space-y-3">
+									<div className="flex items-start justify-between gap-2">
+										<div className="flex items-center gap-2">
+											<div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+												{isBuyXGetY ? (
+													<Gift className="size-4.5 text-amber-600 dark:text-amber-400" />
+												) : (
+													<Tag className="size-4.5 text-primary" />
+												)}
+											</div>
+											<div>
+												<Badge
+													variant="outline"
+													className={`text-[9px] font-mono px-1.5 py-0 ${
+														isBuyXGetY
+															? "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+															: "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
+													}`}
+												>
+													{isBuyXGetY ? "Buy X Get Y Free" : "Net Scheme Rate"}
+												</Badge>
+												<span className="text-[10px] text-muted-foreground block font-mono">
+													{scheme.sku}
+												</span>
+											</div>
 										</div>
-										<div>
-											<Badge
-												variant="outline"
-												className={`text-[9px] font-mono px-1.5 py-0 ${
-													isBuyXGetY
-														? "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
-														: "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300"
-												}`}
-											>
-												{isBuyXGetY ? "Buy X Get Y Free" : "Net Scheme Rate"}
-											</Badge>
-											<span className="text-[10px] text-muted-foreground block font-mono">
-												{scheme.sku}
-											</span>
+
+										<Badge
+											variant={scheme.status === "Active" ? "outline" : "secondary"}
+											className={`text-[10px] font-semibold ${
+												scheme.status === "Active"
+													? "border-emerald-500 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300"
+													: "text-muted-foreground"
+											}`}
+										>
+											{scheme.status}
+										</Badge>
+									</div>
+
+									{/* Product Name & Bike Model */}
+									<div>
+										<h3 className="font-heading font-bold text-sm text-foreground line-clamp-1">
+											{scheme.productName}
+										</h3>
+										<span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+											<Bike className="size-3 text-primary" />
+											{scheme.bikeModel} • {scheme.category}
+										</span>
+									</div>
+
+									{/* SCHEME RULE HIGHLIGHT BOX */}
+									<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-1.5">
+										<div className="text-xs font-bold text-amber-950 dark:text-amber-200">
+											{scheme.title}
+										</div>
+
+										<div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-500/20 text-xs">
+											<div>
+												<span className="text-[10px] text-amber-800/80 dark:text-amber-300/80 block">
+													Regular Wholesale:
+												</span>
+												<span className="font-mono font-bold line-through text-muted-foreground">
+													Rs. {scheme.regularPrice.toLocaleString()}
+												</span>
+											</div>
+
+											<div>
+												<span className="text-[10px] text-amber-800/80 dark:text-amber-300/80 block font-bold">
+													{isBuyXGetY ? "Min Purchase Qty:" : "Net Scheme Rate:"}
+												</span>
+												<span className="font-mono font-black text-amber-700 dark:text-amber-300">
+													{isBuyXGetY
+														? `${scheme.buyQuantity} Pcs`
+														: `Rs. ${(scheme.netSchemeRate || 0).toLocaleString()}`}
+												</span>
+											</div>
 										</div>
 									</div>
 
-									<Badge
-										variant={scheme.status === "Active" ? "outline" : "secondary"}
-										className={`text-[10px] font-semibold ${
-											scheme.status === "Active"
-												? "border-emerald-500 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300"
-												: "text-muted-foreground"
-										}`}
+									{/* Bonus & Validity Details */}
+									<div className="text-xs space-y-1 text-muted-foreground pt-1">
+										<div className="flex justify-between items-center text-[11px]">
+											<span>Effective Savings:</span>
+											<strong className="text-emerald-600 font-mono">
+												~{scheme.effectiveSavingsPercent}% Margin
+											</strong>
+										</div>
+										<div className="flex justify-between items-center text-[11px]">
+											<span>Eligible Buyers:</span>
+											<strong className="text-foreground">{scheme.applicableTier}</strong>
+										</div>
+										<div className="flex justify-between items-center text-[11px]">
+											<span>Bonus Units Delivered:</span>
+											<strong className="font-mono text-foreground">
+												{scheme.totalDispatchedBonus} free units
+											</strong>
+										</div>
+										<div className="flex justify-between items-center text-[11px]">
+											<span>Valid Duration:</span>
+											<span>{scheme.validFrom} – {scheme.validTo}</span>
+										</div>
+									</div>
+								</div>
+
+								{/* Card Actions Footer */}
+								<div className="pt-4 border-t mt-4 flex items-center justify-between gap-2">
+									<Button
+										size="xs"
+										variant="outline"
+										onClick={() => handleToggleStatus(scheme.id)}
+										className="h-7 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
 									>
-										{scheme.status}
-									</Badge>
-								</div>
+										{scheme.status === "Active" ? (
+											<>
+												<PauseCircle className="size-3 text-amber-600" />
+												Pause
+											</>
+										) : (
+											<>
+												<PlayCircle className="size-3 text-emerald-600" />
+												Activate
+											</>
+										)}
+									</Button>
 
-								{/* Product Name & Bike Model */}
-								<div>
-									<h3 className="font-heading font-bold text-sm text-foreground line-clamp-1">
-										{scheme.productName}
-									</h3>
-									<span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-										<Bike className="size-3 text-primary" />
-										{scheme.bikeModel} • {scheme.category}
-									</span>
-								</div>
-
-								{/* SCHEME RULE HIGHLIGHT BOX */}
-								<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-1.5">
-									<div className="text-xs font-bold text-amber-950 dark:text-amber-200">
-										{scheme.title}
-									</div>
-
-									<div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-500/20 text-xs">
-										<div>
-											<span className="text-[10px] text-amber-800/80 dark:text-amber-300/80 block">
-												Regular Wholesale:
-											</span>
-											<span className="font-mono font-bold line-through text-muted-foreground">
-												Rs. {scheme.regularPrice.toLocaleString()}
-											</span>
-										</div>
-
-										<div>
-											<span className="text-[10px] text-amber-800/80 dark:text-amber-300/80 block font-bold">
-												{isBuyXGetY ? "Min Purchase Qty:" : "Net Scheme Rate:"}
-											</span>
-											<span className="font-mono font-black text-amber-700 dark:text-amber-300">
-												{isBuyXGetY
-													? `${scheme.buyQuantity} Pcs`
-													: `Rs. ${(scheme.netSchemeRate || 0).toLocaleString()}`}
-											</span>
-										</div>
-									</div>
-								</div>
-
-								{/* Bonus & Validity Details */}
-								<div className="text-xs space-y-1 text-muted-foreground pt-1">
-									<div className="flex justify-between items-center text-[11px]">
-										<span>Effective Savings:</span>
-										<strong className="text-emerald-600 font-mono">
-											~{scheme.effectiveSavingsPercent}% Margin
-										</strong>
-									</div>
-									<div className="flex justify-between items-center text-[11px]">
-										<span>Eligible Buyers:</span>
-										<strong className="text-foreground">{scheme.applicableTier}</strong>
-									</div>
-									<div className="flex justify-between items-center text-[11px]">
-										<span>Bonus Units Delivered:</span>
-										<strong className="font-mono text-foreground">
-											{scheme.totalDispatchedBonus} free units
-										</strong>
-									</div>
-									<div className="flex justify-between items-center text-[11px]">
-										<span>Valid Duration:</span>
-										<span>{scheme.validFrom} – {scheme.validTo}</span>
-									</div>
+									<Button
+										size="icon-xs"
+										variant="ghost"
+										onClick={() => handleDeleteScheme(scheme.id)}
+										className="size-7 text-muted-foreground hover:text-rose-600 cursor-pointer"
+										title="Delete scheme"
+									>
+										<Trash2 className="size-3.5" />
+									</Button>
 								</div>
 							</div>
-
-							{/* Card Actions Footer */}
-							<div className="pt-4 border-t mt-4 flex items-center justify-between gap-2">
-								<Button
-									size="xs"
-									variant="outline"
-									onClick={() => handleToggleStatus(scheme.id)}
-									className="h-7 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-								>
-									{scheme.status === "Active" ? (
-										<>
-											<PauseCircle className="size-3 text-amber-600" />
-											Pause
-										</>
-									) : (
-										<>
-											<PlayCircle className="size-3 text-emerald-600" />
-											Activate
-										</>
-									)}
-								</Button>
-
-								<Button
-									size="icon-xs"
-									variant="ghost"
-									onClick={() => handleDeleteScheme(scheme.id)}
-									className="size-7 text-muted-foreground hover:text-rose-600 cursor-pointer"
-									title="Delete scheme"
-								>
-									<Trash2 className="size-3.5" />
-								</Button>
-							</div>
-						</div>
-					);
-				})}
-			</div>
+						);
+					})}
+				</div>
+			)}
 
 			{/* 12-Item Server Smart Pagination */}
 			{totalPages > 1 && (

@@ -27,6 +27,16 @@ export interface ProductItem {
 	unit: string; // "Pcs", "Sets", "Box", "Kit"
 	status: "In Stock" | "Low Stock" | "Out of Stock";
 	updatedAt: string;
+	tradeScheme?: {
+		id: string;
+		title: string;
+		schemeType: "buy_x_get_y" | "net_rate" | "flat_discount";
+		buyQuantity: number;
+		freeQuantity: number;
+		netSchemeRate?: number | null;
+		applicableTier?: string;
+		status: string;
+	} | null;
 }
 
 export const INITIAL_PRODUCTS: ProductItem[] = [

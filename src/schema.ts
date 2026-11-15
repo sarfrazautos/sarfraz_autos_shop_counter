@@ -163,9 +163,7 @@ export const orders = pgTable(
   {
     id: varchar('id', { length: 50 }).primaryKey(), // 'ORD-9842'
     invoiceNumber: varchar('invoice_number', { length: 50 }).notNull().unique(), // 'SA-64276'
-    customerId: varchar('customer_id', { length: 50 })
-      .notNull()
-      .references(() => customers.id),
+    customerId: varchar('customer_id', { length: 50 }).notNull().default('walkin'),
     customerName: varchar('customer_name', { length: 255 }).notNull(),
     customerPhone: varchar('customer_phone', { length: 50 }),
     customerCity: varchar('customer_city', { length: 100 }).default('Karachi').notNull(),
@@ -201,9 +199,7 @@ export const orderItems = pgTable(
     orderId: varchar('order_id', { length: 50 })
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
-    productId: varchar('product_id', { length: 50 })
-      .notNull()
-      .references(() => products.id),
+    productId: varchar('product_id', { length: 50 }).notNull(),
     productName: varchar('product_name', { length: 255 }).notNull(),
     sku: varchar('sku', { length: 100 }).notNull(),
     bikeModel: varchar('bike_model', { length: 100 }).notNull(),
@@ -374,6 +370,13 @@ export const productsRelations = relations(products, ({ many }) => ({
   priceHistory: many(productPriceHistory),
   tradeSchemes: many(tradeSchemes),
   orderItems: many(orderItems),
+}));
+
+export const tradeSchemesRelations = relations(tradeSchemes, ({ one }) => ({
+  product: one(products, {
+    fields: [tradeSchemes.productId],
+    references: [products.id],
+  }),
 }));
 
 export const productBranchStockRelations = relations(productBranchStock, ({ one }) => ({

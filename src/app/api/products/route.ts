@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { products, productBranchStock } from '@/schema';
+import { products, productBranchStock, tradeSchemes } from '@/schema';
 import { sql, and, eq, ilike, desc } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
@@ -57,6 +57,9 @@ export async function GET(req: NextRequest) {
       orderBy: [desc(products.createdAt)],
       with: {
         branchStock: true,
+        tradeSchemes: {
+          where: eq(tradeSchemes.status, 'Active'),
+        },
       },
     });
 
@@ -72,6 +75,19 @@ export async function GET(req: NextRequest) {
             : '3rd Branch (DHA)',
         stock: bs.stockQuantity,
       }));
+
+      const activeScheme = p.tradeSchemes?.[0]
+        ? {
+            id: p.tradeSchemes[0].id,
+            title: p.tradeSchemes[0].title,
+            schemeType: p.tradeSchemes[0].schemeType as 'buy_x_get_y' | 'net_rate',
+            buyQuantity: p.tradeSchemes[0].buyQuantity,
+            freeQuantity: p.tradeSchemes[0].freeQuantity,
+            netSchemeRate: p.tradeSchemes[0].netSchemeRate ? Number(p.tradeSchemes[0].netSchemeRate) : null,
+            applicableTier: p.tradeSchemes[0].applicableTier,
+            status: p.tradeSchemes[0].status,
+          }
+        : null;
 
       // If filtered by a specific branch
       if (branchId && branchId !== 'all') {
@@ -94,6 +110,7 @@ export async function GET(req: NextRequest) {
           status: p.status,
           updatedAt: p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
           branches: branchStockList,
+          tradeScheme: activeScheme,
         };
       }
 
@@ -114,6 +131,7 @@ export async function GET(req: NextRequest) {
         status: p.status,
         updatedAt: p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
         branches: branchStockList,
+        tradeScheme: activeScheme,
       };
     });
 

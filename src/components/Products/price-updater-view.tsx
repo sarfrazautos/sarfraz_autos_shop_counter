@@ -127,7 +127,7 @@ export function PriceUpdaterView() {
 		}
 	}, [dbProductsData]);
 
-	// Filter states
+	// Draft Filter states (user inputs - typing here does NOT re-render the table)
 	const [searchQuery, setSearchQuery] = useState("");
 	const [minPrice, setMinPrice] = useState<string>("");
 	const [maxPrice, setMaxPrice] = useState<string>("");
@@ -136,13 +136,19 @@ export function PriceUpdaterView() {
 	const [selectedModel, setSelectedModel] = useState<string>("all");
 	const [selectedType, setSelectedType] = useState<string>("all");
 
+	// Applied Filters (only updated when user clicks the Preview button)
+	const [appliedFilters, setAppliedFilters] = useState({
+		searchQuery: "",
+		minPrice: "",
+		maxPrice: "",
+		selectedCategory: "all",
+		selectedBrand: "all",
+		selectedModel: "all",
+		selectedType: "all",
+	});
+
 	// Pagination
 	const [currentPage, setCurrentPage] = useState(1);
-
-	// Reset page on any filter change
-	useEffect(() => {
-		setCurrentPage(1);
-	}, [searchQuery, minPrice, maxPrice, selectedCategory, selectedBrand, selectedModel, selectedType]);
 
 	// Dynamic categories & bike models derived from loaded catalog
 	const dynamicCategories = useMemo(() => {
@@ -170,44 +176,46 @@ export function PriceUpdaterView() {
 	const [adjustmentValue, setAdjustmentValue] = useState<number>(10);
 	const [targetPriceField, setTargetPriceField] = useState<"both" | "retail" | "wholesale">("both");
 
-	// Preview & Save states (active by default so table is immediately visible with pagination)
-	const [isPreviewActive, setIsPreviewActive] = useState(true);
+	// Preview state: false until admin clicks "Preview Price Changes"
+	const [isPreviewActive, setIsPreviewActive] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [successBanner, setSuccessBanner] = useState<{
 		count: number;
 		adjustmentText: string;
 	} | null>(null);
 
-	// Filter logic
+	// Filter logic: computes ONLY on appliedFilters when preview is active
 	const filteredProducts = useMemo(() => {
+		if (!isPreviewActive) return [];
+
 		return products.filter((p) => {
 			// Price range check
-			const min = minPrice ? Number(minPrice) : 0;
-			const max = maxPrice ? Number(maxPrice) : Infinity;
+			const min = appliedFilters.minPrice ? Number(appliedFilters.minPrice) : 0;
+			const max = appliedFilters.maxPrice ? Number(appliedFilters.maxPrice) : Infinity;
 			if (p.price < min || p.price > max) return false;
 
 			// Category check
-			if (selectedCategory !== "all" && p.category !== selectedCategory) return false;
+			if (appliedFilters.selectedCategory !== "all" && p.category !== appliedFilters.selectedCategory) return false;
 
 			// Bike model check
-			if (selectedModel !== "all" && p.bikeModel !== selectedModel) return false;
+			if (appliedFilters.selectedModel !== "all" && p.bikeModel !== appliedFilters.selectedModel) return false;
 
 			// Type check (Wholesale / Retail / Both)
-			if (selectedType !== "all") {
-				if (selectedType === "Both" && p.type !== "Both") return false;
-				if (selectedType === "Retail" && p.type !== "Retail" && p.type !== "Both") return false;
-				if (selectedType === "Wholesale" && p.type !== "Wholesale" && p.type !== "Both") return false;
+			if (appliedFilters.selectedType !== "all") {
+				if (appliedFilters.selectedType === "Both" && p.type !== "Both") return false;
+				if (appliedFilters.selectedType === "Retail" && p.type !== "Retail" && p.type !== "Both") return false;
+				if (appliedFilters.selectedType === "Wholesale" && p.type !== "Wholesale" && p.type !== "Both") return false;
 			}
 
 			// Brand check
-			if (selectedBrand !== "all") {
-				const brandMatch = p.name.toLowerCase().includes(selectedBrand.toLowerCase());
+			if (appliedFilters.selectedBrand !== "all") {
+				const brandMatch = p.name.toLowerCase().includes(appliedFilters.selectedBrand.toLowerCase());
 				if (!brandMatch) return false;
 			}
 
 			// Search text query
-			if (searchQuery.trim()) {
-				const q = searchQuery.toLowerCase().trim();
+			if (appliedFilters.searchQuery.trim()) {
+				const q = appliedFilters.searchQuery.toLowerCase().trim();
 				const matches =
 					p.name.toLowerCase().includes(q) ||
 					p.sku.toLowerCase().includes(q) ||
@@ -220,13 +228,8 @@ export function PriceUpdaterView() {
 		});
 	}, [
 		products,
-		minPrice,
-		maxPrice,
-		selectedCategory,
-		selectedBrand,
-		selectedModel,
-		selectedType,
-		searchQuery,
+		appliedFilters,
+		isPreviewActive,
 	]);
 
 	// Auto-select all filtered items when filtered list changes if desired
@@ -266,8 +269,18 @@ export function PriceUpdaterView() {
 		setSelectedModel("all");
 		setSelectedType("all");
 		setSearchQuery("");
+		setAppliedFilters({
+			searchQuery: "",
+			minPrice: "",
+			maxPrice: "",
+			selectedCategory: "all",
+			selectedBrand: "all",
+			selectedModel: "all",
+			selectedType: "all",
+		});
 		setCurrentPage(1);
 		setIsPreviewActive(false);
+		setSelectedIds([]);
 	};
 
 	// Calculate adjusted price for a single product
@@ -283,14 +296,21 @@ export function PriceUpdaterView() {
 		}
 	};
 
-	// Trigger preview mode
+	// Trigger preview mode with current filter inputs
 	const handleApplyPreview = () => {
+		setAppliedFilters({
+			searchQuery,
+			minPrice,
+			maxPrice,
+			selectedCategory,
+			selectedBrand,
+			selectedModel,
+			selectedType,
+		});
+		setCurrentPage(1);
 		setIsPreviewActive(true);
 		setSuccessBanner(null);
-		// If no items individually selected, target all matching items
-		if (selectedIds.length === 0) {
-			setSelectedIds(filteredIds);
-		}
+		setSelectedIds([]);
 	};
 
 	// Reset preview
@@ -473,7 +493,7 @@ export function PriceUpdaterView() {
 								value={minPrice}
 								onChange={(e) => {
 									setMinPrice(e.target.value);
-									setCurrentPage(1);
+									setIsPreviewActive(false);
 								}}
 								className="pl-8 h-8 text-xs font-mono"
 							/>
@@ -491,7 +511,7 @@ export function PriceUpdaterView() {
 								value={maxPrice}
 								onChange={(e) => {
 									setMaxPrice(e.target.value);
-									setCurrentPage(1);
+									setIsPreviewActive(false);
 								}}
 								className="pl-8 h-8 text-xs font-mono"
 							/>
@@ -506,7 +526,7 @@ export function PriceUpdaterView() {
 							onValueChange={(val) => {
 								if (val) {
 									setSelectedCategory(val);
-									setCurrentPage(1);
+									setIsPreviewActive(false);
 								}
 							}}
 						>
@@ -531,7 +551,7 @@ export function PriceUpdaterView() {
 							onValueChange={(val) => {
 								if (val) {
 									setSelectedBrand(val);
-									setCurrentPage(1);
+									setIsPreviewActive(false);
 								}
 							}}
 						>
@@ -556,7 +576,7 @@ export function PriceUpdaterView() {
 							onValueChange={(val) => {
 								if (val) {
 									setSelectedModel(val);
-									setCurrentPage(1);
+									setIsPreviewActive(false);
 								}
 							}}
 						>
@@ -581,7 +601,7 @@ export function PriceUpdaterView() {
 							onValueChange={(val) => {
 								if (val) {
 									setSelectedType(val);
-									setCurrentPage(1);
+									setIsPreviewActive(false);
 								}
 							}}
 						>
@@ -598,18 +618,35 @@ export function PriceUpdaterView() {
 					</div>
 				</div>
 
-				{/* Search bar inside filter block */}
-				<div className="relative pt-1">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-					<Input
-						placeholder="Search spare part name, SKU code (e.g. CRN-CD70)..."
-						value={searchQuery}
-						onChange={(e) => {
-							setSearchQuery(e.target.value);
-							setCurrentPage(1);
-						}}
-						className="pl-9 h-8 text-xs"
-					/>
+				{/* Search bar inside filter block with Preview Trigger */}
+				<div className="flex items-center gap-2 pt-1">
+					<div className="relative flex-1">
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+						<Input
+							placeholder="Search spare part name, SKU code (e.g. CRN-CD70)..."
+							value={searchQuery}
+							onChange={(e) => {
+								setSearchQuery(e.target.value);
+								setIsPreviewActive(false);
+							}}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									handleApplyPreview();
+								}
+							}}
+							className="pl-9 h-8 text-xs bg-background"
+						/>
+					</div>
+					<Button
+						type="button"
+						size="sm"
+						onClick={handleApplyPreview}
+						className="h-8 px-3.5 text-xs font-semibold gap-1.5 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs shrink-0"
+					>
+						<Eye className="size-3.5" />
+						Preview
+					</Button>
 				</div>
 			</div>
 
@@ -786,31 +823,21 @@ export function PriceUpdaterView() {
 					</div>
 					<div className="max-w-md space-y-1">
 						<h3 className="font-heading text-base font-semibold text-foreground">
-							Price Comparison Table Hidden
+							Price Comparison Table Ready
 						</h3>
 						<p className="text-xs text-muted-foreground leading-relaxed">
-							{filteredProducts.length > 0 ? (
-								<>
-									<strong>{filteredProducts.length}</strong> products currently match your filter criteria. Click <strong>"Preview Price Changes"</strong> above or below to reveal the comparison table with new rates.
-								</>
-							) : (
-								<>
-									No products match your current price or category filters. Adjust the range above and try again.
-								</>
-							)}
+							Adjust your filter criteria and click <strong>"Preview Price Changes"</strong> to load matching products from the catalog and review the updated rates.
 						</p>
 					</div>
 
-					{filteredProducts.length > 0 && (
-						<Button
-							type="button"
-							onClick={handleApplyPreview}
-							className="mt-1 h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
-						>
-							<Eye className="size-3.5" />
-							Preview Price Changes ({filteredProducts.length} Items)
-						</Button>
-					)}
+					<Button
+						type="button"
+						onClick={handleApplyPreview}
+						className="mt-1 h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs bg-primary text-primary-foreground hover:bg-primary/90"
+					>
+						<Eye className="size-3.5" />
+						Preview Price Changes
+					</Button>
 				</div>
 			) : (
 				<div className="rounded-xl border bg-card shadow-xs overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">

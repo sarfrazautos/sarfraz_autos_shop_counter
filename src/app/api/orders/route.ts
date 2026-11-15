@@ -190,14 +190,16 @@ export async function POST(req: NextRequest) {
 
     const orderId = `ORD-${Date.now()}`;
 
-    // Ensure customer exists
-    let targetCustomerId = customerId;
-    const existingCust = await db.query.customers.findFirst({
-      where: eq(customers.id, customerId),
-    });
+    // Check if registered customer exists
+    let targetCustomerId = customerId || 'walkin';
+    const existingCust = customerId && customerId !== 'walkin'
+      ? await db.query.customers.findFirst({
+          where: eq(customers.id, customerId),
+        })
+      : null;
 
-    if (!existingCust) {
-      targetCustomerId = 'CUST-001';
+    if (existingCust) {
+      targetCustomerId = existingCust.id;
     }
 
     // 1. Insert order
@@ -290,35 +292,30 @@ export async function POST(req: NextRequest) {
 
     // 3. Customer Ledger Khata Update if credit balance added
     const netBalNum = parseFloat(netBalanceAdded) || 0;
-    if (netBalNum > 0 && targetCustomerId !== 'CUST-001') {
-      const cust = await db.query.customers.findFirst({
-        where: eq(customers.id, targetCustomerId),
+    if (netBalNum > 0 && existingCust) {
+      const currentBal = Number(existingCust.currentBalance || 0);
+      const updatedBal = currentBal + netBalNum;
+
+      await db.insert(customerLedgerTransactions).values({
+        id: `CLT-ORD-${orderId}`,
+        customerId: existingCust.id,
+        orderId,
+        voucherNumber: invoiceNumber,
+        transactionType: 'Sale Invoice',
+        description: `Sale Invoice #${invoiceNumber} (${items.length} items)`,
+        debitAmount: netBalNum.toFixed(2),
+        creditAmount: '0.00',
+        runningBalance: updatedBal.toFixed(2),
+        collectorName: 'Counter Cashier',
+        transactionDate: new Date(),
       });
-      if (cust) {
-        const currentBal = Number(cust.currentBalance);
-        const updatedBal = currentBal + netBalNum;
 
-        await db.insert(customerLedgerTransactions).values({
-          id: `CLT-ORD-${orderId}`,
-          customerId: targetCustomerId,
-          orderId,
-          voucherNumber: invoiceNumber,
-          transactionType: 'Sale Invoice',
-          description: `Sale Invoice #${invoiceNumber} (${items.length} items)`,
-          debitAmount: netBalNum.toFixed(2),
-          creditAmount: '0.00',
-          runningBalance: updatedBal.toFixed(2),
-          collectorName: 'Counter Cashier',
-          transactionDate: new Date(),
-        });
-
-        await db
-          .update(customers)
-          .set({
-            currentBalance: updatedBal.toFixed(2),
-          })
-          .where(eq(customers.id, targetCustomerId));
-      }
+      await db
+        .update(customers)
+        .set({
+          currentBalance: updatedBal.toFixed(2),
+        })
+        .where(eq(customers.id, existingCust.id));
     }
 
     // 4. Notification
@@ -347,7 +344,10 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('POST /api/orders error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create counter order' },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create counter order',
+      },
       { status: 500 }
     );
   }
