@@ -161,7 +161,19 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { id: customerId },
+      data: {
+        id: customerId,
+        name,
+        phone,
+        city,
+        route,
+        salesman,
+        customerType,
+        paymentMethod,
+        openingBalance: opBalNum,
+        currentBalance: opBalNum,
+        creditLimit: credLimitNum,
+      },
       message: 'Customer registered successfully',
     });
   } catch (error) {

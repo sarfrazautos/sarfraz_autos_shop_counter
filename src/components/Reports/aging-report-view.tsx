@@ -33,16 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import {
 	INITIAL_AGING_DATA,
-	AGING_ROUTES,
-	AGING_SALESMEN,
 	type CustomerAgingRow,
 } from "./types";
 import Link from "next/link";
@@ -232,76 +223,32 @@ export function AgingReportView() {
 
 			{/* FILTER CONTROLS BAR */}
 			<div className="rounded-2xl border bg-card p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-				<div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-					{/* Route Filter */}
-					<div className="w-56">
-						<Select
-							value={selectedRoute}
-							onValueChange={(val) => {
-								if (val) setSelectedRoute(val);
-							}}
+				{/* Days bracket quick filter on the LEFT */}
+				<div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border">
+					{(["All", "30+", "60+", "90+"] as const).map((bracket) => (
+						<button
+							key={bracket}
+							type="button"
+							onClick={() => setFilterMinDays(bracket)}
+							className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+								filterMinDays === bracket
+									? "bg-background text-foreground shadow-2xs font-bold"
+									: "text-muted-foreground hover:text-foreground"
+							}`}
 						>
-							<SelectTrigger className="h-8 text-xs font-semibold bg-background">
-								<SelectValue placeholder="Route..." />
-							</SelectTrigger>
-							<SelectContent>
-								{AGING_ROUTES.map((route) => (
-									<SelectItem key={route} value={route} className="text-xs">
-										{route}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-
-					{/* Salesman Filter */}
-					<div className="w-52">
-						<Select
-							value={selectedSalesman}
-							onValueChange={(val) => {
-								if (val) setSelectedSalesman(val);
-							}}
-						>
-							<SelectTrigger className="h-8 text-xs font-semibold bg-background">
-								<SelectValue placeholder="Salesman / Collector..." />
-							</SelectTrigger>
-							<SelectContent>
-								{AGING_SALESMEN.map((s) => (
-									<SelectItem key={s} value={s} className="text-xs">
-										{s}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-
-					{/* Days bracket quick filter */}
-					<div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border">
-						{(["All", "30+", "60+", "90+"] as const).map((bracket) => (
-							<button
-								key={bracket}
-								type="button"
-								onClick={() => setFilterMinDays(bracket)}
-								className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-									filterMinDays === bracket
-										? "bg-background text-foreground shadow-2xs font-bold"
-										: "text-muted-foreground hover:text-foreground"
-								}`}
-							>
-								{bracket === "All" ? "All Ages" : `${bracket} Days`}
-							</button>
-						))}
-					</div>
+							{bracket === "All" ? "All Ages" : `${bracket} Days`}
+						</button>
+					))}
 				</div>
 
-				{/* Search customer box */}
-				<div className="relative w-full sm:w-64">
+				{/* Search customer box on the RIGHT */}
+				<div className="relative w-full sm:w-72">
 					<Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder="Search dealer, city, route..."
-						className="h-8 text-xs pl-8 bg-background"
+						className="h-8.5 text-xs pl-8 bg-background"
 					/>
 				</div>
 			</div>
@@ -438,7 +385,7 @@ export function AgingReportView() {
 				{/* Report Summary Footer */}
 				<div className="p-4 border-t bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between text-xs font-semibold gap-2">
 					<span className="text-muted-foreground font-sans">
-						Total Active Accounts: <strong>{filteredRows.length}</strong> on selected routes
+						Total Active Accounts: <strong>{filteredRows.length}</strong>
 					</span>
 					<div className="flex items-center gap-5 font-mono">
 						<span>0-30d: <strong className="text-emerald-600">Rs. {total0To30.toLocaleString()}</strong></span>

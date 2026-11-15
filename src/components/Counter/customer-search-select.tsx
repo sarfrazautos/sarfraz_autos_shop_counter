@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Search, X, Check, ChevronsUpDown, Loader2, User, Phone, MapPin } from "lucide-react";
+import { Search, X, Check, ChevronsUpDown, Loader2, User, Phone, MapPin, UserPlus, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CustomerFormDialog } from "@/components/Customers/customer-form-dialog";
 import type { CustomerProfile } from "./types";
 
 interface CustomerSearchSelectProps {
@@ -17,6 +19,7 @@ export function CustomerSearchSelect({
 	onSelectCustomer,
 }: CustomerSearchSelectProps) {
 	const [isOpen, setIsOpen] = useState(false);
+	const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isSearchingApi, setIsSearchingApi] = useState(false);
 	const [apiResults, setApiResults] = useState<CustomerProfile[]>([]);
@@ -131,6 +134,12 @@ export function CustomerSearchSelect({
 		setSearchQuery("");
 	};
 
+	const handleCustomerCreated = (newCust: CustomerProfile) => {
+		setApiResults((prev) => [newCust, ...prev]);
+		handleSelect(newCust);
+		setIsAddCustomerOpen(false);
+	};
+
 	const handleClear = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		setActiveCustomer(null);
@@ -197,38 +206,54 @@ export function CustomerSearchSelect({
 					</div>
 				</div>
 			) : (
-				<div className="relative">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-					<Input
-						ref={inputRef}
-						type="text"
-						value={searchQuery}
-						onChange={(e) => {
-							setSearchQuery(e.target.value);
-							if (!isOpen) setIsOpen(true);
+				<div className="flex items-center gap-1.5">
+					<div className="relative flex-1">
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+						<Input
+							ref={inputRef}
+							type="text"
+							value={searchQuery}
+							onChange={(e) => {
+								setSearchQuery(e.target.value);
+								if (!isOpen) setIsOpen(true);
+							}}
+							onFocus={() => setIsOpen(true)}
+							onKeyDown={(e) => {
+								if (e.key === "Escape") {
+									setIsOpen(false);
+								}
+							}}
+							placeholder="Search customer by name, phone, city, or route..."
+							className="h-8.5 pl-8.5 pr-8 text-xs bg-background font-medium border-primary/40 focus-visible:ring-primary/20 shadow-2xs"
+						/>
+						{isSearchingApi ? (
+							<Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-3.5 animate-spin text-muted-foreground" />
+						) : searchQuery ? (
+							<button
+								type="button"
+								onClick={() => setSearchQuery("")}
+								className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:text-foreground"
+							>
+								<X className="size-3.5" />
+							</button>
+						) : (
+							<ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground opacity-60" />
+						)}
+					</div>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onClick={(e) => {
+							e.stopPropagation();
+							setIsAddCustomerOpen(true);
 						}}
-						onFocus={() => setIsOpen(true)}
-						onKeyDown={(e) => {
-							if (e.key === "Escape") {
-								setIsOpen(false);
-							}
-						}}
-						placeholder="Search customer by name, phone, city, or route..."
-						className="h-8.5 pl-8.5 pr-8 text-xs bg-background font-medium border-primary/40 focus-visible:ring-primary/20 shadow-2xs"
-					/>
-					{isSearchingApi ? (
-						<Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-3.5 animate-spin text-muted-foreground" />
-					) : searchQuery ? (
-						<button
-							type="button"
-							onClick={() => setSearchQuery("")}
-							className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:text-foreground"
-						>
-							<X className="size-3.5" />
-						</button>
-					) : (
-						<ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground opacity-60" />
-					)}
+						className="h-8.5 px-2.5 text-xs text-primary border-primary/40 hover:bg-primary/10 font-semibold shrink-0 gap-1"
+						title="Register New Customer"
+					>
+						<UserPlus className="size-3.5" />
+						<span className="hidden sm:inline">+ New</span>
+					</Button>
 				</div>
 			)}
 
@@ -241,9 +266,24 @@ export function CustomerSearchSelect({
 							<User className="size-3 text-primary" />
 							{searchQuery ? `Search Results for "${searchQuery}"` : "Registered Khata Customers"}
 						</span>
-						<span className="text-[10px] font-mono">
-							{displaySuggestions.length} {displaySuggestions.length === 1 ? "customer" : "customers"}
-						</span>
+						<div className="flex items-center gap-2">
+							<span className="text-[10px] font-mono">
+								{displaySuggestions.length} {displaySuggestions.length === 1 ? "customer" : "customers"}
+							</span>
+							<Button
+								type="button"
+								size="sm"
+								variant="ghost"
+								onClick={(e) => {
+									e.stopPropagation();
+									setIsAddCustomerOpen(true);
+								}}
+								className="h-6 px-2 text-[10px] text-primary hover:text-primary hover:bg-primary/10 font-bold gap-1"
+							>
+								<UserPlus className="size-3" />
+								+ New Customer
+							</Button>
+						</div>
 					</div>
 
 					{/* Suggestions List */}
@@ -306,11 +346,25 @@ export function CustomerSearchSelect({
 										<span>Searching customer directory...</span>
 									</div>
 								) : (
-									<div className="space-y-1">
-										<p className="font-semibold text-foreground">No registered khata customers found</p>
-										<p className="text-[11px] text-muted-foreground leading-normal">
-											Your customer directory starts fresh from zero. Wholesale dealers and workshop accounts will appear here automatically when registered.
+									<div className="space-y-2">
+										<p className="font-semibold text-foreground">
+											{searchQuery ? `No customer found matching "${searchQuery}"` : "No registered khata customers found"}
 										</p>
+										<p className="text-[11px] text-muted-foreground leading-normal max-w-xs mx-auto">
+											Register wholesale dealers and workshops to maintain their running Khata ledger and credit line.
+										</p>
+										<Button
+											type="button"
+											size="sm"
+											onClick={(e) => {
+												e.stopPropagation();
+												setIsAddCustomerOpen(true);
+											}}
+											className="h-7 px-3 text-xs gap-1.5 bg-primary text-primary-foreground font-semibold shadow-xs"
+										>
+											<UserPlus className="size-3.5" />
+											+ Register New Customer
+										</Button>
 									</div>
 								)}
 							</div>
@@ -318,6 +372,12 @@ export function CustomerSearchSelect({
 					</div>
 				</div>
 			)}
+
+			<CustomerFormDialog
+				open={isAddCustomerOpen}
+				onOpenChange={setIsAddCustomerOpen}
+				onSuccess={handleCustomerCreated}
+			/>
 		</div>
 	);
 }

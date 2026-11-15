@@ -424,6 +424,9 @@ export function CounterView() {
 			}
 		} else {
 			setCustomer(selected);
+			if (selected.paymentMethod === "Credit / Khata") {
+				setCashReceived(0);
+			}
 			showFlashNotice(`Loaded ${selected.name} (Khata: Rs. ${(selected.currentBalance || 0).toLocaleString()})`);
 		}
 	};
@@ -530,12 +533,12 @@ export function CounterView() {
 		return Math.max(0, total);
 	}, [subtotal, discountValue, shippingOrFitting]);
 
-	// Auto match cash received when empty or cart changes
+	// Auto match cash received when empty or cart changes (except when in Credit/Khata mode)
 	useEffect(() => {
-		if (cashReceived === 0 && netBill > 0) {
+		if (cashReceived === 0 && netBill > 0 && customer.paymentMethod !== "Credit / Khata") {
 			setCashReceived(netBill);
 		}
-	}, [netBill]);
+	}, [netBill, customer.paymentMethod]);
 
 	const changeReturn = useMemo(() => {
 		return (cashReceived || 0) - netBill;
@@ -1367,6 +1370,11 @@ export function CounterView() {
 													...customer,
 													paymentMethod: val as CustomerProfile["paymentMethod"],
 												});
+												if (val === "Credit / Khata") {
+													setCashReceived(0);
+												} else if (cashReceived === 0) {
+													setCashReceived(netBill);
+												}
 											}
 										}}
 									>
@@ -1620,19 +1628,27 @@ export function CounterView() {
 								</div>
 
 								{/* Running Customer Khata Total (Previous Dues + Unpaid Current Bill) */}
-								{customer.currentBalance !== undefined && customer.currentBalance > 0 && (
-									<div className="rounded-xl p-3 bg-neutral-900 text-white dark:bg-neutral-800/90 flex items-center justify-between text-xs border border-neutral-700/60 shadow-xs">
-										<div>
-											<span className="text-[10px] text-neutral-400 uppercase font-semibold tracking-wider block">
-												Net Cumulative Khata Dues
-											</span>
-											<span className="text-[11px] text-neutral-300">
-												Previous Rs. {customer.currentBalance.toLocaleString()} {changeReturn < 0 ? `+ Rs. ${Math.abs(changeReturn).toLocaleString()}` : ""}
+								{customer.id && customer.id !== "walkin" && ((customer.currentBalance || 0) > 0 || changeReturn < 0) && (
+									<div className="rounded-xl p-3 bg-neutral-900 text-white dark:bg-neutral-800/90 space-y-1.5 text-xs border border-neutral-700/60 shadow-xs">
+										<div className="flex items-center justify-between">
+											<div>
+												<span className="text-[10px] text-neutral-400 uppercase font-semibold tracking-wider block">
+													Net Cumulative Khata Dues
+												</span>
+												<span className="text-[11px] text-neutral-300">
+													Previous Rs. {(customer.currentBalance || 0).toLocaleString()} {changeReturn < 0 ? `+ Rs. ${Math.abs(changeReturn).toLocaleString()}` : ""}
+												</span>
+											</div>
+											<span className="font-mono font-black text-amber-400 text-base">
+												Rs. {((customer.currentBalance || 0) + (changeReturn < 0 ? Math.abs(changeReturn) : 0)).toLocaleString()}
 											</span>
 										</div>
-										<span className="font-mono font-black text-amber-400 text-base">
-											Rs. {(customer.currentBalance + (changeReturn < 0 ? Math.abs(changeReturn) : 0)).toLocaleString()}
-										</span>
+										{customer.creditLimit && ((customer.currentBalance || 0) + (changeReturn < 0 ? Math.abs(changeReturn) : 0)) > customer.creditLimit && (
+											<div className="text-[10px] text-rose-300 font-semibold bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/40 flex items-center justify-between">
+												<span>⚠️ Exceeds Assigned Credit Limit</span>
+												<span>Limit: Rs. {customer.creditLimit.toLocaleString()}</span>
+											</div>
+										)}
 									</div>
 								)}
 							</div>

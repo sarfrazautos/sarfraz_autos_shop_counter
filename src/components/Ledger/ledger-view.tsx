@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { fetchLedgerAccounts, addLedgerTransaction } from "@/lib/api/ledger/ledger-api";
+import { updateCustomer } from "@/lib/api/customers/customers-api";
 import {
 	BookOpen,
 	Search,
@@ -23,7 +24,10 @@ import {
 	X,
 	Users,
 	Loader2,
+	UserPlus,
 } from "lucide-react";
+import { CustomerFormDialog } from "@/components/Customers/customer-form-dialog";
+import { CustomerLedgerSkeleton } from "@/components/Skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -65,7 +69,16 @@ export function LedgerView() {
 	const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
 	const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+	const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	const handleCustomerCreated = (newCust: any) => {
+		setSelectedCustomerId(newCust.id);
+		setCustomerSearchTerm(newCust.name);
+		setIsAddCustomerOpen(false);
+		setNotice(`Customer ${newCust.name} successfully registered with Khata ledger!`);
+		setTimeout(() => setNotice(null), 4000);
+	};
 
 	// Close suggestion dropdown when clicking outside
 	useEffect(() => {
@@ -80,50 +93,39 @@ export function LedgerView() {
 
 	// TanStack Query for customer ledger accounts & transactions
 	const { data: ledgerData, isLoading } = useQuery({
-		queryKey: queryKeys.ledger.accounts(selectedCustomerId),
+		queryKey: queryKeys.ledger.accounts(selectedCustomerId || "initial"),
 		queryFn: () => fetchLedgerAccounts(selectedCustomerId),
 		staleTime: 1000 * 60 * 3,
 	});
 
-	const [accounts, setAccounts] = useState<CustomerLedgerAccount[]>([]);
-
-	useEffect(() => {
-		if (ledgerData?.data?.accounts && ledgerData.data.accounts.length > 0) {
-			const accList: CustomerLedgerAccount[] = ledgerData.data.accounts.map((a: any) => ({
-				id: a.id,
-				name: a.name || a.customerName || "Customer",
-				phone: a.phone || "--",
-				city: a.city || "--",
-				route: a.route || "--",
-				salesman: a.salesman || "--",
-				openingBalance: Number(a.openingBalance || 0),
-				currentBalance: Number(a.currentBalance || 0),
-				creditLimit: Number(a.creditLimit || 0),
-				lastPaymentDate: a.lastPaymentDate || "--",
-				transactions: (a.transactions || []).map((tx: any) => ({
-					id: tx.id,
-					date: tx.date,
-					voucherNo: tx.voucherNo || tx.voucherNumber,
-					type: tx.type || tx.transactionType,
-					description: tx.description,
-					debit: Number(tx.debit || tx.debitAmount || 0),
-					credit: Number(tx.credit || tx.creditAmount || 0),
-					balance: Number(tx.balance || tx.runningBalance || 0),
-					collectorOrCashier: tx.collector || tx.collectorOrCashier || "Counter Cashier",
-				})),
-			}));
-			setAccounts(accList);
-
-			// Automatically select first account if none selected yet
-			if (!selectedCustomerId && accList[0]) {
-				setSelectedCustomerId(accList[0].id);
-				setCustomerSearchTerm(accList[0].name);
-			}
-		} else {
-			setAccounts([]);
-			setSelectedCustomerId("");
-			setCustomerSearchTerm("");
+	// Derive accounts directly from ledgerData (no useEffect / no setAccounts infinite loop)
+	const accounts = useMemo<CustomerLedgerAccount[]>(() => {
+		if (!ledgerData?.data?.accounts || ledgerData.data.accounts.length === 0) {
+			return [];
 		}
+		return ledgerData.data.accounts.map((a: any) => ({
+			id: a.id,
+			name: a.name || a.customerName || "Customer",
+			phone: a.phone || "--",
+			city: a.city || "--",
+			route: a.route || "--",
+			salesman: a.salesman || "--",
+			openingBalance: Number(a.openingBalance || 0),
+			currentBalance: Number(a.currentBalance || 0),
+			creditLimit: Number(a.creditLimit || 0),
+			lastPaymentDate: a.lastPaymentDate || "--",
+			transactions: (a.transactions || []).map((tx: any) => ({
+				id: tx.id,
+				date: tx.date,
+				voucherNo: tx.voucherNo || tx.voucherNumber,
+				type: tx.type || tx.transactionType,
+				description: tx.description,
+				debit: Number(tx.debit || tx.debitAmount || 0),
+				credit: Number(tx.credit || tx.creditAmount || 0),
+				balance: Number(tx.balance || tx.runningBalance || 0),
+				collectorOrCashier: tx.collector || tx.collectorOrCashier || "Counter Cashier",
+			})),
+		}));
 	}, [ledgerData]);
 
 	// Filter suggestions based on what user types
@@ -140,10 +142,14 @@ export function LedgerView() {
 		);
 	}, [accounts, customerSearchTerm]);
 
-	// Active Account
+	// Active Account (matches selectedCustomerId, or falls back to first account)
 	const currentAccount = useMemo(() => {
 		if (accounts.length === 0) return EMPTY_ACCOUNT;
-		return accounts.find((a) => a.id === selectedCustomerId) || accounts[0] || EMPTY_ACCOUNT;
+		if (selectedCustomerId) {
+			const found = accounts.find((a) => a.id === selectedCustomerId);
+			if (found) return found;
+		}
+		return accounts[0] || EMPTY_ACCOUNT;
 	}, [accounts, selectedCustomerId]);
 
 	const hasSelectedAccount = accounts.length > 0 && currentAccount.id !== "none";
@@ -159,6 +165,17 @@ export function LedgerView() {
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ledger.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.customers.all });
+		},
+	});
+
+	// Mutation for updating opening balance
+	const openingBalMutation = useMutation({
+		mutationFn: (payload: { customerId: string; openingBalance: number }) =>
+			updateCustomer(payload.customerId, { openingBalance: payload.openingBalance }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.ledger.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.customers.all });
 		},
 	});
 
@@ -224,67 +241,28 @@ export function LedgerView() {
 			collector: recoveryCollector,
 		});
 
-		const newBalance = currentAccount.currentBalance - recoveryAmount;
-		const newTx: LedgerTransaction = {
-			id: `TX-${Date.now()}`,
-			date: new Date().toLocaleDateString("en-GB", {
-				day: "2-digit",
-				month: "short",
-				year: "numeric",
-			}),
-			voucherNo: `REC-SAD-${Math.floor(100 + Math.random() * 900)}`,
-			type: recoveryMode,
-			description: recoveryNotes.trim()
-				? recoveryNotes
-				: `Payment collected by ${recoveryCollector}`,
-			debit: 0,
-			credit: recoveryAmount,
-			balance: newBalance,
-			collectorOrCashier: recoveryCollector,
-		};
-
-		setAccounts((prev) =>
-			prev.map((acc) => {
-				if (acc.id === currentAccount.id) {
-					return {
-						...acc,
-						currentBalance: newBalance,
-						lastPaymentDate: "Today",
-						transactions: [...acc.transactions, newTx],
-					};
-				}
-				return acc;
-			})
-		);
-
 		setIsRecoveryOpen(false);
 		setRecoveryNotes("");
 		showNotice(`Recorded Rs. ${recoveryAmount.toLocaleString()} payment from ${currentAccount.name}`);
 	};
 
 	// Save Opening Balance Handler
-	const handleSaveOpeningBalance = () => {
-		setAccounts((prev) =>
-			prev.map((acc) => {
-				if (acc.id === currentAccount.id) {
-					const diff = newOpeningBal - acc.openingBalance;
-					const updatedTransactions = acc.transactions.map((tx) =>
-						tx.type === "Opening Balance"
-							? { ...tx, debit: newOpeningBal, balance: newOpeningBal }
-							: { ...tx, balance: tx.balance + diff }
-					);
-					return {
-						...acc,
-						openingBalance: newOpeningBal,
-						currentBalance: acc.currentBalance + diff,
-						transactions: updatedTransactions,
-					};
-				}
-				return acc;
-			})
-		);
-		setIsOpeningBalOpen(false);
-		showNotice(`Updated opening balance to Rs. ${newOpeningBal.toLocaleString()}`);
+	const handleSaveOpeningBalance = async () => {
+		if (newOpeningBal < 0) {
+			alert("Opening balance cannot be negative.");
+			return;
+		}
+
+		try {
+			await openingBalMutation.mutateAsync({
+				customerId: currentAccount.id,
+				openingBalance: newOpeningBal,
+			});
+			setIsOpeningBalOpen(false);
+			showNotice(`Updated opening balance to Rs. ${newOpeningBal.toLocaleString()}`);
+		} catch (err: any) {
+			alert(err.message || "Failed to update opening balance.");
+		}
 	};
 
 	// WhatsApp Statement Share
@@ -310,6 +288,10 @@ export function LedgerView() {
 
 		window.open(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`, "_blank");
 	};
+
+	if (isLoading && !ledgerData) {
+		return <CustomerLedgerSkeleton />;
+	}
 
 	return (
 		<div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto pb-16">
@@ -354,14 +336,14 @@ export function LedgerView() {
 									setIsDropdownOpen(true);
 								}}
 								onFocus={() => setIsDropdownOpen(true)}
-								placeholder="Type customer name, route, or ID..."
+								placeholder={currentAccount.id !== "none" ? `Selected: ${currentAccount.name}` : "Type customer name, route, or ID..."}
 								className="h-9 pl-9 pr-14 text-xs font-semibold bg-background"
 							/>
 							<div className="absolute right-2 flex items-center gap-1">
 								{isLoading && (
 									<Loader2 className="size-3.5 animate-spin text-muted-foreground" />
 								)}
-								{customerSearchTerm && (
+								{(customerSearchTerm || selectedCustomerId) && (
 									<button
 										type="button"
 										onClick={() => {
@@ -370,7 +352,7 @@ export function LedgerView() {
 											setIsDropdownOpen(true);
 										}}
 										className="p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-sm"
-										title="Clear input"
+										title="Clear selection"
 									>
 										<X className="size-3.5" />
 									</button>
@@ -390,12 +372,24 @@ export function LedgerView() {
 						{isDropdownOpen && (
 							<div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-xl border bg-popover text-popover-foreground shadow-lg overflow-hidden animate-in fade-in-50 zoom-in-95">
 								{accounts.length === 0 ? (
-									<div className="p-4 text-center space-y-1">
+									<div className="p-4 text-center space-y-2">
 										<Users className="size-5 text-muted-foreground mx-auto mb-1" />
 										<p className="text-xs font-bold text-foreground">No Customer Khata Accounts</p>
 										<p className="text-[11px] text-muted-foreground leading-normal">
 											The database is starting fresh from zero. Accounts will appear here automatically when customer invoices or accounts are created.
 										</p>
+										<Button
+											type="button"
+											size="sm"
+											onClick={() => {
+												setIsDropdownOpen(false);
+												setIsAddCustomerOpen(true);
+											}}
+											className="h-7 px-3 text-xs gap-1.5 bg-primary text-primary-foreground font-semibold"
+										>
+											<UserPlus className="size-3" />
+											+ Register Customer
+										</Button>
 									</div>
 								) : suggestedAccounts.length === 0 ? (
 									<div className="p-3 text-center text-xs text-muted-foreground">
@@ -414,7 +408,7 @@ export function LedgerView() {
 													type="button"
 													onClick={() => {
 														setSelectedCustomerId(acc.id);
-														setCustomerSearchTerm(acc.name);
+														setCustomerSearchTerm("");
 														setIsDropdownOpen(false);
 													}}
 													className={cn(
@@ -450,6 +444,16 @@ export function LedgerView() {
 						)}
 					</div>
 
+					<Button
+						type="button"
+						size="sm"
+						onClick={() => setIsAddCustomerOpen(true)}
+						className="h-9 px-3.5 gap-1.5 bg-primary text-primary-foreground font-bold text-xs cursor-pointer shadow-xs shrink-0"
+					>
+						<UserPlus className="size-3.5" />
+						+ New Customer
+					</Button>
+
 					<div className="flex items-center gap-2">
 						<Button
 							size="sm"
@@ -480,14 +484,24 @@ export function LedgerView() {
 
 			{/* CUSTOMER PROFILE & TRANSACTIONS TABLE */}
 			{!hasSelectedAccount ? (
-				<div className="rounded-2xl border bg-card p-12 text-center space-y-3 shadow-xs">
+				<div className="rounded-2xl border bg-card p-12 text-center space-y-4 shadow-xs">
 					<div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
 						<BookOpen className="size-7" />
 					</div>
-					<h3 className="text-base font-bold text-foreground">Customer Khata Ledger Starting From Zero</h3>
-					<p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-						All static mock names, customer accounts, and dummy vouchers have been completely cleared. When you register a new customer or bill credit orders in the Counter POS, their running ledger, vouchers, and statements will appear here automatically.
-					</p>
+					<div className="space-y-1">
+						<h3 className="text-base font-bold text-foreground">Customer Khata Ledger Starting From Zero</h3>
+						<p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+							All static mock names, customer accounts, and dummy vouchers have been completely cleared. When you register a new customer or bill credit orders in the Counter POS, their running ledger, vouchers, and statements will appear here automatically.
+						</p>
+					</div>
+					<Button
+						type="button"
+						onClick={() => setIsAddCustomerOpen(true)}
+						className="h-9 px-4 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground shadow-xs cursor-pointer mx-auto"
+					>
+						<UserPlus className="size-3.5" />
+						+ Register New Customer Account
+					</Button>
 				</div>
 			) : (
 				<>
@@ -856,6 +870,7 @@ export function LedgerView() {
 						<Button
 							variant="outline"
 							size="sm"
+							disabled={openingBalMutation.isPending}
 							onClick={() => setIsOpeningBalOpen(false)}
 							className="cursor-pointer text-xs"
 						>
@@ -864,13 +879,27 @@ export function LedgerView() {
 						<Button
 							size="sm"
 							onClick={handleSaveOpeningBalance}
-							className="font-bold text-xs cursor-pointer"
+							disabled={openingBalMutation.isPending}
+							className="font-bold text-xs cursor-pointer gap-1.5"
 						>
-							Update Balance
+							{openingBalMutation.isPending ? (
+								<>
+									<Loader2 className="size-3.5 animate-spin" />
+									Updating...
+								</>
+							) : (
+								"Update Balance"
+							)}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<CustomerFormDialog
+				open={isAddCustomerOpen}
+				onOpenChange={setIsAddCustomerOpen}
+				onSuccess={handleCustomerCreated}
+			/>
 		</div>
 	);
 }

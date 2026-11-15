@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { customers, customerLedgerTransactions, orders } from '@/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, asc } from 'drizzle-orm';
 
 export async function GET(
   _req: NextRequest,
@@ -93,6 +93,7 @@ export async function PUT(
       customerType,
       paymentMethod,
       creditLimit,
+      openingBalance,
     } = body;
 
     const updatePayload: Record<string, any> = {};
@@ -105,6 +106,68 @@ export async function PUT(
     if (paymentMethod !== undefined) updatePayload.paymentMethod = paymentMethod;
     if (creditLimit !== undefined)
       updatePayload.creditLimit = parseFloat(creditLimit).toFixed(2);
+
+    if (openingBalance !== undefined) {
+      const newOpeningBal = Math.max(0, parseFloat(openingBalance) || 0);
+      const oldOpeningBal = Number(existing.openingBalance) || 0;
+      const diff = newOpeningBal - oldOpeningBal;
+      const newCurrentBal = Math.max(0, (Number(existing.currentBalance) || 0) + diff);
+
+      updatePayload.openingBalance = newOpeningBal.toFixed(2);
+      updatePayload.currentBalance = newCurrentBal.toFixed(2);
+
+      // Check if an Opening Balance transaction exists
+      const obTx = await db.query.customerLedgerTransactions.findFirst({
+        where: and(
+          eq(customerLedgerTransactions.customerId, id),
+          eq(customerLedgerTransactions.transactionType, 'Opening Balance')
+        ),
+      });
+
+      if (obTx) {
+        if (newOpeningBal > 0) {
+          await db
+            .update(customerLedgerTransactions)
+            .set({
+              debitAmount: newOpeningBal.toFixed(2),
+            })
+            .where(eq(customerLedgerTransactions.id, obTx.id));
+        } else {
+          // If new opening balance is 0, delete the OB transaction
+          await db
+            .delete(customerLedgerTransactions)
+            .where(eq(customerLedgerTransactions.id, obTx.id));
+        }
+      } else if (newOpeningBal > 0) {
+        await db.insert(customerLedgerTransactions).values({
+          id: `VCH-OB-${id}-${Date.now()}`,
+          customerId: id,
+          voucherNumber: `OB-${id}-${Math.floor(100 + Math.random() * 900)}`,
+          transactionType: 'Opening Balance',
+          description: 'Initial opening balance brought forward',
+          debitAmount: newOpeningBal.toFixed(2),
+          creditAmount: '0.00',
+          runningBalance: newOpeningBal.toFixed(2),
+          collectorName: existing.salesman || 'Counter Cashier',
+          transactionDate: existing.createdAt || new Date(),
+        });
+      }
+
+      // Recalculate running balances across all transactions for this customer
+      const allTx = await db.query.customerLedgerTransactions.findMany({
+        where: eq(customerLedgerTransactions.customerId, id),
+        orderBy: [asc(customerLedgerTransactions.transactionDate), asc(customerLedgerTransactions.id)],
+      });
+
+      let running = 0;
+      for (const tx of allTx) {
+        running += Number(tx.debitAmount) - Number(tx.creditAmount);
+        await db
+          .update(customerLedgerTransactions)
+          .set({ runningBalance: running.toFixed(2) })
+          .where(eq(customerLedgerTransactions.id, tx.id));
+      }
+    }
 
     await db.update(customers).set(updatePayload).where(eq(customers.id, id));
 
