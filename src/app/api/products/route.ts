@@ -7,8 +7,10 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const pageSize = 12; // STRICT USER REQUIREMENT: 12 ITEMS PER PAGE
-    const offset = (page - 1) * pageSize;
+    const isAll = searchParams.get('all') === 'true';
+    const limitParam = searchParams.get('limit');
+    const pageSize = isAll ? 5000 : (limitParam ? Math.max(1, parseInt(limitParam, 10)) : 12);
+    const offset = isAll ? 0 : (page - 1) * pageSize;
 
     const search = searchParams.get('search')?.trim();
     const category = searchParams.get('category');

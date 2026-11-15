@@ -72,4 +72,7 @@ export const queryKeys = {
     all: ["system-health"] as const,
     nodes: () => ["system-health", "nodes"] as const,
   },
+  dashboard: {
+    analytics: (days?: number) => ["dashboard", "analytics", days] as const,
+  },
 };

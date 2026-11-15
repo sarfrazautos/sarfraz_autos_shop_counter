@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchAttendanceRecords } from "@/lib/api/attendance/attendance-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +36,6 @@ import {
 	History,
 	Search,
 	Building2,
-	Calendar,
 	CheckCircle2,
 	Clock,
 	Hourglass,
@@ -44,16 +46,13 @@ import {
 	Filter,
 	Download,
 	CalendarDays,
+	Loader2,
 } from "lucide-react";
 
-import {
-	INITIAL_ATTENDANCE_HISTORY,
-	type AttendanceHistoryEntry,
-} from "./history-types";
+import type { AttendanceHistoryEntry } from "./history-types";
 import type { AttendanceStatus, BranchId } from "./types";
 
 export function AttendanceHistoryView() {
-	const [historyRecords] = useState<AttendanceHistoryEntry[]>(INITIAL_ATTENDANCE_HISTORY);
 	const [selectedBranch, setSelectedBranch] = useState<BranchId>("all");
 	const [selectedDate, setSelectedDate] = useState<string>("all");
 	const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -69,9 +68,6 @@ export function AttendanceHistoryView() {
 
 	const dateFilters = [
 		{ id: "all", label: "All Days" },
-		{ id: "2026-11-08", label: "08 Nov (Yesterday)" },
-		{ id: "2026-11-07", label: "07 Nov (Saturday)" },
-		{ id: "2026-11-06", label: "06 Nov (Friday)" },
 	];
 
 	const statusFilters = [
@@ -82,6 +78,57 @@ export function AttendanceHistoryView() {
 		{ id: "on-leave", label: "On Leave" },
 		{ id: "absent", label: "Absent" },
 	];
+
+	const { data: attData, isLoading } = useQuery({
+		queryKey: queryKeys.attendance.list({
+			branchId: selectedBranch,
+			status: selectedStatus,
+			date: selectedDate !== "all" ? selectedDate : undefined,
+		}),
+		queryFn: () =>
+			fetchAttendanceRecords({
+				branchId: selectedBranch,
+				status: selectedStatus,
+				date: selectedDate !== "all" ? selectedDate : undefined,
+			}),
+		staleTime: 1000 * 60 * 3,
+	});
+
+	const historyRecords: AttendanceHistoryEntry[] = useMemo(() => {
+		if (!attData?.data || attData.data.length === 0) return [];
+		return attData.data.map((item) => {
+			const d = item.date ? new Date(item.date) : new Date();
+			return {
+				id: item.id,
+				date: item.date,
+				formattedDate: isNaN(d.getTime())
+					? item.date
+					: d.toLocaleDateString("en-GB", {
+							day: "2-digit",
+							month: "short",
+							year: "numeric",
+					  }),
+				dayOfWeek: isNaN(d.getTime())
+					? ""
+					: d.toLocaleDateString("en-US", { weekday: "long" }),
+				employeeId: item.employeeId,
+				employeeName: item.name,
+				employeeRole: item.role,
+				avatarUrl: undefined,
+				branchId: (item.branch?.toLowerCase().includes("gulshan")
+					? "branch-2"
+					: item.branch?.toLowerCase().includes("dha")
+					? "branch-3"
+					: "main") as any,
+				branchName: item.branch,
+				status: (item.status as AttendanceStatus) || "present",
+				checkInTime: item.checkIn || "--",
+				checkOutTime: item.checkOut || "--",
+				shiftHours: item.shift || "0 hrs",
+				notes: item.notes || "No audit remarks",
+			};
+		});
+	}, [attData]);
 
 	const getStatusBadge = (status: AttendanceStatus) => {
 		switch (status) {
@@ -160,7 +207,7 @@ export function AttendanceHistoryView() {
 		});
 	}, [historyRecords, selectedBranch, selectedDate, selectedStatus, searchQuery]);
 
-	// History metrics
+	// History metrics - real-time calculated
 	const totalLogged = filteredRecords.length;
 	const presentLogged = filteredRecords.filter((r) => r.status === "present").length;
 	const lateLogged = filteredRecords.filter((r) => r.status === "late").length;
@@ -186,6 +233,7 @@ export function AttendanceHistoryView() {
 				</div>
 
 				<div className="flex items-center gap-2">
+					{isLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
 					<Button variant="outline" size="sm" className="gap-2 cursor-pointer">
 						<Download className="size-3.5" />
 						Export CSV
@@ -236,7 +284,7 @@ export function AttendanceHistoryView() {
 					<div className="relative flex-1 max-w-md">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
 						<Input
-							placeholder="Search by staff name, date (e.g. 08 Nov), role, remarks..."
+							placeholder="Search by staff name, date, role, remarks..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							className="pl-9 h-9 text-sm"
@@ -454,8 +502,14 @@ export function AttendanceHistoryView() {
 							})
 						) : (
 							<TableRow>
-								<TableCell colSpan={8} className="h-32 text-center text-muted-foreground text-sm">
-									No historical records match the selected date or filters.
+								<TableCell colSpan={8} className="h-44 text-center">
+									<div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+										<History className="size-8 stroke-[1.5] text-muted-foreground/60" />
+										<p className="font-semibold text-sm text-foreground">No Attendance History Records Found</p>
+										<p className="text-xs max-w-sm text-muted-foreground">
+											Your attendance database is completely clean and starts from zero. Evaluated shift records and staff punch logs will appear here once recorded.
+										</p>
+									</div>
 								</TableCell>
 							</TableRow>
 						)}
@@ -528,4 +582,3 @@ export function AttendanceHistoryView() {
 		</div>
 	);
 }
-

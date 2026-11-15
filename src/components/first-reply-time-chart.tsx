@@ -2,7 +2,11 @@
 
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
+import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchDashboardAnalytics } from "@/lib/api/dashboard/analytics-api";
 import {
 	Card,
 	CardContent,
@@ -16,19 +20,19 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Bike } from "lucide-react";
+import { Bike, Loader2 } from "lucide-react";
 
 type BikeModelRow = {
 	model: string;
 	partsSold: number;
 };
 
-const chartRows: BikeModelRow[] = [
-	{ model: "Honda CD70", partsSold: 8420 },
-	{ model: "Honda CG125", partsSold: 4650 },
-	{ model: "Crown 70cc", partsSold: 2840 },
-	{ model: "Suzuki GS150", partsSold: 1420 },
-	{ model: "Yamaha YBR", partsSold: 1120 },
+const defaultBikeModels: BikeModelRow[] = [
+	{ model: "Honda CD70", partsSold: 0 },
+	{ model: "Honda CG125", partsSold: 0 },
+	{ model: "Crown 70cc", partsSold: 0 },
+	{ model: "Suzuki GS150", partsSold: 0 },
+	{ model: "Yamaha YBR", partsSold: 0 },
 ];
 
 const chartConfig = {
@@ -42,17 +46,31 @@ export function FirstReplyTimeChart({
 	className,
 	...props
 }: ComponentProps<typeof Card>) {
+	const { data: analyticsRes, isLoading } = useQuery({
+		queryKey: queryKeys.dashboard.analytics(30),
+		queryFn: () => fetchDashboardAnalytics(30),
+		staleTime: 1000 * 60 * 3,
+	});
+
+	const bikeModelData: BikeModelRow[] = useMemo(() => {
+		if (analyticsRes?.data?.topBikeModels && analyticsRes.data.topBikeModels.length > 0) {
+			return analyticsRes.data.topBikeModels;
+		}
+		return defaultBikeModels;
+	}, [analyticsRes]);
+
 	return (
 		<Card
 			className={cn("shadow-none md:col-span-2 dark:ring-0", className)}
 			{...props}
 		>
 			<CardHeader className="space-y-1">
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex items-center justify-between">
 					<CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
 						<Bike className="size-4 text-primary" />
 						Top Bike Models Spare Parts Demand
 					</CardTitle>
+					{isLoading && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
 				</div>
 				<CardDescription className="text-xs">
 					Unit volume of parts sold by motorcycle model this month.
@@ -60,7 +78,7 @@ export function FirstReplyTimeChart({
 			</CardHeader>
 			<CardContent>
 				<ChartContainer className="aspect-16/7 w-full max-h-[220px]" config={chartConfig}>
-					<BarChart accessibilityLayer data={chartRows} layout="vertical" margin={{ left: 16, right: 16, top: 4, bottom: 4 }}>
+					<BarChart accessibilityLayer data={bikeModelData} layout="vertical" margin={{ left: 16, right: 16, top: 4, bottom: 4 }}>
 						<CartesianGrid className="stroke-border" horizontal={false} />
 						<XAxis type="number" axisLine={false} tickLine={false} tickMargin={8} className="text-xs font-mono" />
 						<YAxis

@@ -1,3 +1,9 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchOrders } from "@/lib/api/orders/orders-api";
+import { fetchProducts } from "@/lib/api/products/products-api";
 import { cn } from "@/lib/utils";
 import {
 	Card,
@@ -12,41 +18,52 @@ import {
 	Store,
 } from "lucide-react";
 
-type Stat = {
-	label: string;
-	value: string;
-	footnote: string;
-	icon: React.ReactNode;
-};
-
-const stats: readonly Stat[] = [
-	{
-		label: "Total Sales (This Month)",
-		value: "Rs. 4,850,200",
-		footnote: "vs last month (Rs. 4,120,000)",
-		icon: <Banknote className="size-4 text-emerald-600" />,
-	},
-	{
-		label: "Total Orders Completed",
-		value: "1,428 Orders",
-		footnote: "vs last month (1,280 Orders)",
-		icon: <ShoppingBag className="size-4 text-primary" />,
-	},
-	{
-		label: "Spare Parts Dispatched",
-		value: "18,450 Units",
-		footnote: "vs last month (16,300 Units)",
-		icon: <Boxes className="size-4 text-sky-600" />,
-	},
-	{
-		label: "Active Inventory Stock",
-		value: "3,840 Items",
-		footnote: "Across 3 branches vs last month",
-		icon: <Store className="size-4 text-purple-600" />,
-	},
-];
-
 export function DashboardStats() {
+	const { data: ordersData } = useQuery({
+		queryKey: queryKeys.orders.list({ page: 1 }),
+		queryFn: () => fetchOrders({ page: 1 }),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const { data: productsData } = useQuery({
+		queryKey: queryKeys.products.list({ page: 1 }),
+		queryFn: () => fetchProducts({ page: 1 }),
+		staleTime: 1000 * 60 * 5,
+	});
+
+	const orders = ordersData?.data || [];
+	const totalSales = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+	const totalOrdersCount = ordersData?.pagination?.totalCount || orders.length;
+	const totalUnits = orders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0);
+	const totalProducts = productsData?.pagination?.totalCount || 0;
+
+	const stats = [
+		{
+			label: "Total Sales (This Month)",
+			value: `Rs. ${totalSales.toLocaleString()}`,
+			footnote: totalSales === 0 ? "Starting fresh from zero" : "Real-time sales counter",
+			icon: <Banknote className="size-4 text-emerald-600" />,
+		},
+		{
+			label: "Total Orders Completed",
+			value: `${totalOrdersCount} Orders`,
+			footnote: totalOrdersCount === 0 ? "No invoices placed yet" : "Counter & wholesale orders",
+			icon: <ShoppingBag className="size-4 text-primary" />,
+		},
+		{
+			label: "Spare Parts Dispatched",
+			value: `${totalUnits} Units`,
+			footnote: totalUnits === 0 ? "Awaiting customer orders" : "Dispatched to workshops",
+			icon: <Boxes className="size-4 text-sky-600" />,
+		},
+		{
+			label: "Active Inventory Catalog",
+			value: `${totalProducts} Products`,
+			footnote: totalProducts === 0 ? "Catalog clean (0 items)" : "Across all branches",
+			icon: <Store className="size-4 text-purple-600" />,
+		},
+	];
+
 	return (
 		<>
 			{stats.map((s) => (

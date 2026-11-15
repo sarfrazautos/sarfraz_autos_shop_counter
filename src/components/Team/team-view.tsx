@@ -25,10 +25,10 @@ export function TeamView() {
 		staleTime: 1000 * 60 * 5,
 	});
 
-	const [members, setMembers] = useState<TeamMember[]>(INITIAL_MEMBERS);
+	const [members, setMembers] = useState<TeamMember[]>([]);
 
 	useEffect(() => {
-		if (teamData?.data && teamData.data.length > 0) {
+		if (teamData?.data) {
 			setMembers(
 				teamData.data.map((m) => ({
 					id: m.id,

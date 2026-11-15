@@ -159,10 +159,10 @@ export function NotificationsView() {
 		staleTime: 1000 * 60 * 3,
 	});
 
-	const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+	const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
 	useEffect(() => {
-		if (notifData?.data && notifData.data.length > 0) {
+		if (notifData?.data) {
 			setNotifications(
 				notifData.data.map((n) => ({
 					id: n.id,

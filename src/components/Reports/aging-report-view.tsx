@@ -74,9 +74,9 @@ export function AgingReportView() {
 		staleTime: 1000 * 60 * 5,
 	});
 
-	const agingRows: CustomerAgingRow[] = reportResponse?.data && reportResponse.data.length > 0 ? reportResponse.data : INITIAL_AGING_DATA;
+	const agingRows: CustomerAgingRow[] = reportResponse?.data || [];
 	const totalPages = reportResponse?.pagination?.totalPages || 1;
-	const totalCount = reportResponse?.pagination?.totalCount || agingRows.length;
+	const totalCount = reportResponse?.pagination?.totalCount || 0;
 
 	// Filtered Rows
 	const filteredRows = agingRows;

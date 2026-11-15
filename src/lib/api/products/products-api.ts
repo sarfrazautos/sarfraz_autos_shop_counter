@@ -22,6 +22,8 @@ export interface ProductDetailResponse {
 
 export interface FetchProductsParams {
   page?: number;
+  limit?: number;
+  all?: boolean;
   search?: string;
   category?: string;
   bikeModel?: string;
@@ -32,6 +34,8 @@ export interface FetchProductsParams {
 export async function fetchProducts(params: FetchProductsParams = {}): Promise<ProductsResponse> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', params.page.toString());
+  if (params.limit) query.set('limit', params.limit.toString());
+  if (params.all) query.set('all', 'true');
   if (params.search) query.set('search', params.search);
   if (params.category && params.category !== 'all') query.set('category', params.category);
   if (params.bikeModel && params.bikeModel !== 'all') query.set('bikeModel', params.bikeModel);

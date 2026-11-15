@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
 
     const accounts = customerRows.map((c) => ({
       id: c.id,
+      name: c.name,
       customerName: c.name,
       phone: c.phone,
       city: c.city,

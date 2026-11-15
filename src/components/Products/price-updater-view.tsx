@@ -50,6 +50,7 @@ import {
 import {
 	Pagination,
 	PaginationContent,
+	PaginationEllipsis,
 	PaginationItem,
 	PaginationLink,
 	PaginationNext,
@@ -63,6 +64,19 @@ import {
 } from "./types";
 
 const ITEMS_PER_PAGE = 12;
+
+function getPaginationItems(currentPage: number, totalPages: number): (number | "ellipsis")[] {
+	if (totalPages <= 7) {
+		return Array.from({ length: totalPages }, (_, i) => i + 1);
+	}
+	if (currentPage <= 4) {
+		return [1, 2, 3, 4, 5, "ellipsis", totalPages];
+	}
+	if (currentPage >= totalPages - 3) {
+		return [1, "ellipsis", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+	}
+	return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+}
 
 const CATEGORIES: (ProductCategory | "all")[] = [
 	"all",
@@ -98,17 +112,17 @@ export function PriceUpdaterView() {
 	const queryClient = useQueryClient();
 
 	// Main Products state
-	const [products, setProducts] = useState<ProductItem[]>(INITIAL_PRODUCTS);
+	const [products, setProducts] = useState<ProductItem[]>([]);
 
-	// Fetch database products
-	const { data: dbProductsData } = useQuery({
-		queryKey: queryKeys.products.list({ page: 1 }),
-		queryFn: () => fetchProducts({ page: 1 }),
+	// Fetch all database products for pricing engine operations
+	const { data: dbProductsData, isLoading } = useQuery({
+		queryKey: ["products", "price-updater-all"],
+		queryFn: () => fetchProducts({ all: true }),
 		staleTime: 1000 * 60 * 5,
 	});
 
 	useEffect(() => {
-		if (dbProductsData?.data && dbProductsData.data.length > 0) {
+		if (dbProductsData?.data) {
 			setProducts(dbProductsData.data);
 		}
 	}, [dbProductsData]);
@@ -125,6 +139,28 @@ export function PriceUpdaterView() {
 	// Pagination
 	const [currentPage, setCurrentPage] = useState(1);
 
+	// Reset page on any filter change
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [searchQuery, minPrice, maxPrice, selectedCategory, selectedBrand, selectedModel, selectedType]);
+
+	// Dynamic categories & bike models derived from loaded catalog
+	const dynamicCategories = useMemo(() => {
+		const set = new Set<string>();
+		products.forEach((p) => {
+			if (p.category) set.add(p.category);
+		});
+		return ["all", ...Array.from(set).sort()];
+	}, [products]);
+
+	const dynamicBikeModels = useMemo(() => {
+		const set = new Set<string>();
+		products.forEach((p) => {
+			if (p.bikeModel) set.add(p.bikeModel);
+		});
+		return ["all", ...Array.from(set).sort()];
+	}, [products]);
+
 	// Multi-select for price update targeting
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -134,8 +170,8 @@ export function PriceUpdaterView() {
 	const [adjustmentValue, setAdjustmentValue] = useState<number>(10);
 	const [targetPriceField, setTargetPriceField] = useState<"both" | "retail" | "wholesale">("both");
 
-	// Preview & Save states
-	const [isPreviewActive, setIsPreviewActive] = useState(false);
+	// Preview & Save states (active by default so table is immediately visible with pagination)
+	const [isPreviewActive, setIsPreviewActive] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [successBanner, setSuccessBanner] = useState<{
 		count: number;
@@ -478,7 +514,7 @@ export function PriceUpdaterView() {
 								<SelectValue placeholder="All Categories" />
 							</SelectTrigger>
 							<SelectContent>
-								{CATEGORIES.map((cat) => (
+								{dynamicCategories.map((cat) => (
 									<SelectItem key={cat} value={cat} className="text-xs">
 										{cat === "all" ? "All Categories" : cat}
 									</SelectItem>
@@ -528,7 +564,7 @@ export function PriceUpdaterView() {
 								<SelectValue placeholder="All Models" />
 							</SelectTrigger>
 							<SelectContent>
-								{BIKE_MODELS.map((m) => (
+								{dynamicBikeModels.map((m) => (
 									<SelectItem key={m} value={m} className="text-xs">
 										{m === "all" ? "All Models" : m}
 									</SelectItem>
@@ -738,7 +774,12 @@ export function PriceUpdaterView() {
 			</div>
 
 			{/* 3. CONDITIONAL RESULTS TABLE (Shown only after clicking Preview) */}
-			{!isPreviewActive ? (
+			{isLoading && products.length === 0 ? (
+				<div className="rounded-xl border bg-card p-12 text-center flex flex-col items-center justify-center gap-3">
+					<Spinner className="size-6 text-primary animate-spin" />
+					<p className="text-xs text-muted-foreground font-medium">Loading catalog products for pricing engine...</p>
+				</div>
+			) : !isPreviewActive ? (
 				<div className="rounded-xl border border-dashed bg-card/60 p-10 text-center flex flex-col items-center justify-center gap-3 animate-in fade-in-50 duration-300">
 					<div className="size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shadow-xs">
 						<Eye className="size-5" />
@@ -950,11 +991,13 @@ export function PriceUpdaterView() {
 					{/* Pagination Controls (12 per page) */}
 					{totalPages > 1 && (
 						<div className="p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-							<span className="text-xs text-muted-foreground">
-								Page {currentPage} of {totalPages}
+							<span className="text-xs text-muted-foreground font-medium">
+								Showing <strong className="text-foreground">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong> to{" "}
+								<strong className="text-foreground">{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)}</strong> of{" "}
+								<strong className="text-foreground">{filteredProducts.length}</strong> products
 							</span>
-							<Pagination>
-								<PaginationContent>
+							<Pagination className="justify-center sm:justify-end w-auto mx-0">
+								<PaginationContent className="gap-1">
 									<PaginationItem>
 										<PaginationPrevious
 											href="#"
@@ -965,21 +1008,30 @@ export function PriceUpdaterView() {
 											className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
 										/>
 									</PaginationItem>
-									{Array.from({ length: totalPages }).map((_, idx) => (
-										<PaginationItem key={idx}>
-											<PaginationLink
-												href="#"
-												onClick={(e) => {
-													e.preventDefault();
-													setCurrentPage(idx + 1);
-												}}
-												isActive={currentPage === idx + 1}
-												className="cursor-pointer text-xs"
-											>
-												{idx + 1}
-											</PaginationLink>
-										</PaginationItem>
-									))}
+									{getPaginationItems(currentPage, totalPages).map((item, idx) => {
+										if (item === "ellipsis") {
+											return (
+												<PaginationItem key={`ellipsis-${idx}`}>
+													<PaginationEllipsis />
+												</PaginationItem>
+											);
+										}
+										return (
+											<PaginationItem key={item}>
+												<PaginationLink
+													href="#"
+													onClick={(e) => {
+														e.preventDefault();
+														setCurrentPage(item);
+													}}
+													isActive={currentPage === item}
+													className="cursor-pointer size-8 text-xs font-semibold"
+												>
+													{item}
+												</PaginationLink>
+											</PaginationItem>
+										);
+									})}
 									<PaginationItem>
 										<PaginationNext
 											href="#"

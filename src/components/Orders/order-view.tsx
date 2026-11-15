@@ -65,9 +65,9 @@ export function OrderView() {
 		staleTime: 1000 * 60 * 5,
 	});
 
-	const ordersList: OrderRecord[] = data?.data && data.data.length > 0 ? data.data : INITIAL_ORDERS;
+	const ordersList: OrderRecord[] = data?.data || [];
 	const totalPages = data?.pagination?.totalPages || 1;
-	const totalCount = data?.pagination?.totalCount || ordersList.length;
+	const totalCount = data?.pagination?.totalCount || 0;
 
 	// Mutations
 	const statusMutation = useMutation({

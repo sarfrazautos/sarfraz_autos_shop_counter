@@ -26,6 +26,7 @@ import {
 import {
 	Pagination,
 	PaginationContent,
+	PaginationEllipsis,
 	PaginationItem,
 	PaginationLink,
 	PaginationNext,
@@ -53,6 +54,19 @@ import { ProductStatsCards } from "./product-stats";
 import { ProductTable } from "./product-table";
 import { ProductDetailDialog } from "./product-detail-dialog";
 import { QuickStockDialog } from "./quick-stock-dialog";
+
+function getPaginationItems(currentPage: number, totalPages: number): (number | "ellipsis")[] {
+	if (totalPages <= 7) {
+		return Array.from({ length: totalPages }, (_, i) => i + 1);
+	}
+	if (currentPage <= 4) {
+		return [1, 2, 3, 4, 5, "ellipsis", totalPages];
+	}
+	if (currentPage >= totalPages - 3) {
+		return [1, "ellipsis", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+	}
+	return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+}
 
 export function ProductsView() {
 	const queryClient = useQueryClient();
@@ -362,49 +376,67 @@ export function ProductsView() {
 					/>
 				)}
 
-				{/* 12-Item Server Pagination */}
+				{/* 12-Item Server Smart Pagination */}
 				{totalPages > 1 && (
-					<Pagination className="justify-center sm:justify-end">
-						<PaginationContent>
-							<PaginationItem>
-								<PaginationPrevious
-									href="#"
-									onClick={(e) => {
-										e.preventDefault();
-										if (currentPage > 1) setCurrentPage((p) => p - 1);
-									}}
-									className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-								/>
-							</PaginationItem>
+					<div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+						<p className="text-xs text-muted-foreground font-medium">
+							Showing{" "}
+							<strong className="text-foreground">{(currentPage - 1) * 12 + 1}</strong> to{" "}
+							<strong className="text-foreground">{Math.min(currentPage * 12, totalCount)}</strong> of{" "}
+							<strong className="text-foreground">{totalCount}</strong> products
+						</p>
 
-							{Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-								<PaginationItem key={page}>
-									<PaginationLink
+						<Pagination className="justify-center sm:justify-end w-auto mx-0">
+							<PaginationContent className="gap-1">
+								<PaginationItem>
+									<PaginationPrevious
 										href="#"
-										isActive={page === currentPage}
 										onClick={(e) => {
 											e.preventDefault();
-											setCurrentPage(page);
+											if (currentPage > 1) setCurrentPage((p) => p - 1);
 										}}
-										className="cursor-pointer"
-									>
-										{page}
-									</PaginationLink>
+										className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+									/>
 								</PaginationItem>
-							))}
 
-							<PaginationItem>
-								<PaginationNext
-									href="#"
-									onClick={(e) => {
-										e.preventDefault();
-										if (currentPage < totalPages) setCurrentPage((p) => p + 1);
-									}}
-									className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-								/>
-							</PaginationItem>
-						</PaginationContent>
-					</Pagination>
+								{getPaginationItems(currentPage, totalPages).map((item, idx) => {
+									if (item === "ellipsis") {
+										return (
+											<PaginationItem key={`ellipsis-${idx}`}>
+												<PaginationEllipsis />
+											</PaginationItem>
+										);
+									}
+									return (
+										<PaginationItem key={item}>
+											<PaginationLink
+												href="#"
+												isActive={item === currentPage}
+												onClick={(e) => {
+													e.preventDefault();
+													setCurrentPage(item);
+												}}
+												className="cursor-pointer size-8 text-xs font-semibold"
+											>
+												{item}
+											</PaginationLink>
+										</PaginationItem>
+									);
+								})}
+
+								<PaginationItem>
+									<PaginationNext
+										href="#"
+										onClick={(e) => {
+											e.preventDefault();
+											if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+										}}
+										className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+									/>
+								</PaginationItem>
+							</PaginationContent>
+						</Pagination>
+					</div>
 				)}
 			</div>
 

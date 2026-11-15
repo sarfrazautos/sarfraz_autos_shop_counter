@@ -1,12 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { type ComponentProps, useId, useMemo, useState } from "react";
+import { type ComponentProps, useId, useMemo, useState, useEffect } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { fetchDashboardAnalytics } from "@/lib/api/dashboard/analytics-api";
 import {
 	formatChartAxisTick,
 	formatChartTooltipDate,
-	parseIsoCalendarDate,
 } from "@/components/formater";
 import {
 	Card,
@@ -28,7 +30,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { TrendingUp, Banknote } from "lucide-react";
+import { TrendingUp, Banknote, Loader2 } from "lucide-react";
 
 type PeriodDays = 7 | 30 | 60;
 
@@ -36,74 +38,6 @@ type VolumeRow = {
 	date: string;
 	salesRevenue: number; // in Thousands of PKR (k)
 };
-
-/**
- * Realistic Spare Parts Daily Sales Volume data.
- */
-const chartData: VolumeRow[] = [
-	{ date: "2026-09-15", salesRevenue: 142 },
-	{ date: "2026-09-16", salesRevenue: 156 },
-	{ date: "2026-09-17", salesRevenue: 168 },
-	{ date: "2026-09-18", salesRevenue: 182 },
-	{ date: "2026-09-19", salesRevenue: 175 },
-	{ date: "2026-09-20", salesRevenue: 190 },
-	{ date: "2026-09-21", salesRevenue: 145 },
-	{ date: "2026-09-22", salesRevenue: 162 },
-	{ date: "2026-09-23", salesRevenue: 178 },
-	{ date: "2026-09-24", salesRevenue: 185 },
-	{ date: "2026-09-25", salesRevenue: 210 },
-	{ date: "2026-09-26", salesRevenue: 195 },
-	{ date: "2026-09-27", salesRevenue: 150 },
-	{ date: "2026-09-28", salesRevenue: 172 },
-	{ date: "2026-09-29", salesRevenue: 188 },
-	{ date: "2026-09-30", salesRevenue: 205 },
-	{ date: "2026-10-01", salesRevenue: 220 },
-	{ date: "2026-10-02", salesRevenue: 198 },
-	{ date: "2026-10-03", salesRevenue: 215 },
-	{ date: "2026-10-04", salesRevenue: 160 },
-	{ date: "2026-10-05", salesRevenue: 175 },
-	{ date: "2026-10-06", salesRevenue: 192 },
-	{ date: "2026-10-07", salesRevenue: 210 },
-	{ date: "2026-10-08", salesRevenue: 235 },
-	{ date: "2026-10-09", salesRevenue: 240 },
-	{ date: "2026-10-10", salesRevenue: 218 },
-	{ date: "2026-10-11", salesRevenue: 170 },
-	{ date: "2026-10-12", salesRevenue: 185 },
-	{ date: "2026-10-13", salesRevenue: 202 },
-	{ date: "2026-10-14", salesRevenue: 225 },
-	{ date: "2026-10-15", salesRevenue: 245 },
-	{ date: "2026-10-16", salesRevenue: 230 },
-	{ date: "2026-10-17", salesRevenue: 215 },
-	{ date: "2026-10-18", salesRevenue: 180 },
-	{ date: "2026-10-19", salesRevenue: 195 },
-	{ date: "2026-10-20", salesRevenue: 220 },
-	{ date: "2026-10-21", salesRevenue: 238 },
-	{ date: "2026-10-22", salesRevenue: 260 },
-	{ date: "2026-10-23", salesRevenue: 252 },
-	{ date: "2026-10-24", salesRevenue: 230 },
-	{ date: "2026-10-25", salesRevenue: 190 },
-	{ date: "2026-10-26", salesRevenue: 205 },
-	{ date: "2026-10-27", salesRevenue: 225 },
-	{ date: "2026-10-28", salesRevenue: 248 },
-	{ date: "2026-10-29", salesRevenue: 270 },
-	{ date: "2026-10-30", salesRevenue: 262 },
-	{ date: "2026-10-31", salesRevenue: 240 },
-	{ date: "2026-11-01", salesRevenue: 215 },
-	{ date: "2026-11-02", salesRevenue: 235 },
-	{ date: "2026-11-03", salesRevenue: 250 },
-	{ date: "2026-11-04", salesRevenue: 265 },
-	{ date: "2026-11-05", salesRevenue: 285 },
-	{ date: "2026-11-06", salesRevenue: 275 },
-	{ date: "2026-11-07", salesRevenue: 290 },
-	{ date: "2026-11-08", salesRevenue: 220 },
-	{ date: "2026-11-09", salesRevenue: 245 },
-	{ date: "2026-11-10", salesRevenue: 260 },
-	{ date: "2026-11-11", salesRevenue: 280 },
-	{ date: "2026-11-12", salesRevenue: 295 },
-	{ date: "2026-11-13", salesRevenue: 310 },
-];
-
-const volumeChartReferenceDate = "2026-11-13";
 
 const chartConfig = {
 	salesRevenue: {
@@ -120,13 +54,38 @@ export function ConversationVolumeChart({
 	const idAreaGradient = `sales-area-${reactId.replace(/:/g, "")}`;
 	const [periodDays, setPeriodDays] = useState<PeriodDays>(30);
 
-	const chartRows = useMemo(() => {
-		const startDate = new Date(volumeChartReferenceDate);
-		startDate.setDate(startDate.getDate() - periodDays);
-		return chartData.filter(
-			(item) => parseIsoCalendarDate(item.date) >= startDate
-		);
-	}, [periodDays]);
+	const { data: analyticsRes, isLoading } = useQuery({
+		queryKey: queryKeys.dashboard.analytics(periodDays),
+		queryFn: () => fetchDashboardAnalytics(periodDays),
+		staleTime: 1000 * 60 * 3,
+	});
+
+	const [chartRows, setChartRows] = useState<VolumeRow[]>([]);
+
+	useEffect(() => {
+		if (analyticsRes?.data?.dailyRevenue && analyticsRes.data.dailyRevenue.length > 0) {
+			setChartRows(
+				analyticsRes.data.dailyRevenue.map((d) => ({
+					date: d.date,
+					salesRevenue: d.salesRevenue,
+				}))
+			);
+		} else {
+			const fallback: VolumeRow[] = [];
+			const now = new Date();
+			for (let i = periodDays - 1; i >= 0; i--) {
+				const d = new Date(now);
+				d.setDate(d.getDate() - i);
+				fallback.push({
+					date: d.toISOString().split("T")[0],
+					salesRevenue: 0,
+				});
+			}
+			setChartRows(fallback);
+		}
+	}, [analyticsRes, periodDays]);
+
+	const totalSales = analyticsRes?.data?.summary?.totalSalesPKR ?? 0;
 
 	let xAxisMinTickGap: number | undefined;
 	if (periodDays <= 7) {
@@ -152,35 +111,45 @@ export function ConversationVolumeChart({
 							<Banknote className="size-4 text-emerald-600" />
 							Sales Revenue Generated
 						</CardTitle>
-						<span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
-							<TrendingUp className="size-3" />
-							Consistent Growth
-						</span>
+						{totalSales > 0 ? (
+							<span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+								<TrendingUp className="size-3" />
+								Consistent Growth
+							</span>
+						) : (
+							<span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border flex items-center gap-1">
+								<TrendingUp className="size-3" />
+								Live Real-Time
+							</span>
+						)}
 					</div>
 					<CardDescription className="text-xs">
 						Daily motorcycle spare parts counter sales & wholesale billing in PKR (Rs. Thousands).
 					</CardDescription>
 				</div>
-				<Select
-					onValueChange={(v) => {
-						const n = Number(v);
-						setPeriodDays(n as PeriodDays);
-					}}
-					value={String(periodDays)}
-				>
-					<SelectTrigger
-						aria-label="Sales volume time range"
-						className="w-full min-w-36 sm:w-fit h-8 text-xs bg-background"
-						size="sm"
+				<div className="flex items-center gap-2">
+					{isLoading && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+					<Select
+						onValueChange={(v) => {
+							const n = Number(v);
+							setPeriodDays(n as PeriodDays);
+						}}
+						value={String(periodDays)}
 					>
-						<SelectValue placeholder="Range" />
-					</SelectTrigger>
-					<SelectContent align="end">
-						<SelectItem value="7" className="text-xs">Last 7 days</SelectItem>
-						<SelectItem value="30" className="text-xs">Last 30 days</SelectItem>
-						<SelectItem value="60" className="text-xs">Last 60 days</SelectItem>
-					</SelectContent>
-				</Select>
+						<SelectTrigger
+							aria-label="Sales volume time range"
+							className="w-full min-w-36 sm:w-fit h-8 text-xs bg-background"
+							size="sm"
+						>
+							<SelectValue placeholder="Range" />
+						</SelectTrigger>
+						<SelectContent align="end">
+							<SelectItem value="7" className="text-xs">Last 7 days</SelectItem>
+							<SelectItem value="30" className="text-xs">Last 30 days</SelectItem>
+							<SelectItem value="60" className="text-xs">Last 60 days</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
 			</CardHeader>
 			<CardContent>
 				<ChartContainer className="aspect-22/8 w-full" config={chartConfig}>

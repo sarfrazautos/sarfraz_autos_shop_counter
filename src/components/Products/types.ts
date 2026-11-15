@@ -19,6 +19,7 @@ export interface ProductItem {
 	bikeModel: BikeModel;
 	price: number; // Wholesale/counter rate in PKR
 	costPrice: number;
+	retailPrice?: number;
 	totalStock: number;
 	lowStockThreshold: number;
 	branches: BranchStock[];

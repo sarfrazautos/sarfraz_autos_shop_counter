@@ -1,29 +1,28 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { fetchLedgerAccounts, addLedgerTransaction } from "@/lib/api/ledger/ledger-api";
 import {
 	BookOpen,
 	Search,
-	Calendar,
 	Plus,
 	Printer,
-	Share2,
 	MessageCircle,
 	ArrowUpRight,
 	ArrowDownLeft,
 	CreditCard,
-	Building2,
 	Phone,
 	MapPin,
 	UserCheck,
-	Filter,
 	FileText,
 	CheckCircle2,
 	PlusCircle,
-	AlertCircle,
+	ChevronsUpDown,
+	X,
+	Users,
+	Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,33 +42,111 @@ import {
 	DialogDescription,
 	DialogFooter,
 } from "@/components/ui/dialog";
-import {
-	INITIAL_LEDGER_ACCOUNTS,
-	type CustomerLedgerAccount,
-	type LedgerTransaction,
-} from "./types";
+import { cn } from "@/lib/utils";
+import type { CustomerLedgerAccount, LedgerTransaction } from "./types";
+
+const EMPTY_ACCOUNT: CustomerLedgerAccount = {
+	id: "none",
+	name: "No Customer Selected",
+	phone: "--",
+	city: "--",
+	route: "--",
+	salesman: "--",
+	currentBalance: 0,
+	openingBalance: 0,
+	creditLimit: 0,
+	lastPaymentDate: "--",
+	transactions: [],
+};
 
 export function LedgerView() {
 	const queryClient = useQueryClient();
 
-	const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
-		INITIAL_LEDGER_ACCOUNTS[0].id
-	);
+	const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+	const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
+	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	// Close suggestion dropdown when clicking outside
+	useEffect(() => {
+		function handleClickOutside(event: MouseEvent) {
+			if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+				setIsDropdownOpen(false);
+			}
+		}
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
 
 	// TanStack Query for customer ledger accounts & transactions
-	const { data: ledgerData } = useQuery({
+	const { data: ledgerData, isLoading } = useQuery({
 		queryKey: queryKeys.ledger.accounts(selectedCustomerId),
 		queryFn: () => fetchLedgerAccounts(selectedCustomerId),
-		staleTime: 1000 * 60 * 5,
+		staleTime: 1000 * 60 * 3,
 	});
 
-	const [accounts, setAccounts] = useState<CustomerLedgerAccount[]>(INITIAL_LEDGER_ACCOUNTS);
+	const [accounts, setAccounts] = useState<CustomerLedgerAccount[]>([]);
 
 	useEffect(() => {
 		if (ledgerData?.data?.accounts && ledgerData.data.accounts.length > 0) {
-			setAccounts(ledgerData.data.accounts);
+			const accList: CustomerLedgerAccount[] = ledgerData.data.accounts.map((a: any) => ({
+				id: a.id,
+				name: a.name || a.customerName || "Customer",
+				phone: a.phone || "--",
+				city: a.city || "--",
+				route: a.route || "--",
+				salesman: a.salesman || "--",
+				openingBalance: Number(a.openingBalance || 0),
+				currentBalance: Number(a.currentBalance || 0),
+				creditLimit: Number(a.creditLimit || 0),
+				lastPaymentDate: a.lastPaymentDate || "--",
+				transactions: (a.transactions || []).map((tx: any) => ({
+					id: tx.id,
+					date: tx.date,
+					voucherNo: tx.voucherNo || tx.voucherNumber,
+					type: tx.type || tx.transactionType,
+					description: tx.description,
+					debit: Number(tx.debit || tx.debitAmount || 0),
+					credit: Number(tx.credit || tx.creditAmount || 0),
+					balance: Number(tx.balance || tx.runningBalance || 0),
+					collectorOrCashier: tx.collector || tx.collectorOrCashier || "Counter Cashier",
+				})),
+			}));
+			setAccounts(accList);
+
+			// Automatically select first account if none selected yet
+			if (!selectedCustomerId && accList[0]) {
+				setSelectedCustomerId(accList[0].id);
+				setCustomerSearchTerm(accList[0].name);
+			}
+		} else {
+			setAccounts([]);
+			setSelectedCustomerId("");
+			setCustomerSearchTerm("");
 		}
 	}, [ledgerData]);
+
+	// Filter suggestions based on what user types
+	const suggestedAccounts = useMemo(() => {
+		if (!customerSearchTerm.trim()) return accounts;
+		const term = customerSearchTerm.toLowerCase().trim();
+		return accounts.filter(
+			(acc) =>
+				acc.name.toLowerCase().includes(term) ||
+				acc.id.toLowerCase().includes(term) ||
+				acc.phone.toLowerCase().includes(term) ||
+				acc.route.toLowerCase().includes(term) ||
+				acc.city.toLowerCase().includes(term)
+		);
+	}, [accounts, customerSearchTerm]);
+
+	// Active Account
+	const currentAccount = useMemo(() => {
+		if (accounts.length === 0) return EMPTY_ACCOUNT;
+		return accounts.find((a) => a.id === selectedCustomerId) || accounts[0] || EMPTY_ACCOUNT;
+	}, [accounts, selectedCustomerId]);
+
+	const hasSelectedAccount = accounts.length > 0 && currentAccount.id !== "none";
 
 	// Mutation for recording payment recovery
 	const recoveryMutation = useMutation({
@@ -84,9 +161,8 @@ export function LedgerView() {
 			queryClient.invalidateQueries({ queryKey: queryKeys.ledger.all });
 		},
 	});
+
 	const [searchFilter, setSearchFilter] = useState("");
-	const [dateFrom, setDateFrom] = useState("2026-11-01");
-	const [dateTo, setDateTo] = useState("2026-11-14");
 
 	// Recovery payment modal state
 	const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
@@ -97,7 +173,7 @@ export function LedgerView() {
 
 	// Opening Balance modal state
 	const [isOpeningBalOpen, setIsOpeningBalOpen] = useState(false);
-	const [newOpeningBal, setNewOpeningBal] = useState<number>(45000);
+	const [newOpeningBal, setNewOpeningBal] = useState<number>(0);
 
 	// Success toast/flash
 	const [notice, setNotice] = useState<string | null>(null);
@@ -105,11 +181,6 @@ export function LedgerView() {
 		setNotice(msg);
 		setTimeout(() => setNotice(null), 3500);
 	};
-
-	// Active Account
-	const currentAccount = useMemo(() => {
-		return accounts.find((a) => a.id === selectedCustomerId) || accounts[0];
-	}, [accounts, selectedCustomerId]);
 
 	// Filtered transactions
 	const filteredTransactions = useMemo(() => {
@@ -262,7 +333,7 @@ export function LedgerView() {
 								Customer Khata & Ledgers
 							</h1>
 							<Badge variant="outline" className="text-[10px] py-0 px-2 font-mono">
-								Legacy Parity: Planet System
+								Live Ledger
 							</Badge>
 						</div>
 						<p className="text-xs text-muted-foreground mt-0.5">
@@ -271,38 +342,120 @@ export function LedgerView() {
 					</div>
 				</div>
 
-				{/* Customer Account Picker */}
+				{/* Searchable Autocomplete Customer Selector */}
 				<div className="flex flex-col sm:flex-row sm:items-center gap-3">
-					<div className="w-full sm:w-80">
-						<Select
-							value={selectedCustomerId}
-							onValueChange={(val) => {
-								if (val) setSelectedCustomerId(val);
-							}}
-						>
-							<SelectTrigger className="h-9 text-xs sm:text-sm font-bold w-full bg-background border-input">
-								<SelectValue placeholder="Select Customer Ledger..." />
-							</SelectTrigger>
-							<SelectContent>
-								{accounts.map((acc) => (
-									<SelectItem key={acc.id} value={acc.id} className="text-xs font-medium">
-										<div className="flex items-center justify-between gap-4 w-full">
-											<span className="font-bold">{acc.name}</span>
-											<span className="text-[11px] font-mono text-muted-foreground">
-												Rs. {acc.currentBalance.toLocaleString()}
-											</span>
+					<div className="relative w-full sm:w-80" ref={dropdownRef}>
+						<div className="relative flex items-center">
+							<Search className="size-4 text-muted-foreground absolute left-3 pointer-events-none" />
+							<Input
+								value={customerSearchTerm}
+								onChange={(e) => {
+									setCustomerSearchTerm(e.target.value);
+									setIsDropdownOpen(true);
+								}}
+								onFocus={() => setIsDropdownOpen(true)}
+								placeholder="Type customer name, route, or ID..."
+								className="h-9 pl-9 pr-14 text-xs font-semibold bg-background"
+							/>
+							<div className="absolute right-2 flex items-center gap-1">
+								{isLoading && (
+									<Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+								)}
+								{customerSearchTerm && (
+									<button
+										type="button"
+										onClick={() => {
+											setCustomerSearchTerm("");
+											setSelectedCustomerId("");
+											setIsDropdownOpen(true);
+										}}
+										className="p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-sm"
+										title="Clear input"
+									>
+										<X className="size-3.5" />
+									</button>
+								)}
+								<button
+									type="button"
+									onClick={() => setIsDropdownOpen((prev) => !prev)}
+									className="p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-sm"
+									title="Toggle suggestions"
+								>
+									<ChevronsUpDown className="size-3.5" />
+								</button>
+							</div>
+						</div>
+
+						{/* Suggestions Popover / Dropdown Below Input */}
+						{isDropdownOpen && (
+							<div className="absolute top-full left-0 right-0 z-50 mt-1.5 rounded-xl border bg-popover text-popover-foreground shadow-lg overflow-hidden animate-in fade-in-50 zoom-in-95">
+								{accounts.length === 0 ? (
+									<div className="p-4 text-center space-y-1">
+										<Users className="size-5 text-muted-foreground mx-auto mb-1" />
+										<p className="text-xs font-bold text-foreground">No Customer Khata Accounts</p>
+										<p className="text-[11px] text-muted-foreground leading-normal">
+											The database is starting fresh from zero. Accounts will appear here automatically when customer invoices or accounts are created.
+										</p>
+									</div>
+								) : suggestedAccounts.length === 0 ? (
+									<div className="p-3 text-center text-xs text-muted-foreground">
+										No customer found matching &ldquo;{customerSearchTerm}&rdquo;
+									</div>
+								) : (
+									<div className="max-h-60 overflow-y-auto divide-y divide-border/40 p-1">
+										<div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+											Suggestions ({suggestedAccounts.length})
 										</div>
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+										{suggestedAccounts.map((acc) => {
+											const isSelected = acc.id === selectedCustomerId;
+											return (
+												<button
+													key={acc.id}
+													type="button"
+													onClick={() => {
+														setSelectedCustomerId(acc.id);
+														setCustomerSearchTerm(acc.name);
+														setIsDropdownOpen(false);
+													}}
+													className={cn(
+														"w-full text-left p-2.5 rounded-lg transition-colors flex items-center justify-between gap-3 cursor-pointer",
+														isSelected
+															? "bg-primary/10 text-primary font-semibold"
+															: "hover:bg-muted text-foreground"
+													)}
+												>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2">
+															<span className="font-bold text-xs truncate">{acc.name}</span>
+															<Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+																{acc.id}
+															</Badge>
+														</div>
+														<p className="text-[11px] text-muted-foreground truncate mt-0.5">
+															{acc.route} ({acc.city}) • {acc.phone}
+														</p>
+													</div>
+													<div className="text-right shrink-0">
+														<span className="text-xs font-mono font-bold block">
+															Rs. {acc.currentBalance.toLocaleString()}
+														</span>
+														<span className="text-[10px] text-muted-foreground">Balance</span>
+													</div>
+												</button>
+											);
+										})}
+									</div>
+								)}
+							</div>
+						)}
 					</div>
 
 					<div className="flex items-center gap-2">
 						<Button
 							size="sm"
+							disabled={!hasSelectedAccount}
 							onClick={() => setIsRecoveryOpen(true)}
-							className="h-9 px-3 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-xs"
+							className="h-9 px-3 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
 						>
 							<Plus className="size-3.5" />
 							Record Recovery
@@ -311,11 +464,12 @@ export function LedgerView() {
 						<Button
 							size="sm"
 							variant="outline"
+							disabled={!hasSelectedAccount}
 							onClick={() => {
 								setNewOpeningBal(currentAccount.openingBalance);
 								setIsOpeningBalOpen(true);
 							}}
-							className="h-9 px-3 gap-1.5 text-xs font-semibold cursor-pointer"
+							className="h-9 px-3 gap-1.5 text-xs font-semibold cursor-pointer disabled:opacity-50"
 						>
 							<PlusCircle className="size-3.5 text-muted-foreground" />
 							Opening Bal
@@ -324,225 +478,248 @@ export function LedgerView() {
 				</div>
 			</div>
 
-			{/* CUSTOMER PROFILE HEADER CARD */}
-			<div className="rounded-2xl border bg-gradient-to-r from-card to-muted/20 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-				<div className="space-y-1.5">
-					<div className="flex items-center gap-2.5">
-						<h2 className="text-xl font-heading font-black text-foreground">
-							{currentAccount.name}
-						</h2>
-						<Badge variant="secondary" className="text-xs font-bold font-mono">
-							{currentAccount.id}
-						</Badge>
+			{/* CUSTOMER PROFILE & TRANSACTIONS TABLE */}
+			{!hasSelectedAccount ? (
+				<div className="rounded-2xl border bg-card p-12 text-center space-y-3 shadow-xs">
+					<div className="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+						<BookOpen className="size-7" />
 					</div>
-					<div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-						<span className="flex items-center gap-1.5 font-medium">
-							<MapPin className="size-3.5 text-primary" />
-							Route: <strong className="text-foreground">{currentAccount.route}</strong> ({currentAccount.city})
-						</span>
-						<span className="flex items-center gap-1.5 font-medium">
-							<UserCheck className="size-3.5 text-emerald-600" />
-							Recovery Officer: <strong className="text-foreground">{currentAccount.salesman}</strong>
-						</span>
-						<span className="flex items-center gap-1.5 font-medium">
-							<Phone className="size-3.5 text-muted-foreground" />
-							{currentAccount.phone}
-						</span>
-					</div>
+					<h3 className="text-base font-bold text-foreground">Customer Khata Ledger Starting From Zero</h3>
+					<p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+						All static mock names, customer accounts, and dummy vouchers have been completely cleared. When you register a new customer or bill credit orders in the Counter POS, their running ledger, vouchers, and statements will appear here automatically.
+					</p>
 				</div>
+			) : (
+				<>
+					{/* CUSTOMER PROFILE HEADER CARD */}
+					<div className="rounded-2xl border bg-gradient-to-r from-card to-muted/20 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+						<div className="space-y-1.5">
+							<div className="flex items-center gap-2.5">
+								<h2 className="text-xl font-heading font-black text-foreground">
+									{currentAccount.name}
+								</h2>
+								<Badge variant="secondary" className="text-xs font-bold font-mono">
+									{currentAccount.id}
+								</Badge>
+							</div>
+							<div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+								<span className="flex items-center gap-1.5 font-medium">
+									<MapPin className="size-3.5 text-primary" />
+									Route: <strong className="text-foreground">{currentAccount.route}</strong> ({currentAccount.city})
+								</span>
+								<span className="flex items-center gap-1.5 font-medium">
+									<UserCheck className="size-3.5 text-emerald-600" />
+									Recovery Officer: <strong className="text-foreground">{currentAccount.salesman}</strong>
+								</span>
+								<span className="flex items-center gap-1.5 font-medium">
+									<Phone className="size-3.5 text-muted-foreground" />
+									{currentAccount.phone}
+								</span>
+							</div>
+						</div>
 
-				<div className="flex items-center gap-2 shrink-0">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={handleWhatsAppStatement}
-						className="h-8 px-3 gap-1.5 border-emerald-600/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 text-xs font-semibold cursor-pointer"
-					>
-						<MessageCircle className="size-3.5 text-emerald-600" />
-						WhatsApp Statement
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => window.print()}
-						className="h-8 px-3 gap-1.5 text-xs font-semibold cursor-pointer"
-					>
-						<Printer className="size-3.5" />
-						Print Ledger
-					</Button>
-				</div>
-			</div>
-
-			{/* 4 KPI SUMMARY CARDS */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-				{/* Opening Balance */}
-				<div className="rounded-2xl border bg-card p-4 shadow-xs space-y-1">
-					<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-						Opening Balance (Old Dues)
-					</span>
-					<div className="flex items-baseline justify-between">
-						<span className="text-2xl font-mono font-black text-foreground">
-							Rs. {currentAccount.openingBalance.toLocaleString()}
-						</span>
-						<Badge variant="outline" className="text-[10px] font-mono">
-							Brought Forward
-						</Badge>
-					</div>
-					<p className="text-[11px] text-muted-foreground">Historical debt from old ledger book</p>
-				</div>
-
-				{/* Total Invoiced (Debits) */}
-				<div className="rounded-2xl border bg-card p-4 shadow-xs space-y-1">
-					<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-						Total Invoiced (Debits +)
-					</span>
-					<div className="flex items-baseline justify-between">
-						<span className="text-2xl font-mono font-black text-rose-600 dark:text-rose-400">
-							Rs. {totalDebits.toLocaleString()}
-						</span>
-						<ArrowUpRight className="size-4 text-rose-600" />
-					</div>
-					<p className="text-[11px] text-muted-foreground">New spare parts billed to account</p>
-				</div>
-
-				{/* Total Recovered (Credits) */}
-				<div className="rounded-2xl border bg-card p-4 shadow-xs space-y-1">
-					<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-						Total Recovered (Credits -)
-					</span>
-					<div className="flex items-baseline justify-between">
-						<span className="text-2xl font-mono font-black text-emerald-600 dark:text-emerald-400">
-							Rs. {totalCredits.toLocaleString()}
-						</span>
-						<ArrowDownLeft className="size-4 text-emerald-600" />
-					</div>
-					<p className="text-[11px] text-muted-foreground">Cash received by salesmen & banks</p>
-				</div>
-
-				{/* Net Outstanding Balance */}
-				<div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 shadow-xs space-y-1">
-					<div className="flex items-center justify-between">
-						<span className="text-[11px] font-bold uppercase tracking-wider text-primary block">
-							Net Outstanding Balance
-						</span>
-						<Badge variant="destructive" className="text-[10px] font-mono">
-							{creditPercent}% Limit
-						</Badge>
-					</div>
-					<div className="flex items-baseline justify-between">
-						<span className="text-2xl sm:text-3xl font-mono font-black text-foreground">
-							Rs. {currentAccount.currentBalance.toLocaleString()}
-						</span>
-					</div>
-					<div className="w-full bg-muted rounded-full h-1.5 mt-2 overflow-hidden">
-						<div
-							className={`h-full rounded-full ${
-								creditPercent > 80 ? "bg-rose-500" : "bg-primary"
-							}`}
-							style={{ width: `${creditPercent}%` }}
-						/>
-					</div>
-				</div>
-			</div>
-
-			{/* LEDGER TRANSACTIONS STATEMENT */}
-			<div className="rounded-2xl border bg-card shadow-xs overflow-hidden flex flex-col">
-				{/* Filter toolbar */}
-				<div className="p-4 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-					<div className="flex items-center gap-2">
-						<FileText className="size-4 text-primary" />
-						<h3 className="font-heading font-bold text-sm text-foreground">
-							Account Transaction Ledger
-						</h3>
-						<span className="text-xs text-muted-foreground">
-							({filteredTransactions.length} vouchers recorded)
-						</span>
-					</div>
-
-					<div className="flex items-center gap-3">
-						<div className="relative w-64">
-							<Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-							<Input
-								value={searchFilter}
-								onChange={(e) => setSearchFilter(e.target.value)}
-								placeholder="Search voucher # or note..."
-								className="h-8 text-xs pl-8 bg-background"
-							/>
+						<div className="flex items-center gap-2 shrink-0">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={handleWhatsAppStatement}
+								className="h-8 px-3 gap-1.5 border-emerald-600/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 text-xs font-semibold cursor-pointer"
+							>
+								<MessageCircle className="size-3.5 text-emerald-600" />
+								WhatsApp Statement
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => window.print()}
+								className="h-8 px-3 gap-1.5 text-xs font-semibold cursor-pointer"
+							>
+								<Printer className="size-3.5" />
+								Print Ledger
+							</Button>
 						</div>
 					</div>
-				</div>
 
-				{/* Table Grid */}
-				<div className="overflow-x-auto">
-					<table className="w-full text-left text-xs">
-						<thead className="bg-muted/40 text-muted-foreground font-semibold border-b">
-							<tr>
-								<th className="py-2.5 px-3.5">Date</th>
-								<th className="py-2.5 px-3.5">Voucher / Bill #</th>
-								<th className="py-2.5 px-3.5">Transaction Type</th>
-								<th className="py-2.5 px-3.5 min-w-[220px]">Particulars / Details</th>
-								<th className="py-2.5 px-3.5">Salesman / Cashier</th>
-								<th className="py-2.5 px-3.5 text-right text-rose-600">Debit (Dr)</th>
-								<th className="py-2.5 px-3.5 text-right text-emerald-600">Credit (Cr)</th>
-								<th className="py-2.5 px-3.5 text-right font-mono font-bold">Balance (Rs.)</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border">
-							{filteredTransactions.map((tx) => (
-								<tr key={tx.id} className="hover:bg-muted/30 transition-colors font-mono">
-									<td className="py-3 px-3.5 font-sans font-medium text-foreground whitespace-nowrap">
-										{tx.date}
-									</td>
-									<td className="py-3 px-3.5 font-bold text-foreground whitespace-nowrap">
-										{tx.voucherNo}
-									</td>
-									<td className="py-3 px-3.5 font-sans whitespace-nowrap">
-										<Badge
-											variant="outline"
-											className={`text-[10px] font-semibold ${
-												tx.type === "Opening Balance"
-													? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-													: tx.type === "Sale Invoice"
-													? "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300"
-													: "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
-											}`}
-										>
-											{tx.type}
-										</Badge>
-									</td>
-									<td className="py-3 px-3.5 font-sans text-muted-foreground">
-										{tx.description}
-									</td>
-									<td className="py-3 px-3.5 font-sans text-muted-foreground whitespace-nowrap">
-										{tx.collectorOrCashier || "—"}
-									</td>
-									<td className="py-3 px-3.5 text-right font-bold text-rose-600 dark:text-rose-400">
-										{tx.debit > 0 ? `Rs. ${tx.debit.toLocaleString()}` : "—"}
-									</td>
-									<td className="py-3 px-3.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
-										{tx.credit > 0 ? `Rs. ${tx.credit.toLocaleString()}` : "—"}
-									</td>
-									<td className="py-3 px-3.5 text-right font-black text-foreground text-sm">
-										Rs. {tx.balance.toLocaleString()}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
+					{/* 4 KPI SUMMARY CARDS */}
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+						{/* Opening Balance */}
+						<div className="rounded-2xl border bg-card p-4 shadow-xs space-y-1">
+							<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
+								Opening Balance (Old Dues)
+							</span>
+							<div className="flex items-baseline justify-between">
+								<span className="text-2xl font-mono font-black text-foreground">
+									Rs. {currentAccount.openingBalance.toLocaleString()}
+								</span>
+								<Badge variant="outline" className="text-[10px] font-mono">
+									Brought Forward
+								</Badge>
+							</div>
+							<p className="text-[11px] text-muted-foreground">Historical debt from old ledger book</p>
+						</div>
 
-				{/* Table Footer */}
-				<div className="p-4 border-t bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between text-xs font-semibold gap-2">
-					<span className="text-muted-foreground">
-						Showing running ledger for <strong>{currentAccount.name}</strong>
-					</span>
-					<div className="flex items-center gap-6 font-mono">
-						<span>Total Billed: <strong className="text-rose-600 font-bold">Rs. {totalDebits.toLocaleString()}</strong></span>
-						<span>Total Paid: <strong className="text-emerald-600 font-bold">Rs. {totalCredits.toLocaleString()}</strong></span>
-						<span>Current Dues: <strong className="text-foreground font-black text-sm">Rs. {currentAccount.currentBalance.toLocaleString()}</strong></span>
+						{/* Total Invoiced (Debits) */}
+						<div className="rounded-2xl border bg-card p-4 shadow-xs space-y-1">
+							<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
+								Total Invoiced (Debits +)
+							</span>
+							<div className="flex items-baseline justify-between">
+								<span className="text-2xl font-mono font-black text-rose-600 dark:text-rose-400">
+									Rs. {totalDebits.toLocaleString()}
+								</span>
+								<ArrowUpRight className="size-4 text-rose-600" />
+							</div>
+							<p className="text-[11px] text-muted-foreground">New spare parts billed to account</p>
+						</div>
+
+						{/* Total Recovered (Credits) */}
+						<div className="rounded-2xl border bg-card p-4 shadow-xs space-y-1">
+							<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
+								Total Recovered (Credits -)
+							</span>
+							<div className="flex items-baseline justify-between">
+								<span className="text-2xl font-mono font-black text-emerald-600 dark:text-emerald-400">
+									Rs. {totalCredits.toLocaleString()}
+								</span>
+								<ArrowDownLeft className="size-4 text-emerald-600" />
+							</div>
+							<p className="text-[11px] text-muted-foreground">Cash received by salesmen & banks</p>
+						</div>
+
+						{/* Net Outstanding Balance */}
+						<div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 shadow-xs space-y-1">
+							<div className="flex items-center justify-between">
+								<span className="text-[11px] font-bold uppercase tracking-wider text-primary block">
+									Net Outstanding Balance
+								</span>
+								<Badge variant="destructive" className="text-[10px] font-mono">
+									{creditPercent}% Limit
+								</Badge>
+							</div>
+							<div className="flex items-baseline justify-between">
+								<span className="text-2xl sm:text-3xl font-mono font-black text-foreground">
+									Rs. {currentAccount.currentBalance.toLocaleString()}
+								</span>
+							</div>
+							<div className="w-full bg-muted rounded-full h-1.5 mt-2 overflow-hidden">
+								<div
+									className={`h-full rounded-full ${
+										creditPercent > 80 ? "bg-rose-500" : "bg-primary"
+									}`}
+									style={{ width: `${creditPercent}%` }}
+								/>
+							</div>
+						</div>
 					</div>
-				</div>
-			</div>
+
+					{/* LEDGER TRANSACTIONS STATEMENT */}
+					<div className="rounded-2xl border bg-card shadow-xs overflow-hidden flex flex-col">
+						{/* Filter toolbar */}
+						<div className="p-4 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+							<div className="flex items-center gap-2">
+								<FileText className="size-4 text-primary" />
+								<h3 className="font-heading font-bold text-sm text-foreground">
+									Account Transaction Ledger
+								</h3>
+								<span className="text-xs text-muted-foreground">
+									({filteredTransactions.length} vouchers recorded)
+								</span>
+							</div>
+
+							<div className="flex items-center gap-3">
+								<div className="relative w-64">
+									<Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+									<Input
+										value={searchFilter}
+										onChange={(e) => setSearchFilter(e.target.value)}
+										placeholder="Search voucher # or note..."
+										className="h-8 text-xs pl-8 bg-background"
+									/>
+								</div>
+							</div>
+						</div>
+
+						{/* Table Grid */}
+						<div className="overflow-x-auto">
+							<table className="w-full text-left text-xs">
+								<thead className="bg-muted/40 text-muted-foreground font-semibold border-b">
+									<tr>
+										<th className="py-2.5 px-3.5">Date</th>
+										<th className="py-2.5 px-3.5">Voucher / Bill #</th>
+										<th className="py-2.5 px-3.5">Transaction Type</th>
+										<th className="py-2.5 px-3.5 min-w-[220px]">Particulars / Details</th>
+										<th className="py-2.5 px-3.5">Salesman / Cashier</th>
+										<th className="py-2.5 px-3.5 text-right text-rose-600">Debit (Dr)</th>
+										<th className="py-2.5 px-3.5 text-right text-emerald-600">Credit (Cr)</th>
+										<th className="py-2.5 px-3.5 text-right font-mono font-bold">Balance (Rs.)</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-border">
+									{filteredTransactions.length === 0 ? (
+										<tr>
+											<td colSpan={8} className="py-12 text-center text-muted-foreground text-xs">
+												No transaction vouchers recorded for this customer account.
+											</td>
+										</tr>
+									) : (
+										filteredTransactions.map((tx) => (
+											<tr key={tx.id} className="hover:bg-muted/30 transition-colors font-mono">
+												<td className="py-3 px-3.5 font-sans font-medium text-foreground whitespace-nowrap">
+													{tx.date}
+												</td>
+												<td className="py-3 px-3.5 font-bold text-foreground whitespace-nowrap">
+													{tx.voucherNo}
+												</td>
+												<td className="py-3 px-3.5 font-sans whitespace-nowrap">
+													<Badge
+														variant="outline"
+														className={`text-[10px] font-semibold ${
+															tx.type === "Opening Balance"
+																? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+																: tx.type === "Sale Invoice"
+																? "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300"
+																: "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
+														}`}
+													>
+														{tx.type}
+													</Badge>
+												</td>
+												<td className="py-3 px-3.5 font-sans text-muted-foreground">
+													{tx.description}
+												</td>
+												<td className="py-3 px-3.5 font-sans text-muted-foreground whitespace-nowrap">
+													{tx.collectorOrCashier || "—"}
+												</td>
+												<td className="py-3 px-3.5 text-right font-bold text-rose-600 dark:text-rose-400">
+													{tx.debit > 0 ? `Rs. ${tx.debit.toLocaleString()}` : "—"}
+												</td>
+												<td className="py-3 px-3.5 text-right font-bold text-emerald-600 dark:text-emerald-400">
+													{tx.credit > 0 ? `Rs. ${tx.credit.toLocaleString()}` : "—"}
+												</td>
+												<td className="py-3 px-3.5 text-right font-black text-foreground text-sm">
+													Rs. {tx.balance.toLocaleString()}
+												</td>
+											</tr>
+										))
+									)}
+								</tbody>
+							</table>
+						</div>
+
+						{/* Table Footer */}
+						<div className="p-4 border-t bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between text-xs font-semibold gap-2">
+							<span className="text-muted-foreground">
+								Showing running ledger for <strong>{currentAccount.name}</strong>
+							</span>
+							<div className="flex items-center gap-6 font-mono">
+								<span>Total Billed: <strong className="text-rose-600 font-bold">Rs. {totalDebits.toLocaleString()}</strong></span>
+								<span>Total Paid: <strong className="text-emerald-600 font-bold">Rs. {totalCredits.toLocaleString()}</strong></span>
+								<span>Current Dues: <strong className="text-foreground font-black text-sm">Rs. {currentAccount.currentBalance.toLocaleString()}</strong></span>
+							</div>
+						</div>
+					</div>
+				</>
+			)}
 
 			{/* RECORD RECOVERY MODAL */}
 			<Dialog open={isRecoveryOpen} onOpenChange={setIsRecoveryOpen}>
@@ -619,79 +796,77 @@ export function LedgerView() {
 							<Input
 								value={recoveryNotes}
 								onChange={(e) => setRecoveryNotes(e.target.value)}
-								placeholder="e.g. Cleared bill INV-SAD-9812 via Cash"
+								placeholder="e.g. Cleared invoice balance by shop visit"
 								className="text-xs h-9"
 							/>
 						</div>
-
-						<div className="rounded-xl p-3 bg-muted/50 border text-xs space-y-1">
-							<div className="flex justify-between text-muted-foreground">
-								<span>Current Balance:</span>
-								<span className="font-mono font-bold">Rs. {currentAccount.currentBalance.toLocaleString()}</span>
-							</div>
-							<div className="flex justify-between text-emerald-600 font-bold">
-								<span>Less Payment:</span>
-								<span className="font-mono">- Rs. {recoveryAmount.toLocaleString()}</span>
-							</div>
-							<div className="flex justify-between border-t pt-1 font-bold text-foreground">
-								<span>New Balance:</span>
-								<span className="font-mono text-sm">Rs. {Math.max(0, currentAccount.currentBalance - recoveryAmount).toLocaleString()}</span>
-							</div>
-						</div>
 					</div>
 
-					<DialogFooter className="gap-2 sm:gap-0">
-						<Button variant="outline" size="sm" onClick={() => setIsRecoveryOpen(false)}>
+					<DialogFooter className="gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setIsRecoveryOpen(false)}
+							className="cursor-pointer text-xs"
+						>
 							Cancel
 						</Button>
 						<Button
 							size="sm"
 							onClick={handleSaveRecovery}
-							className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+							className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer"
 						>
-							Save & Post Voucher
+							Save & Post to Ledger
 						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 
-			{/* SET OPENING BALANCE MODAL */}
+			{/* OPENING BALANCE MODAL */}
 			<Dialog open={isOpeningBalOpen} onOpenChange={setIsOpeningBalOpen}>
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
-							<BookOpen className="size-5 text-primary" />
-							Set Customer Opening Balance
+							<PlusCircle className="size-5 text-primary" />
+							Adjust Opening Balance
 						</DialogTitle>
 						<DialogDescription>
-							Migrate or adjust the initial starting debt for <strong>{currentAccount.name}</strong> brought forward from legacy software or paper registers.
+							Set or modify brought-forward opening dues for <strong>{currentAccount.name}</strong>.
 						</DialogDescription>
 					</DialogHeader>
 
-					<div className="space-y-3.5 py-2">
+					<div className="space-y-3 py-2">
 						<div className="space-y-1">
 							<label className="text-xs font-semibold text-muted-foreground">
-								Opening Starting Debt (Rs.):
+								Opening Balance Amount (PKR):
 							</label>
 							<Input
 								type="number"
 								value={newOpeningBal}
-								onChange={(e) => setNewOpeningBal(Math.max(0, parseInt(e.target.value) || 0))}
+								onChange={(e) => setNewOpeningBal(parseInt(e.target.value) || 0)}
 								className="font-mono font-bold text-sm h-9"
 							/>
+							<p className="text-[11px] text-muted-foreground">
+								This adjusts the initial debt brought forward from legacy ledger books.
+							</p>
 						</div>
-
-						<p className="text-[11px] text-muted-foreground leading-relaxed">
-							This will recompute historical running balance totals starting from voucher <code>OPN-2026</code>.
-						</p>
 					</div>
 
-					<DialogFooter className="gap-2 sm:gap-0">
-						<Button variant="outline" size="sm" onClick={() => setIsOpeningBalOpen(false)}>
+					<DialogFooter className="gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setIsOpeningBalOpen(false)}
+							className="cursor-pointer text-xs"
+						>
 							Cancel
 						</Button>
-						<Button size="sm" onClick={handleSaveOpeningBalance} className="font-bold">
-							Update Opening Balance
+						<Button
+							size="sm"
+							onClick={handleSaveOpeningBalance}
+							className="font-bold text-xs cursor-pointer"
+						>
+							Update Balance
 						</Button>
 					</DialogFooter>
 				</DialogContent>

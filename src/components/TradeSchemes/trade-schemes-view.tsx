@@ -13,11 +13,25 @@ import { fetchProducts } from "@/lib/api/products/products-api";
 import {
 	Pagination,
 	PaginationContent,
+	PaginationEllipsis,
 	PaginationItem,
 	PaginationLink,
 	PaginationNext,
 	PaginationPrevious,
 } from "@/components/ui/pagination";
+
+function getPaginationItems(currentPage: number, totalPages: number): (number | "ellipsis")[] {
+	if (totalPages <= 7) {
+		return Array.from({ length: totalPages }, (_, i) => i + 1);
+	}
+	if (currentPage <= 4) {
+		return [1, 2, 3, 4, 5, "ellipsis", totalPages];
+	}
+	if (currentPage >= totalPages - 3) {
+		return [1, "ellipsis", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+	}
+	return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", totalPages];
+}
 import {
 	BadgePercent,
 	Search,
@@ -100,7 +114,7 @@ export function TradeSchemesView() {
 		staleTime: 1000 * 60 * 5,
 	});
 
-	const availableProducts = productsData?.data || INITIAL_PRODUCTS;
+	const availableProducts = productsData?.data || [];
 
 	// Mutations
 	const createMutation = useMutation({
@@ -200,9 +214,9 @@ export function TradeSchemesView() {
 		remarks: s.remarks,
 	}));
 
-	const filteredSchemes = schemesList.length > 0 ? schemesList : INITIAL_TRADE_SCHEMES;
+	const filteredSchemes = schemesList;
 	const totalPages = schemesData?.pagination?.totalPages || 1;
-	const totalCount = schemesData?.pagination?.totalCount || filteredSchemes.length;
+	const totalCount = schemesData?.pagination?.totalCount || 0;
 
 	// Metric KPI Calculations
 	const totalActive = useMemo(() => {
@@ -308,8 +322,8 @@ export function TradeSchemesView() {
 				</div>
 			</div>
 
-			{/* 4 SUMMARY METRIC CARDS */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+			{/* 3 SUMMARY METRIC CARDS */}
+			<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 				{/* Active Schemes */}
 				<div className="rounded-2xl border bg-card p-4 shadow-xs space-y-1">
 					<span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
@@ -317,7 +331,7 @@ export function TradeSchemesView() {
 					</span>
 					<div className="flex items-baseline justify-between">
 						<span className="text-2xl sm:text-3xl font-mono font-black text-foreground">
-							{totalActive} Active
+							{totalCount} Active
 						</span>
 						<Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30">
 							Live on Counter
@@ -333,7 +347,7 @@ export function TradeSchemesView() {
 					</span>
 					<div className="flex items-baseline justify-between">
 						<span className="text-2xl font-mono font-black text-foreground">
-							{filteredSchemes.length} Parts
+							{totalCount} Parts
 						</span>
 						<Sparkles className="size-4 text-amber-500" />
 					</div>
@@ -352,20 +366,6 @@ export function TradeSchemesView() {
 						<Gift className="size-4 text-emerald-600" />
 					</div>
 					<p className="text-[11px] text-muted-foreground">"Buy X Get Y Free" bonus delivered</p>
-				</div>
-
-				{/* Effective Dealer Benefit */}
-				<div className="rounded-2xl border-2 border-amber-500/30 bg-amber-500/5 p-4 shadow-xs space-y-1">
-					<span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 block">
-						Wholesale Margin Benefit
-					</span>
-					<div className="flex items-baseline justify-between">
-						<span className="text-2xl sm:text-3xl font-mono font-black text-foreground">
-							5% – 13.5%
-						</span>
-						<TrendingUp className="size-4 text-amber-600" />
-					</div>
-					<p className="text-[11px] text-muted-foreground">Average margin discount for wholesale buyers</p>
 				</div>
 			</div>
 
@@ -593,49 +593,66 @@ export function TradeSchemesView() {
 				})}
 			</div>
 
-			{/* 12-Item Server Pagination */}
+			{/* 12-Item Server Smart Pagination */}
 			{totalPages > 1 && (
-				<Pagination className="justify-center sm:justify-end">
-					<PaginationContent>
-						<PaginationItem>
-							<PaginationPrevious
-								href="#"
-								onClick={(e) => {
-									e.preventDefault();
-									if (currentPage > 1) setCurrentPage((p) => p - 1);
-								}}
-								className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-							/>
-						</PaginationItem>
+				<div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+					<p className="text-xs text-muted-foreground font-medium">
+						Showing <strong className="text-foreground">{(currentPage - 1) * 12 + 1}</strong> to{" "}
+						<strong className="text-foreground">{Math.min(currentPage * 12, totalCount)}</strong> of{" "}
+						<strong className="text-foreground">{totalCount}</strong> schemes
+					</p>
 
-						{Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-							<PaginationItem key={page}>
-								<PaginationLink
+					<Pagination className="justify-center sm:justify-end w-auto mx-0">
+						<PaginationContent className="gap-1">
+							<PaginationItem>
+								<PaginationPrevious
 									href="#"
-									isActive={page === currentPage}
 									onClick={(e) => {
 										e.preventDefault();
-										setCurrentPage(page);
+										if (currentPage > 1) setCurrentPage((p) => p - 1);
 									}}
-									className="cursor-pointer"
-								>
-									{page}
-								</PaginationLink>
+									className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+								/>
 							</PaginationItem>
-						))}
 
-						<PaginationItem>
-							<PaginationNext
-								href="#"
-								onClick={(e) => {
-									e.preventDefault();
-									if (currentPage < totalPages) setCurrentPage((p) => p + 1);
-								}}
-								className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-							/>
-						</PaginationItem>
-					</PaginationContent>
-				</Pagination>
+							{getPaginationItems(currentPage, totalPages).map((item, idx) => {
+								if (item === "ellipsis") {
+									return (
+										<PaginationItem key={`ellipsis-${idx}`}>
+											<PaginationEllipsis />
+										</PaginationItem>
+									);
+								}
+								return (
+									<PaginationItem key={item}>
+										<PaginationLink
+											href="#"
+											isActive={item === currentPage}
+											onClick={(e) => {
+												e.preventDefault();
+												setCurrentPage(item);
+											}}
+											className="cursor-pointer size-8 text-xs font-semibold"
+										>
+											{item}
+										</PaginationLink>
+									</PaginationItem>
+								);
+							})}
+
+							<PaginationItem>
+								<PaginationNext
+									href="#"
+									onClick={(e) => {
+										e.preventDefault();
+										if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+									}}
+									className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+								/>
+							</PaginationItem>
+						</PaginationContent>
+					</Pagination>
+				</div>
 			)}
 
 			{/* CREATE SCHEME DIALOG MODAL */}

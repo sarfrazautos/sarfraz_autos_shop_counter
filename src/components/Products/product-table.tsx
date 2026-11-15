@@ -39,7 +39,7 @@ interface ProductTableProps {
 	onToggleSelectAll: () => void;
 	onToggleSelectOne: (id: string) => void;
 	onViewProduct: (product: ProductItem) => void;
-	onAddStock: (product: ProductItem) => void;
+	onAddStock?: (product: ProductItem) => void;
 	onDeleteProduct: (product: ProductItem) => void;
 }
 
@@ -305,7 +305,7 @@ export function ProductTable({
 											{getStatusBadge(product.status)}
 										</TableCell>
 
-										{/* 3 Actions: View, Add Stock, Delete */}
+										{/* Actions: View Details, Edit, Delete */}
 										<TableCell className="h-16 px-4 text-right">
 											<TooltipProvider>
 												<div className="flex items-center justify-end gap-1.5">
@@ -327,25 +327,7 @@ export function ProductTable({
 														<TooltipContent className="text-xs">View Product Details</TooltipContent>
 													</Tooltip>
 
-													{/* 2. Add Stock Icon */}
-													<Tooltip>
-														<TooltipTrigger
-															render={
-																<Button
-																	aria-label="Add Stock"
-																	size="icon"
-																	variant="outline"
-																	className="size-8 rounded-full text-muted-foreground hover:text-primary hover:border-primary/40 cursor-pointer"
-																	onClick={() => onAddStock(product)}
-																/>
-															}
-														>
-															<Plus className="size-3.5 text-primary" />
-														</TooltipTrigger>
-														<TooltipContent className="text-xs">Add Inventory Stock</TooltipContent>
-													</Tooltip>
-
-													{/* 3. Update / Edit Product Icon */}
+													{/* 2. Update / Edit Product Icon */}
 													<Tooltip>
 														<TooltipTrigger
 															render={
@@ -364,7 +346,7 @@ export function ProductTable({
 														<TooltipContent className="text-xs">Update Product</TooltipContent>
 													</Tooltip>
 
-													{/* 4. Delete Icon */}
+													{/* 3. Delete Icon */}
 													<Tooltip>
 														<TooltipTrigger
 															render={

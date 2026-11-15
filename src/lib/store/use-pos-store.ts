@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CounterCartItem, CustomerProfile, BranchId } from "@/components/Counter/types";
-import { FREQUENT_CUSTOMERS } from "@/components/Counter/types";
+import { DEFAULT_WALKIN_CUSTOMER } from "@/components/Counter/types";
 
 interface PosState {
   // Active branch context
@@ -29,7 +29,7 @@ export const usePosStore = create<PosState>()(
       activeBranchId: "main",
       setActiveBranchId: (branchId) => set({ activeBranchId: branchId }),
 
-      selectedCustomer: FREQUENT_CUSTOMERS[1], // Default to Dilawar Autos Saddar (Wholesale)
+      selectedCustomer: DEFAULT_WALKIN_CUSTOMER,
       setSelectedCustomer: (customer) => set({ selectedCustomer: customer }),
 
       cart: [],

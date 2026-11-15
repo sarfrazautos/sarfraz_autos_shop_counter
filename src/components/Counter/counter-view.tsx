@@ -32,6 +32,7 @@ import {
 	Sparkles,
 	CreditCard,
 	Share2,
+	Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +47,7 @@ import {
 import {
 	BRANCHES,
 	BIKE_MODELS,
-	FREQUENT_CUSTOMERS,
+	DEFAULT_WALKIN_CUSTOMER,
 	type BranchId,
 	type CounterCartItem,
 	type CustomerProfile,
@@ -67,16 +68,6 @@ export function CounterView() {
 	// Branch selection with localStorage persistence
 	const [activeBranchId, setActiveBranchId] = useState<BranchId>("main");
 	const [isHydrated, setIsHydrated] = useState(false);
-
-	// TanStack Query for products in active branch
-	const { data: dbProducts } = useQuery({
-		queryKey: queryKeys.products.list({ branchId: activeBranchId }),
-		queryFn: () => fetchProducts({ branchId: activeBranchId }),
-		staleTime: 1000 * 60 * 5,
-	});
-
-	const catalogProducts: ProductItem[] =
-		dbProducts?.data && dbProducts.data.length > 0 ? dbProducts.data : INITIAL_PRODUCTS;
 
 	// Load stored branch from localStorage on mount
 	useEffect(() => {
@@ -105,60 +96,73 @@ export function CounterView() {
 		return BRANCHES.find((b) => b.id === activeBranchId) || BRANCHES[0];
 	}, [activeBranchId]);
 
-	// Customer state with live Khata ledger data
-	const [customer, setCustomer] = useState<CustomerProfile>(FREQUENT_CUSTOMERS[1]); // Default to Dilawar Autos Saddar (Wholesale)
+	// Customer state with live Khata ledger data - starts clean
+	const [customer, setCustomer] = useState<CustomerProfile>(DEFAULT_WALKIN_CUSTOMER);
 
-	// Cart items state with Scheme Rate support
-	const [cart, setCart] = useState<CounterCartItem[]>([
-		{
-			id: "cart-init-1",
-			productId: "PRD-101",
-			sku: "CRN-CD70-PST",
-			name: "Crown QINGQI-4ST Piston Kit 70cc",
-			bikeModel: "Honda CD70",
-			category: "Engine & Transmission",
-			rate: 1450,
-			retailRate: 1650,
-			wholesaleRate: 1450,
-			schemeRate: 1280,
-			isSchemeActive: false,
-			quantity: 2,
-			unit: "Kit",
-			branchStock: 45,
-			pricingTier: "Wholesale",
-			imageUrl: "/logo.png",
-		},
-		{
-			id: "cart-init-2",
-			productId: "PRD-102",
-			sku: "CRN-CD70-CLT",
-			name: "Crown CD70F Clutch Gear Big (OEM Grade)",
-			bikeModel: "Honda CD70",
-			category: "Engine & Transmission",
-			rate: 1120,
-			retailRate: 1250,
-			wholesaleRate: 1120,
-			schemeRate: 980,
-			isSchemeActive: false,
-			quantity: 1,
-			unit: "Pcs",
-			branchStock: 34,
-			pricingTier: "Wholesale",
-			imageUrl: "/logo.png",
-		},
-	]);
+	// Cart items state - starts empty from zero
+	const [cart, setCart] = useState<CounterCartItem[]>([]);
 
-	// Product Search & Filter state
+	// Product Search & Filter state - Target Bike Model defaults to "All Models"
 	const [searchQuery, setSearchQuery] = useState("");
+	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+	const [isDebouncing, setIsDebouncing] = useState(false);
 	const [selectedCategory, setSelectedCategory] = useState("All");
-	const [selectedBikeModel, setSelectedBikeModel] = useState<string>("Honda CD70");
+	const [selectedBikeModel, setSelectedBikeModel] = useState<string>("All Models");
 	const [selectedPricingTier, setSelectedPricingTier] = useState<"Retail" | "Wholesale">("Wholesale");
 	const [inputQuantity, setInputQuantity] = useState<number>(1);
+
+	// Debounce user typing by 400ms before querying PostgreSQL database
+	useEffect(() => {
+		if (!searchQuery.trim()) {
+			setDebouncedSearchQuery("");
+			setIsDebouncing(false);
+			return;
+		}
+
+		setIsDebouncing(true);
+		const timer = setTimeout(() => {
+			setDebouncedSearchQuery(searchQuery.trim());
+			setIsDebouncing(false);
+		}, 400);
+
+		return () => clearTimeout(timer);
+	}, [searchQuery]);
+
+	// Live database query for searching real products from PostgreSQL Neon database
+	const {
+		data: searchResultsData,
+		isLoading: isSearchingApi,
+		isFetching: isFetchingApi,
+	} = useQuery({
+		queryKey: [
+			"products",
+			"counter-search",
+			{
+				search: debouncedSearchQuery,
+				branchId: activeBranchId,
+				bikeModel: selectedBikeModel !== "All Models" ? selectedBikeModel : undefined,
+				category: selectedCategory !== "All" ? selectedCategory : undefined,
+			},
+		],
+		queryFn: () =>
+			fetchProducts({
+				search: debouncedSearchQuery,
+				branchId: activeBranchId,
+				bikeModel: selectedBikeModel !== "All Models" ? selectedBikeModel : undefined,
+				category: selectedCategory !== "All" ? selectedCategory : undefined,
+				limit: 20,
+			}),
+		enabled: debouncedSearchQuery.length > 0,
+		staleTime: 1000 * 60 * 2,
+	});
+
+	const searchResults: ProductItem[] = searchResultsData?.data || [];
+	const isSearchLoading = searchQuery.trim().length > 0 && (isDebouncing || isSearchingApi || isFetchingApi);
 
 	// Financials & Register
 	const [discountValue, setDiscountValue] = useState<number>(0);
 	const [shippingOrFitting, setShippingOrFitting] = useState<number>(0);
-	const [cashReceived, setCashReceived] = useState<number>(4020);
+	const [cashReceived, setCashReceived] = useState<number>(0);
 	const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
 	// Invoice Sheet Modal
@@ -184,27 +188,10 @@ export function CounterView() {
 		return () => clearInterval(interval);
 	}, []);
 
-	// Filtered catalog products based on query & branch stock
-	const matchingProducts = useMemo(() => {
-		return catalogProducts.filter((prod) => {
-			const matchesQuery =
-				!searchQuery.trim() ||
-				prod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				prod.sku.toLowerCase().includes(searchQuery.toLowerCase());
-			const matchesCategory =
-				selectedCategory === "All" || prod.category === selectedCategory;
-			const matchesModel =
-				selectedBikeModel === "All Models" ||
-				prod.bikeModel.toLowerCase().includes(selectedBikeModel.toLowerCase()) ||
-				prod.bikeModel.includes("Universal");
-			return matchesQuery && matchesCategory && matchesModel;
-		}).slice(0, 8);
-	}, [catalogProducts, searchQuery, selectedCategory, selectedBikeModel]);
-
 	// Stock lookup helper for active branch
 	const getBranchStock = (product: ProductItem): number => {
-		const branchObj = product.branches.find((b) => b.branchId === activeBranchId);
-		return branchObj ? branchObj.stock : Math.floor(product.totalStock / 3);
+		const branchObj = product.branches?.find((b) => b.branchId === activeBranchId);
+		return branchObj ? branchObj.stock : Math.floor((product.totalStock || 0) / 3);
 	};
 
 	// Add item to cart
@@ -212,13 +199,14 @@ export function CounterView() {
 		const stock = getBranchStock(product);
 		const rate =
 			selectedPricingTier === "Retail"
-				? Math.round(product.price * 1.15)
+				? Math.round(product.retailPrice || product.price * 1.15)
 				: product.price;
 		const schemeRate = Math.round(product.price * 0.88); // 12% wholesale scheme discount
+		const targetModel = selectedBikeModel === "All Models" ? product.bikeModel : selectedBikeModel;
 
 		setCart((prev) => {
 			const existingIndex = prev.findIndex(
-				(item) => item.productId === product.id && item.bikeModel === selectedBikeModel
+				(item) => item.productId === product.id && item.bikeModel === targetModel
 			);
 			if (existingIndex > -1) {
 				const updated = [...prev];
@@ -233,10 +221,10 @@ export function CounterView() {
 				productId: product.id,
 				sku: product.sku,
 				name: product.name,
-				bikeModel: selectedBikeModel,
+				bikeModel: targetModel,
 				category: product.category,
 				rate: rate,
-				retailRate: Math.round(product.price * 1.15),
+				retailRate: Math.round(product.retailPrice || product.price * 1.15),
 				wholesaleRate: product.price,
 				schemeRate: schemeRate,
 				isSchemeActive: false,
@@ -303,10 +291,9 @@ export function CounterView() {
 	// Quick Customer Switcher
 	const handleSelectCustomer = (selected: CustomerProfile | string) => {
 		if (typeof selected === "string") {
-			const found = FREQUENT_CUSTOMERS.find((c) => c.id === selected);
-			if (found) {
-				setCustomer(found);
-				showFlashNotice(`Loaded ${found.name} (Khata: Rs. ${(found.currentBalance || 0).toLocaleString()})`);
+			if (selected === "walkin") {
+				setCustomer(DEFAULT_WALKIN_CUSTOMER);
+				showFlashNotice("Loaded Walk-in Retail Customer");
 			}
 		} else {
 			setCustomer(selected);
@@ -712,7 +699,11 @@ export function CounterView() {
 						{/* Search Input Bar */}
 						<div className="space-y-2">
 							<div className="relative">
-								<Search className="size-4 absolute left-3 top-2.5 text-muted-foreground" />
+								{isSearchLoading ? (
+									<Loader2 className="size-4 absolute left-3 top-3 text-primary animate-spin" />
+								) : (
+									<Search className="size-4 absolute left-3 top-3 text-muted-foreground" />
+								)}
 								<Input
 									placeholder="Search spare part name or SKU (e.g. Piston, Clutch Gear, Brake Shoe, Chain)..."
 									value={searchQuery}
@@ -723,7 +714,7 @@ export function CounterView() {
 									<button
 										type="button"
 										onClick={() => setSearchQuery("")}
-										className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+										className="absolute right-3 top-3 text-muted-foreground hover:text-foreground cursor-pointer"
 									>
 										<X className="size-4" />
 									</button>
@@ -732,17 +723,22 @@ export function CounterView() {
 
 							{/* Autocomplete / Suggested Products dropdown */}
 							{searchQuery.trim().length > 0 && (
-								<div className="rounded-xl border bg-popover shadow-lg max-h-64 overflow-y-auto divide-y divide-border">
-									{matchingProducts.length === 0 ? (
+								<div className="rounded-xl border bg-popover shadow-lg max-h-72 overflow-y-auto divide-y divide-border">
+									{isSearchLoading ? (
+										<div className="p-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+											<Loader2 className="size-4 animate-spin text-primary" />
+											<span>Searching database catalog for "{searchQuery}"...</span>
+										</div>
+									) : searchResults.length === 0 ? (
 										<div className="p-4 text-center text-xs text-muted-foreground">
-											No matching product found in catalog for "{searchQuery}".
+											No matching products found in database catalog for "{debouncedSearchQuery || searchQuery}".
 										</div>
 									) : (
-										matchingProducts.map((prod) => {
+										searchResults.map((prod) => {
 											const branchStock = getBranchStock(prod);
 											const displayPrice =
 												selectedPricingTier === "Retail"
-													? Math.round(prod.price * 1.15)
+													? Math.round(prod.retailPrice || prod.price * 1.15)
 													: prod.price;
 
 											return (
@@ -803,7 +799,7 @@ export function CounterView() {
 														}}
 													>
 														<Plus className="size-3" />
-														Add
+														Add ({inputQuantity})
 													</Button>
 												</div>
 											);
@@ -1090,7 +1086,6 @@ export function CounterView() {
 								</div>
 								<CustomerSearchSelect
 									selectedCustomerId={customer.id}
-									fallbackCustomers={FREQUENT_CUSTOMERS}
 									onSelectCustomer={handleSelectCustomer}
 								/>
 							</div>

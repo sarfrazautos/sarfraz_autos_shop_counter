@@ -7,10 +7,9 @@ import {
   Lock,
   Loader2,
   ArrowRight,
-  ShieldCheck,
   Eye,
   EyeOff,
-  Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -21,7 +20,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
 import { loginAdminAction } from "@/app/actions/auth-actions";
 
@@ -36,185 +34,149 @@ const formSchema = z.object({
 
 export const SignUpForm = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isQuickLoggingIn, setIsQuickLoggingIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "admin@sarfrazautos-counter.com",
+      email: "",
       password: "",
     },
   });
 
-  const performLogin = async (email: string, password: string) => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsLoading(true);
+    setAuthError(null);
+
     try {
-      const result = await loginAdminAction({ email, password });
+      const result = await loginAdminAction({
+        email: values.email,
+        password: values.password,
+      });
 
       if (!result.success) {
+        const errorMsg = result.error || "Invalid administrator credentials.";
+        setAuthError(errorMsg);
         toast.add({
           title: "Access Denied",
-          description: result.error || "The email or password you entered is incorrect.",
+          description: errorMsg,
           type: "error",
         });
         setIsLoading(false);
-        setIsQuickLoggingIn(false);
         return;
       }
 
       toast.add({
         title: "Welcome Back, Shahmeer!",
-        description: "Admin verified successfully. Loading shop counter terminal...",
+        description: "Credentials verified. Loading shop counter terminal...",
         type: "success",
       });
 
-      // Navigate to dashboard
-      window.location.href = "/dashboard";
+      // Check redirect param if any
+      const searchParams = new URLSearchParams(window.location.search);
+      const destination = searchParams.get("redirect") || "/dashboard";
+
+      window.location.href = destination;
     } catch {
+      setAuthError("Network connection error. Please verify your connection.");
       toast.add({
-        title: "Connection Notice",
-        description: "Unable to complete authentication request. Please check your network and try again.",
-        type: "warning",
+        title: "Connection Error",
+        description: "Unable to reach authentication server. Please try again.",
+        type: "error",
       });
       setIsLoading(false);
-      setIsQuickLoggingIn(false);
     }
   };
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
-    await performLogin(values.email, values.password);
-  }
-
-  const handleQuickAdminLogin = async () => {
-    setIsQuickLoggingIn(true);
-    setIsLoading(true);
-    form.setValue("email", "admin@sarfrazautos-counter.com");
-    form.setValue("password", "111shahmeer111");
-
-    toast.add({
-      title: "One-Click Admin Sign-in",
-      description: "Authenticating with pre-configured administrator credentials...",
-      type: "info",
-    });
-
-    await performLogin("admin@sarfrazautos-counter.com", "111shahmeer111");
-  };
-
-  const isBusy = isLoading || isQuickLoggingIn;
-
   return (
-    <div className="space-y-6">
-      {/* Quick Admin Access Button */}
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      {authError && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2 animate-in fade-in">
+          <ShieldAlert className="size-4 shrink-0" />
+          <span>{authError}</span>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <Controller
+          control={form.control}
+          name="email"
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel className="text-xs font-semibold">Admin Email</FieldLabel>
+              <div className="relative">
+                <Input
+                  aria-invalid={fieldState.invalid}
+                  placeholder="name@example.com"
+                  type="email"
+                  disabled={isLoading}
+                  autoComplete="email"
+                  className="h-10 text-xs bg-background pl-9"
+                  {...field}
+                />
+                <Mail className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              </div>
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+
+        <Controller
+          control={form.control}
+          name="password"
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <div className="flex items-center justify-between">
+                <FieldLabel className="text-xs font-semibold">Admin Password</FieldLabel>
+              </div>
+              <div className="relative">
+                <Input
+                  aria-invalid={fieldState.invalid}
+                  placeholder="Enter administrator password"
+                  type={showPassword ? "text" : "password"}
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                  className="h-10 text-xs bg-background pl-9 pr-9"
+                  {...field}
+                />
+                <Lock className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
+              </div>
+              <FieldError errors={[fieldState.error]} />
+            </Field>
+          )}
+        />
+      </div>
+
       <Button
-        className="w-full h-11 bg-primary text-primary-foreground font-semibold gap-2 cursor-pointer shadow-sm hover:opacity-95 active:scale-98 transition-all"
-        size="lg"
-        type="button"
-        disabled={isBusy}
-        onClick={handleQuickAdminLogin}
+        type="submit"
+        disabled={isLoading}
+        className="w-full h-11 text-xs font-bold gap-2 cursor-pointer transition-all active:scale-98 mt-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
       >
-        {isQuickLoggingIn ? (
+        {isLoading ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            <span>Authenticating Admin...</span>
+            <span>Verifying Credentials...</span>
           </>
         ) : (
           <>
-            <ShieldCheck className="size-4 text-emerald-300" />
-            <span>One-Click Admin Sign-In</span>
-            <Sparkles className="size-3.5 ml-auto opacity-70" />
+            <span>Log In to Shop Terminal</span>
+            <ArrowRight className="size-4 ml-auto" />
           </>
         )}
       </Button>
-
-      <div className="flex items-center justify-center gap-3 overflow-hidden">
-        <Separator className="flex-1" />
-        <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium">
-          or sign in manually
-        </span>
-        <Separator className="flex-1" />
-      </div>
-
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-4">
-          <Controller
-            control={form.control}
-            name="email"
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <FieldLabel className="text-xs font-semibold">Admin Email</FieldLabel>
-                <div className="relative">
-                  <Input
-                    aria-invalid={fieldState.invalid}
-                    placeholder="admin@sarfrazautos-counter.com"
-                    type="email"
-                    disabled={isBusy}
-                    className="h-10 text-xs bg-background pl-9"
-                    {...field}
-                  />
-                  <Mail className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                </div>
-                <FieldError errors={[fieldState.error]} />
-              </Field>
-            )}
-          />
-
-          <Controller
-            control={form.control}
-            name="password"
-            render={({ field, fieldState }) => (
-              <Field data-invalid={fieldState.invalid}>
-                <div className="flex items-center justify-between">
-                  <FieldLabel className="text-xs font-semibold">Admin Password</FieldLabel>
-                </div>
-                <div className="relative">
-                  <Input
-                    aria-invalid={fieldState.invalid}
-                    placeholder="Enter administrator password"
-                    type={showPassword ? "text" : "password"}
-                    disabled={isBusy}
-                    className="h-10 text-xs bg-background pl-9 pr-9"
-                    {...field}
-                  />
-                  <Lock className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
-                </div>
-                <FieldError errors={[fieldState.error]} />
-              </Field>
-            )}
-          />
-        </div>
-
-        <Button
-          type="submit"
-          disabled={isBusy}
-          variant="outline"
-          className="w-full h-11 text-xs font-bold gap-2 cursor-pointer transition-all active:scale-98 mt-2"
-        >
-          {isLoading && !isQuickLoggingIn ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              <span>Verifying Credentials...</span>
-            </>
-          ) : (
-            <>
-              <span>Log In to Shop Terminal</span>
-              <ArrowRight className="size-4 ml-auto" />
-            </>
-          )}
-        </Button>
-      </form>
-    </div>
+    </form>
   );
 };

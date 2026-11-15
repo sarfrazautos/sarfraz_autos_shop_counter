@@ -36,7 +36,7 @@ export function RecentConversations({
 		staleTime: 1000 * 60 * 5,
 	});
 
-	const recentOrders = ordersData?.data && ordersData.data.length > 0 ? ordersData.data.slice(0, 5) : INITIAL_ORDERS.slice(0, 5);
+	const recentOrders = ordersData?.data ? ordersData.data.slice(0, 5) : [];
 
 	return (
 		<Card
@@ -75,32 +75,40 @@ export function RecentConversations({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{recentOrders.map((order) => (
-							<TableRow key={order.id} className="border-border/60 hover:bg-muted/40">
-								<TableCell className="font-mono text-xs font-semibold text-foreground py-2.5">
-									{order.invoiceNumber}
-								</TableCell>
-								<TableCell className="py-2.5">
-									<div className="font-semibold text-xs text-foreground truncate max-w-[160px]">
-										{order.customerName}
-									</div>
-									<div className="text-[10px] text-muted-foreground">
-										{order.customerCity} • {order.items.length} parts
-									</div>
-								</TableCell>
-								<TableCell className="py-2.5">
-									<Badge
-										variant={order.type === "Wholesale" ? "secondary" : "outline"}
-										className="text-[10px] py-0 px-1.5"
-									>
-										{order.type}
-									</Badge>
-								</TableCell>
-								<TableCell className="text-right font-mono text-xs font-bold text-foreground py-2.5">
-									Rs. {order.totalAmount.toLocaleString()}
+						{recentOrders.length === 0 ? (
+							<TableRow>
+								<TableCell colSpan={4} className="text-center py-8 text-xs text-muted-foreground">
+									No counter orders placed yet. New invoices will appear here.
 								</TableCell>
 							</TableRow>
-						))}
+						) : (
+							recentOrders.map((order) => (
+								<TableRow key={order.id} className="border-border/60 hover:bg-muted/40">
+									<TableCell className="font-mono text-xs font-semibold text-foreground py-2.5">
+										{order.invoiceNumber}
+									</TableCell>
+									<TableCell className="py-2.5">
+										<div className="font-semibold text-xs text-foreground truncate max-w-[160px]">
+											{order.customerName}
+										</div>
+										<div className="text-[10px] text-muted-foreground">
+											{order.customerCity} • {order.items.length} parts
+										</div>
+									</TableCell>
+									<TableCell className="py-2.5">
+										<Badge
+											variant={order.type === "Wholesale" ? "secondary" : "outline"}
+											className="text-[10px] py-0 px-1.5"
+										>
+											{order.type}
+										</Badge>
+									</TableCell>
+									<TableCell className="text-right font-mono text-xs font-bold text-foreground py-2.5">
+										Rs. {order.totalAmount.toLocaleString()}
+									</TableCell>
+								</TableRow>
+							))
+						)}
 					</TableBody>
 				</Table>
 			</CardContent>

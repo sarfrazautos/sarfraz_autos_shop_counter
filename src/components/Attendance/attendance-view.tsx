@@ -48,10 +48,10 @@ export function AttendanceView() {
 		staleTime: 1000 * 60 * 5,
 	});
 
-	const [records, setRecords] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE_RECORDS);
+	const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
 	useEffect(() => {
-		if (attData?.data && attData.data.length > 0) {
+		if (attData?.data) {
 			setRecords(
 				attData.data.map((r) => ({
 					id: r.id,

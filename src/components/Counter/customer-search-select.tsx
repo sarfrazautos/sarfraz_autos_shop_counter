@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Search, X, Check, ChevronsUpDown, Loader2, User, Phone, MapPin, Wallet } from "lucide-react";
+import { Search, X, Check, ChevronsUpDown, Loader2, User, Phone, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { CustomerProfile } from "./types";
@@ -15,22 +15,45 @@ interface CustomerSearchSelectProps {
 export function CustomerSearchSelect({
 	selectedCustomerId,
 	onSelectCustomer,
-	fallbackCustomers = [],
 }: CustomerSearchSelectProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isSearchingApi, setIsSearchingApi] = useState(false);
 	const [apiResults, setApiResults] = useState<CustomerProfile[]>([]);
+	const [activeCustomer, setActiveCustomer] = useState<CustomerProfile | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	// Find the currently selected customer
-	const selectedCustomer = useMemo(() => {
-		const inLocal = fallbackCustomers.find((c) => c.id === selectedCustomerId);
-		if (inLocal) return inLocal;
-		const inApi = apiResults.find((c) => c.id === selectedCustomerId);
-		return inApi || null;
-	}, [selectedCustomerId, fallbackCustomers, apiResults]);
+	// Fetch initial real customers from database
+	const fetchInitialCustomers = async () => {
+		try {
+			const res = await fetch("/api/customers?page=1");
+			if (res.ok) {
+				const json = await res.json();
+				if (json.success && Array.isArray(json.data)) {
+					const mapped: CustomerProfile[] = json.data.map((c: any) => ({
+						id: c.id,
+						name: c.name,
+						phone: c.phone || "--",
+						city: c.city || "--",
+						route: c.route || "--",
+						salesman: c.salesman || "--",
+						type: (c.customerType || "Wholesale Dealer") as any,
+						paymentMethod: (c.paymentMethod || "Credit / Khata") as any,
+						currentBalance: Number(c.currentBalance || 0),
+						creditLimit: Number(c.creditLimit || 0),
+					}));
+					setApiResults(mapped);
+				}
+			}
+		} catch (err) {
+			console.error("Failed to load initial customers:", err);
+		}
+	};
+
+	useEffect(() => {
+		fetchInitialCustomers();
+	}, []);
 
 	// Close on click outside
 	useEffect(() => {
@@ -47,7 +70,7 @@ export function CustomerSearchSelect({
 	useEffect(() => {
 		const trimmed = searchQuery.trim();
 		if (!trimmed) {
-			setApiResults([]);
+			fetchInitialCustomers();
 			setIsSearchingApi(false);
 			return;
 		}
@@ -62,14 +85,14 @@ export function CustomerSearchSelect({
 						const mapped: CustomerProfile[] = json.data.map((c: any) => ({
 							id: c.id,
 							name: c.name,
-							phone: c.phone,
-							city: c.city,
-							route: c.route,
-							salesman: c.salesman,
+							phone: c.phone || "--",
+							city: c.city || "--",
+							route: c.route || "--",
+							salesman: c.salesman || "--",
 							type: (c.customerType || "Wholesale Dealer") as any,
 							paymentMethod: (c.paymentMethod || "Credit / Khata") as any,
-							currentBalance: c.currentBalance || 0,
-							creditLimit: c.creditLimit || 50000,
+							currentBalance: Number(c.currentBalance || 0),
+							creditLimit: Number(c.creditLimit || 0),
 						}));
 						setApiResults(mapped);
 					}
@@ -88,10 +111,10 @@ export function CustomerSearchSelect({
 	const displaySuggestions = useMemo(() => {
 		const query = searchQuery.trim().toLowerCase();
 		if (!query) {
-			return fallbackCustomers;
+			return apiResults;
 		}
 
-		const localFiltered = fallbackCustomers.filter(
+		return apiResults.filter(
 			(c) =>
 				c.name.toLowerCase().includes(query) ||
 				c.phone.toLowerCase().includes(query) ||
@@ -99,21 +122,10 @@ export function CustomerSearchSelect({
 				(c.route && c.route.toLowerCase().includes(query)) ||
 				(c.id && c.id.toLowerCase().includes(query))
 		);
-
-		const seenIds = new Set(localFiltered.map((c) => c.id));
-		const merged = [...localFiltered];
-
-		for (const c of apiResults) {
-			if (c.id && !seenIds.has(c.id)) {
-				seenIds.add(c.id);
-				merged.push(c);
-			}
-		}
-
-		return merged;
-	}, [searchQuery, fallbackCustomers, apiResults]);
+	}, [searchQuery, apiResults]);
 
 	const handleSelect = (customer: CustomerProfile) => {
+		setActiveCustomer(customer);
 		onSelectCustomer(customer);
 		setIsOpen(false);
 		setSearchQuery("");
@@ -121,15 +133,18 @@ export function CustomerSearchSelect({
 
 	const handleClear = (e: React.MouseEvent) => {
 		e.stopPropagation();
+		setActiveCustomer(null);
 		setSearchQuery("");
 		setIsOpen(true);
 		setTimeout(() => inputRef.current?.focus(), 50);
 	};
 
+	const isWalkin = !activeCustomer || activeCustomer.id === "walkin";
+
 	return (
 		<div ref={containerRef} className="relative w-full">
 			{/* Selected Customer View or Search Bar */}
-			{!isOpen && selectedCustomer ? (
+			{!isOpen && activeCustomer && !isWalkin ? (
 				<div
 					onClick={() => {
 						setIsOpen(true);
@@ -139,26 +154,26 @@ export function CustomerSearchSelect({
 				>
 					<div className="flex items-center gap-2.5 min-w-0">
 						<div className="size-8 rounded-lg bg-primary/10 text-primary border border-primary/20 shrink-0 flex items-center justify-center font-bold text-xs">
-							{selectedCustomer.name.slice(0, 2).toUpperCase()}
+							{activeCustomer.name.slice(0, 2).toUpperCase()}
 						</div>
 						<div className="min-w-0">
 							<div className="font-semibold text-xs text-foreground truncate flex items-center gap-1.5">
-								<span>{selectedCustomer.name}</span>
+								<span>{activeCustomer.name}</span>
 								<Badge variant="outline" className="text-[9px] py-0 px-1 font-medium">
-									{selectedCustomer.type}
+									{activeCustomer.type}
 								</Badge>
 							</div>
 							<div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
 								<span className="flex items-center gap-0.5">
-									<Phone className="size-2.5" /> {selectedCustomer.phone}
+									<Phone className="size-2.5" /> {activeCustomer.phone}
 								</span>
 								<span>•</span>
 								<span className="flex items-center gap-0.5">
-									<MapPin className="size-2.5" /> {selectedCustomer.city || selectedCustomer.route}
+									<MapPin className="size-2.5" /> {activeCustomer.city || activeCustomer.route}
 								</span>
 								<span>•</span>
 								<span className="font-semibold text-amber-700 dark:text-amber-400">
-									Khata: {selectedCustomer.currentBalance ? `Rs. ${selectedCustomer.currentBalance.toLocaleString()}` : "Zero Bal"}
+									Khata: {activeCustomer.currentBalance ? `Rs. ${activeCustomer.currentBalance.toLocaleString()}` : "Zero Bal"}
 								</span>
 							</div>
 						</div>
@@ -224,7 +239,7 @@ export function CustomerSearchSelect({
 					<div className="px-3 py-1.5 bg-muted/40 border-b flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
 						<span className="flex items-center gap-1">
 							<User className="size-3 text-primary" />
-							{searchQuery ? `Suggestions for "${searchQuery}"` : "Frequent Khata Customers"}
+							{searchQuery ? `Search Results for "${searchQuery}"` : "Registered Khata Customers"}
 						</span>
 						<span className="text-[10px] font-mono">
 							{displaySuggestions.length} {displaySuggestions.length === 1 ? "customer" : "customers"}
@@ -284,7 +299,7 @@ export function CustomerSearchSelect({
 								);
 							})
 						) : (
-							<div className="py-6 text-center text-xs text-muted-foreground">
+							<div className="py-6 px-4 text-center text-xs text-muted-foreground">
 								{isSearchingApi ? (
 									<div className="flex items-center justify-center gap-2">
 										<Loader2 className="size-4 animate-spin text-primary" />
@@ -292,9 +307,9 @@ export function CustomerSearchSelect({
 									</div>
 								) : (
 									<div className="space-y-1">
-										<p className="font-semibold">No registered customers found</p>
-										<p className="text-[11px] text-muted-foreground">
-											Try searching by mobile number (e.g. 0321) or customer name.
+										<p className="font-semibold text-foreground">No registered khata customers found</p>
+										<p className="text-[11px] text-muted-foreground leading-normal">
+											Your customer directory starts fresh from zero. Wholesale dealers and workshop accounts will appear here automatically when registered.
 										</p>
 									</div>
 								)}
