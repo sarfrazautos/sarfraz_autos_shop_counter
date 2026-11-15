@@ -8,13 +8,16 @@ import {
 	PauseIcon,
 	PlayIcon,
 	Trash2Icon,
+	Trash2,
 	Clock,
 	AlertCircle,
+	AlertTriangle,
 	CheckCircle2,
 	MapPin,
 	CalendarOff,
 	Hourglass,
 	Check,
+	UserX,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -43,13 +46,23 @@ import {
 	DialogFooter,
 	DialogClose,
 } from "@/components/ui/dialog";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import type { AttendanceRecord, AttendanceStatus } from "./types";
 
 interface AttendanceTableProps {
 	records: AttendanceRecord[];
 	onStatusChange: (recordId: string, status: AttendanceStatus, checkInTime?: string, checkOutTime?: string) => void;
-	onDeleteRecord: (recordId: string) => void;
+	onDeleteRecord: (recordId: string, employeeId?: string) => void;
 }
 
 export function AttendanceTable({
@@ -69,6 +82,7 @@ export function AttendanceTable({
 		title: string;
 		description: string;
 	} | null>(null);
+	const [staffToDelete, setStaffToDelete] = useState<AttendanceRecord | null>(null);
 
 	const isActionPending = (status: AttendanceStatus, recordId: string) =>
 		pendingAction?.id === recordId && pendingAction.status === status;
@@ -380,7 +394,7 @@ export function AttendanceTable({
 									{isActionPending("absent", record.id) ? (
 										<Loader2 className="size-3.5 animate-spin text-rose-600" />
 									) : (
-										<Trash2Icon className="size-3.5 text-rose-600" />
+										<UserX className="size-3.5 text-rose-600" />
 									)}
 								</TooltipTrigger>
 								<TooltipContent className="text-xs font-medium">Absent</TooltipContent>
@@ -403,6 +417,25 @@ export function AttendanceTable({
 									<FileTextIcon className="size-3.5" />
 								</TooltipTrigger>
 								<TooltipContent className="text-xs font-medium">View Details</TooltipContent>
+							</Tooltip>
+
+							{/* 7. Delete Staff Member */}
+							<Tooltip>
+								<TooltipTrigger
+									render={
+										<Button
+											aria-label="Delete Staff Member"
+											className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
+											disabled={busy}
+											onClick={() => setStaffToDelete(record)}
+											size="icon"
+											variant="outline"
+										/>
+									}
+								>
+									<Trash2 className="size-3.5" />
+								</TooltipTrigger>
+								<TooltipContent className="text-xs font-medium">Delete Staff Member</TooltipContent>
 							</Tooltip>
 						</div>
 					</TooltipProvider>
@@ -533,6 +566,37 @@ export function AttendanceTable({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Delete Staff Member Confirmation Alert Dialog */}
+			<AlertDialog open={!!staffToDelete} onOpenChange={(open) => !open && setStaffToDelete(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<div className="flex size-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400 mb-2">
+							<AlertTriangle className="size-5" />
+						</div>
+						<AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete <span className="font-semibold text-foreground">{staffToDelete?.employeeName}</span> ({staffToDelete?.employeeRole})? This will permanently remove them from your staff team directory and daily attendance roster.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel className="cursor-pointer" onClick={() => setStaffToDelete(null)}>
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								if (staffToDelete) {
+									onDeleteRecord(staffToDelete.id, staffToDelete.employeeId);
+									setStaffToDelete(null);
+								}
+							}}
+							className="bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+						>
+							Yes, Delete Staff Member
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</>
 	);
 }

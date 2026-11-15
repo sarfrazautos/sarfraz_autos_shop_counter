@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { fetchAttendanceRecords, markAttendance } from "@/lib/api/attendance/attendance-api";
+import { deleteTeamMember } from "@/lib/api/team/team-api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +46,7 @@ export function AttendanceView() {
 				branchId: selectedBranch,
 				status: selectedStatus,
 			}),
-		staleTime: 1000 * 60 * 5,
+		staleTime: 1000 * 15,
 	});
 
 	const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -58,7 +59,7 @@ export function AttendanceView() {
 					employeeId: r.employeeId,
 					employeeName: r.name,
 					employeeRole: r.role,
-					branchId: (r.branch.includes("Saddar") ? "main" : r.branch.includes("Gulshan") ? "branch-2" : "branch-3") as any,
+					branchId: (r.branchId || (r.branch.includes("Saddar") ? "main" : r.branch.includes("Gulshan") ? "branch-2" : "branch-3")) as any,
 					branchName: r.branch,
 					status: r.status as AttendanceStatus,
 					checkInTime: r.checkIn,
@@ -127,7 +128,18 @@ export function AttendanceView() {
 		);
 	};
 
-	const handleDeleteRecord = (recordId: string) => {
+	const deleteMemberMut = useMutation({
+		mutationFn: (employeeId: string) => deleteTeamMember(employeeId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.team.all });
+		},
+	});
+
+	const handleDeleteRecord = (recordId: string, employeeId?: string) => {
+		if (employeeId) {
+			deleteMemberMut.mutate(employeeId);
+		}
 		setRecords((prev) => prev.filter((r) => r.id !== recordId));
 	};
 

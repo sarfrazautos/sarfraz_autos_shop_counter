@@ -231,6 +231,23 @@ export function TradeSchemesView() {
 	const totalPages = schemesData?.pagination?.totalPages || 1;
 	const totalCount = schemesData?.pagination?.totalCount || 0;
 
+	// Active scheme map for warning badge & banner
+	const activeSchemeProductMap = useMemo(() => {
+		const map = new Map<string, TradeScheme>();
+		for (const s of schemesList) {
+			if (s.status === "Active") {
+				map.set(s.productId, s);
+			}
+		}
+		return map;
+	}, [schemesList]);
+
+	const activeSchemeProductIds = useMemo(() => {
+		return new Set(activeSchemeProductMap.keys());
+	}, [activeSchemeProductMap]);
+
+	const activeSchemeForSelected = activeSchemeProductMap.get(selectedProductId);
+
 	// Metric KPI Calculations
 	const totalActive = useMemo(() => {
 		return filteredSchemes.filter((s) => s.status === "Active").length;
@@ -304,7 +321,7 @@ export function TradeSchemesView() {
 					</div>
 					<div>
 						<div className="flex items-center gap-2">
-							<h1 className="font-heading font-black text-lg sm:text-xl text-foreground">
+							<h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
 								Trade Schemes & Bonus Rules
 							</h1>
 							<Badge
@@ -390,20 +407,32 @@ export function TradeSchemesView() {
 			</div>
 
 			{/* FILTERS & SEARCH TOOLBAR */}
-			<div className="rounded-2xl border bg-card p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-				<div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-					{/* Scheme Type Filter */}
-					<div className="w-56">
+			<div className="rounded-2xl border bg-card p-4 shadow-xs flex flex-wrap items-end justify-between gap-4">
+				<div className="flex flex-wrap items-end gap-3 flex-1 min-w-[280px]">
+					{/* Scheme Format / Type Filter */}
+					<div className="space-y-1 w-full sm:w-72 lg:w-80">
+						<label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+							<BadgePercent className="size-3 text-amber-600" />
+							<span>Scheme Format:</span>
+						</label>
 						<Select
 							value={selectedType}
 							onValueChange={(val) => {
 								if (val) setSelectedType(val);
 							}}
 						>
-							<SelectTrigger className="h-8 text-xs font-semibold bg-background">
-								<SelectValue placeholder="Scheme Type..." />
+							<SelectTrigger className="w-full h-9 text-xs font-semibold bg-background justify-between">
+								<SelectValue placeholder="All Scheme Formats">
+									{selectedType === "All"
+										? "All Scheme Formats"
+										: selectedType === "buy_x_get_y"
+										? "🎁 Buy X Get Y Free (Bonus)"
+										: selectedType === "net_rate"
+										? "🏷️ Net Scheme Rate"
+										: "💰 Flat Cash Rebate"}
+								</SelectValue>
 							</SelectTrigger>
-							<SelectContent>
+							<SelectContent className="w-full min-w-[300px]">
 								<SelectItem value="All" className="text-xs">
 									All Scheme Formats
 								</SelectItem>
@@ -421,25 +450,35 @@ export function TradeSchemesView() {
 					</div>
 
 					{/* Status Filter */}
-					<div className="w-44">
+					<div className="space-y-1 w-full sm:w-52 lg:w-56">
+						<label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+							<Tag className="size-3 text-primary" />
+							<span>Status:</span>
+						</label>
 						<Select
 							value={selectedStatus}
 							onValueChange={(val) => {
 								if (val) setSelectedStatus(val);
 							}}
 						>
-							<SelectTrigger className="h-8 text-xs font-semibold bg-background">
-								<SelectValue placeholder="Status..." />
+							<SelectTrigger className="w-full h-9 text-xs font-semibold bg-background justify-between">
+								<SelectValue placeholder="All Statuses">
+									{selectedStatus === "All"
+										? "All Statuses"
+										: selectedStatus === "Active"
+										? "🟢 Active Only"
+										: "⏸️ Paused Only"}
+								</SelectValue>
 							</SelectTrigger>
-							<SelectContent>
+							<SelectContent className="w-full min-w-[220px]">
 								<SelectItem value="All" className="text-xs">
 									All Statuses
 								</SelectItem>
 								<SelectItem value="Active" className="text-xs">
-									Active Only
+									🟢 Active Only
 								</SelectItem>
 								<SelectItem value="Paused" className="text-xs">
-									Paused Only
+									⏸️ Paused Only
 								</SelectItem>
 							</SelectContent>
 						</Select>
@@ -447,14 +486,20 @@ export function TradeSchemesView() {
 				</div>
 
 				{/* Search box */}
-				<div className="relative w-full sm:w-72">
-					<Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-					<Input
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						placeholder="Search product, SKU, model..."
-						className="h-8 text-xs pl-8 bg-background"
-					/>
+				<div className="space-y-1 w-full sm:w-72">
+					<label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+						<Search className="size-3 text-muted-foreground" />
+						<span>Search Schemes:</span>
+					</label>
+					<div className="relative">
+						<Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							placeholder="Search product, SKU, model..."
+							className="h-9 text-xs pl-8 bg-background w-full"
+						/>
+					</div>
 				</div>
 			</div>
 
@@ -729,11 +774,25 @@ export function TradeSchemesView() {
 							<ProductSearchSelect
 								selectedProductId={selectedProductId}
 								availableProducts={availableProducts}
+								activeSchemeProductIds={activeSchemeProductIds}
 								onSelectProduct={(prod) => {
 									setSelectedProductId(prod.id);
 									setNetSchemeRate(Math.round(prod.price * 0.88));
 								}}
 							/>
+							{activeSchemeForSelected && (
+								<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-start gap-2.5 text-xs">
+									<Sparkles className="size-4 text-amber-600 shrink-0 mt-0.5" />
+									<div className="space-y-0.5 min-w-0">
+										<span className="font-bold text-amber-900 dark:text-amber-200 block">
+											Scheme Already Active for This Product
+										</span>
+										<p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
+											"{activeSchemeForSelected.title}" ({activeSchemeForSelected.schemeType === "buy_x_get_y" ? `Buy ${activeSchemeForSelected.buyQuantity} Get ${activeSchemeForSelected.freeQuantity} Free` : `Net Rs. ${activeSchemeForSelected.netSchemeRate}`}) is currently running.
+										</p>
+									</div>
+								</div>
+							)}
 						</div>
 
 						{/* Scheme Format Selection */}
@@ -839,8 +898,8 @@ export function TradeSchemesView() {
 						)}
 
 						{/* Target Buyer Group */}
-						<div className="space-y-1">
-							<label className="font-semibold text-muted-foreground">
+						<div className="space-y-1 w-full">
+							<label className="font-semibold text-muted-foreground block text-xs">
 								Target Buyer Eligibility:
 							</label>
 							<Select
@@ -849,10 +908,10 @@ export function TradeSchemesView() {
 									if (val) setApplicableTier(val as any);
 								}}
 							>
-								<SelectTrigger className="h-8 text-xs font-semibold">
+								<SelectTrigger className="w-full h-9 text-xs font-semibold bg-background">
 									<SelectValue />
 								</SelectTrigger>
-								<SelectContent>
+								<SelectContent className="w-full min-w-[320px] sm:min-w-[420px]">
 									<SelectItem value="Wholesale Only" className="text-xs">
 										Wholesale Only (Auto Parts Shops)
 									</SelectItem>

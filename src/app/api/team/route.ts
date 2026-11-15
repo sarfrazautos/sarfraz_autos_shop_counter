@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { teamMembers, branches } from '@/schema';
+import { teamMembers, branches, attendanceRecords } from '@/schema';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
@@ -76,6 +76,27 @@ export async function POST(req: NextRequest) {
       status,
       joinedDate: new Date(),
     });
+
+    // Automatically create today's daily attendance record for this person
+    const today = new Date().toISOString().split('T')[0];
+    const recordId = `ATT-${memberId}-${today}`;
+    try {
+      await db.insert(attendanceRecords).values({
+        id: recordId,
+        employeeId: memberId,
+        branchId: branchId || 'main',
+        attendanceDate: today,
+        status: 'present',
+        checkInTime: '09:00 AM',
+        checkOutTime: '--',
+        shiftTiming: '09:00 AM - 07:00 PM',
+        overtimeHours: '0.00',
+        notes: 'Auto rostered from Team page',
+        createdAt: new Date(),
+      });
+    } catch (attErr) {
+      console.warn('Auto-create initial attendance record warning:', attErr);
+    }
 
     return NextResponse.json({
       success: true,

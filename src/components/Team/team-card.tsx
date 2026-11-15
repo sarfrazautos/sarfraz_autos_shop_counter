@@ -6,15 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-	Dialog,
-	DialogTrigger,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogDescription,
-	DialogFooter,
-	DialogClose,
-} from "@/components/ui/dialog";
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Mail, Phone, Calendar, MapPin, Trash2, AlertTriangle } from "lucide-react";
 import type { TeamMember } from "./types";
 
@@ -24,7 +24,7 @@ interface TeamCardProps {
 }
 
 export function TeamCard({ member, onDelete }: TeamCardProps) {
-	const [dialogOpen, setDialogOpen] = useState(false);
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
 	const initials = member.name
 		.split(" ")
@@ -42,7 +42,7 @@ export function TeamCard({ member, onDelete }: TeamCardProps) {
 
 	const handleDelete = () => {
 		onDelete?.(member.id);
-		setDialogOpen(false);
+		setDeleteDialogOpen(false);
 	};
 
 	return (
@@ -77,51 +77,17 @@ export function TeamCard({ member, onDelete }: TeamCardProps) {
 							{branchBadgeLabel}
 						</Badge>
 
-						{/* Delete button with Confirmation Pop up Dialog */}
-						<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-							<DialogTrigger
-								render={
-									<Button
-										size="icon-xs"
-										variant="ghost"
-										aria-label={`Delete ${member.name}`}
-										className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-									>
-										<Trash2 className="size-3.5" />
-									</Button>
-								}
-							/>
-							<DialogContent className="sm:max-w-md">
-								<DialogHeader className="gap-2">
-									<div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-										<AlertTriangle className="size-5" />
-									</div>
-									<DialogTitle className="text-base font-semibold">
-										Delete Team Member
-									</DialogTitle>
-									<DialogDescription className="text-sm text-muted-foreground">
-										Are you sure you want to delete <span className="font-semibold text-foreground">{member.name}</span>? This will remove their record from the shop directory.
-									</DialogDescription>
-								</DialogHeader>
-								<DialogFooter className="gap-2 sm:gap-0 pt-2">
-									<DialogClose
-										render={
-											<Button variant="outline" size="sm" className="cursor-pointer">
-												Cancel
-											</Button>
-										}
-									/>
-									<Button
-										variant="destructive"
-										size="sm"
-										onClick={handleDelete}
-										className="cursor-pointer"
-									>
-										Delete Member
-									</Button>
-								</DialogFooter>
-							</DialogContent>
-						</Dialog>
+						{/* Delete button with Confirmation Alert Dialog */}
+						<Button
+							size="icon-xs"
+							variant="ghost"
+							onClick={() => setDeleteDialogOpen(true)}
+							aria-label={`Delete ${member.name}`}
+							title="Delete Staff Member"
+							className="size-7 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+						>
+							<Trash2 className="size-3.5" />
+						</Button>
 					</div>
 				</div>
 
@@ -157,6 +123,32 @@ export function TeamCard({ member, onDelete }: TeamCardProps) {
 					</div>
 				</div>
 			</CardContent>
+
+			{/* Delete Staff Member Confirmation Alert Dialog */}
+			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<div className="flex size-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400 mb-2">
+							<AlertTriangle className="size-5" />
+						</div>
+						<AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete <span className="font-semibold text-foreground">{member.name}</span> ({member.role})? This will remove them from the staff team directory and attendance records.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel className="cursor-pointer">
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleDelete}
+							className="bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+						>
+							Yes, Delete Staff Member
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</Card>
 	);
 }

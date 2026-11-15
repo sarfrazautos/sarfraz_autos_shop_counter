@@ -1,6 +1,7 @@
 export interface AttendanceItem {
   id: string;
   employeeId: string;
+  branchId?: string;
   name: string;
   role: string;
   branch: string;

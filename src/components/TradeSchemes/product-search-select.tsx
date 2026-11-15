@@ -19,12 +19,14 @@ interface ProductSearchSelectProps {
 		imageUrl?: string;
 	}) => void;
 	availableProducts?: ProductItem[];
+	activeSchemeProductIds?: Set<string>;
 }
 
 export function ProductSearchSelect({
 	selectedProductId,
 	onSelectProduct,
 	availableProducts = [],
+	activeSchemeProductIds,
 }: ProductSearchSelectProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -32,6 +34,13 @@ export function ProductSearchSelect({
 	const [apiResults, setApiResults] = useState<ProductItem[]>([]);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
+
+	const checkHasScheme = (prod: ProductItem | { id: string } | null) => {
+		if (!prod) return false;
+		if (activeSchemeProductIds?.has(prod.id)) return true;
+		if ((prod as any).tradeScheme != null) return true;
+		return false;
+	};
 
 	// Find the currently selected product
 	const selectedProduct = useMemo(() => {
@@ -152,11 +161,20 @@ export function ProductSearchSelect({
 							/>
 						</div>
 						<div className="min-w-0">
-							<div className="font-semibold text-xs text-foreground truncate flex items-center gap-1.5">
-								{selectedProduct.name}
+							<div className="font-semibold text-xs text-foreground truncate flex items-center gap-1.5 flex-wrap">
+								<span>{selectedProduct.name}</span>
 								<Badge variant="secondary" className="text-[10px] py-0 px-1 font-mono">
 									{selectedProduct.bikeModel}
 								</Badge>
+								{checkHasScheme(selectedProduct) && (
+									<Badge
+										variant="outline"
+										className="text-[10px] py-0 px-1.5 font-bold border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-300 flex items-center gap-1 shadow-2xs"
+									>
+										<Sparkles className="size-2.5 text-amber-600" />
+										Scheme Already Applied
+									</Badge>
+								)}
 							</div>
 							<div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
 								<span className="font-mono">{selectedProduct.sku}</span>
@@ -260,9 +278,18 @@ export function ProductSearchSelect({
 												/>
 											</div>
 											<div className="min-w-0">
-												<div className="font-semibold truncate flex items-center gap-1.5">
+												<div className="font-semibold truncate flex items-center gap-1.5 flex-wrap">
 													<span>{prod.name}</span>
 													{isCurrent && <Check className="size-3 text-primary shrink-0" />}
+													{checkHasScheme(prod) && (
+														<Badge
+															variant="outline"
+															className="text-[9px] py-0 px-1 font-bold border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center gap-0.5 shrink-0"
+														>
+															<Sparkles className="size-2 text-amber-600" />
+															Scheme Applied
+														</Badge>
+													)}
 												</div>
 												<div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
 													<span className="font-mono">{prod.sku}</span>

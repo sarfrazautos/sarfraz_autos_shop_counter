@@ -4,26 +4,17 @@ import { useEffect, useState, useRef, Suspense } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import {
-    Bike,
     MapPin,
     Navigation,
-    Radio,
     AlertCircle,
     Phone,
     RefreshCw,
     ExternalLink,
     Play,
     Pause,
-    ShieldCheck,
-    Sparkles,
-    Gauge,
-    Clock,
     Sun,
-    CheckCircle2,
-    Copy,
-    Share2,
-    Check,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,12 +60,9 @@ function RiderTrackingContent() {
     const [lastPingTime, setLastPingTime] = useState<string | null>(null);
     const [activeStatus, setActiveStatus] = useState<"idle" | "en_route_delivery" | "offline">("idle");
     const [screenWakeLocked, setScreenWakeLocked] = useState(false);
-    const [isSimulating, setIsSimulating] = useState(false);
-    const [copiedLink, setCopiedLink] = useState(false);
 
     const watchIdRef = useRef<number | null>(null);
     const wakeLockRef = useRef<any>(null);
-    const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch initial rider data
     const fetchRiderProfile = async () => {
@@ -221,57 +209,12 @@ function RiderTrackingContent() {
             navigator.geolocation.clearWatch(watchIdRef.current);
             watchIdRef.current = null;
         }
-        if (simulationIntervalRef.current) {
-            clearInterval(simulationIntervalRef.current);
-            simulationIntervalRef.current = null;
-            setIsSimulating(false);
-        }
         setIsTracking(false);
         releaseWakeLock();
 
         if (coords) {
             transmitLocation(coords.lat, coords.lng, 0, "offline");
         }
-    };
-
-    // Simulated test route in Karachi (Saddar -> Clifton -> DHA)
-    const toggleSimulation = () => {
-        if (isSimulating) {
-            if (simulationIntervalRef.current) {
-                clearInterval(simulationIntervalRef.current);
-                simulationIntervalRef.current = null;
-            }
-            setIsSimulating(false);
-            setIsTracking(false);
-            return;
-        }
-
-        setIsSimulating(true);
-        setIsTracking(true);
-        setGpsErrorMsg("");
-
-        let step = 0;
-        const waypoints = [
-            { lat: 24.8607, lng: 67.0105, speed: 25 },
-            { lat: 24.8550, lng: 67.0200, speed: 32 },
-            { lat: 24.8480, lng: 67.0320, speed: 40 },
-            { lat: 24.8390, lng: 67.0450, speed: 45 },
-            { lat: 24.8280, lng: 67.0580, speed: 38 },
-            { lat: 24.8190, lng: 67.0680, speed: 30 },
-            { lat: 24.8110, lng: 67.0750, speed: 15 },
-        ];
-
-        simulationIntervalRef.current = setInterval(() => {
-            const wp = waypoints[step % waypoints.length];
-            setCoords({
-                lat: wp.lat,
-                lng: wp.lng,
-                accuracy: 5,
-                speed: wp.speed,
-            });
-            transmitLocation(wp.lat, wp.lng, wp.speed, "en_route_delivery");
-            step++;
-        }, 4000);
     };
 
     const handleStatusChange = async (newStatus: "idle" | "en_route_delivery" | "offline") => {
@@ -281,21 +224,10 @@ function RiderTrackingContent() {
         }
     };
 
-    const handleCopyUrl = () => {
-        if (typeof window !== "undefined") {
-            navigator.clipboard.writeText(window.location.href);
-            setCopiedLink(true);
-            setTimeout(() => setCopiedLink(false), 2000);
-        }
-    };
-
     useEffect(() => {
         return () => {
             if (watchIdRef.current !== null && typeof window !== "undefined") {
                 navigator.geolocation.clearWatch(watchIdRef.current);
-            }
-            if (simulationIntervalRef.current) {
-                clearInterval(simulationIntervalRef.current);
             }
             releaseWakeLock();
         };
@@ -328,48 +260,22 @@ function RiderTrackingContent() {
     }
 
     return (
-        <main className="min-h-screen bg-slate-50/70 text-slate-900 flex flex-col pb-16 font-sans">
-            {/* Minimalist Top App Bar */}
-            <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between shadow-2xs">
-                <div className="flex items-center gap-3">
-                    <div className="relative size-10 rounded-xl overflow-hidden border border-slate-200 bg-white p-1 flex items-center justify-center shadow-2xs">
-                        <Image
-                            src="/logo.png"
-                            alt="Sarfraz Autos"
-                            width={36}
-                            height={36}
-                            className="object-contain"
-                        />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="font-heading font-extrabold text-sm tracking-tight text-slate-900">
-                                SARFRAZ AUTOS
-                            </span>
-                            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                SADDAR
-                            </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-medium">Delivery Fleet Terminal</p>
-                    </div>
-                </div>
-
-                {/* Minimalist Live Pill */}
-                {isTracking ? (
-                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-medium shadow-2xs">
-                        <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
-                        <span className="text-[11px] font-bold">LIVE STREAM</span>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200/80 text-slate-500 text-xs px-2.5 py-1 rounded-full font-medium">
-                        <span className="size-1.5 rounded-full bg-slate-400" />
-                        <span className="text-[11px]">STANDBY</span>
-                    </div>
-                )}
+        <main className="min-h-screen bg-slate-50/70 text-slate-900 flex flex-col font-sans">
+            {/* Transparent Header: Logo on left only */}
+            <header className="w-full px-4 sm:px-6 py-4 flex items-center bg-transparent">
+                <Image
+                    src="/logo.png"
+                    alt="Sarfraz Autos Logo"
+                    width={38}
+                    height={38}
+                    className="object-contain"
+                />
             </header>
 
-            <div className="max-w-md w-full mx-auto p-4 space-y-4">
-                {/* Rider Profile Card */}
+            {/* Centered Content Area */}
+            <div className="flex-1 flex flex-col justify-center items-center px-4 py-6 w-full">
+                <div className="max-w-md w-full space-y-4 my-auto">
+                    {/* Rider Profile Card */}
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs space-y-3.5">
                     <div className="flex items-start justify-between">
                         <div>
@@ -397,60 +303,66 @@ function RiderTrackingContent() {
                     <div className="pt-3 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-semibold text-slate-600">
-                                Current Status / حالت منتخب کریں:
+                                Current Status:
                             </span>
                             <span className="text-[10px] text-slate-400">Tap to switch</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">
-                            <button
+                        <div className="grid grid-cols-3 gap-2">
+                            <Button
                                 type="button"
+                                size="sm"
+                                variant={activeStatus === "idle" ? "default" : "outline"}
                                 onClick={() => handleStatusChange("idle")}
-                                className={`py-1.5 px-2 text-xs font-semibold rounded-lg transition-all text-center ${
+                                className={cn(
+                                    "h-9 text-xs font-medium",
                                     activeStatus === "idle"
-                                        ? "bg-white text-emerald-700 shadow-xs border border-emerald-200"
-                                        : "text-slate-600 hover:text-slate-900"
-                                }`}
+                                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        : "text-slate-700 bg-white hover:bg-slate-50"
+                                )}
                             >
-                                <span className="block text-[11px]">🟢 Available</span>
-                                <span className="block text-[10px] font-normal text-slate-500">دستیاب</span>
-                            </button>
-                            <button
+                                🟢 Available
+                            </Button>
+                            <Button
                                 type="button"
+                                size="sm"
+                                variant={activeStatus === "en_route_delivery" ? "default" : "outline"}
                                 onClick={() => handleStatusChange("en_route_delivery")}
-                                className={`py-1.5 px-2 text-xs font-semibold rounded-lg transition-all text-center ${
+                                className={cn(
+                                    "h-9 text-xs font-medium",
                                     activeStatus === "en_route_delivery"
-                                        ? "bg-white text-amber-700 shadow-xs border border-amber-200"
-                                        : "text-slate-600 hover:text-slate-900"
-                                }`}
+                                        ? "bg-amber-600 hover:bg-amber-700 text-white"
+                                        : "text-slate-700 bg-white hover:bg-slate-50"
+                                )}
                             >
-                                <span className="block text-[11px]">🛵 En Route</span>
-                                <span className="block text-[10px] font-normal text-slate-500">راستے میں</span>
-                            </button>
-                            <button
+                                🛵 En Route
+                            </Button>
+                            <Button
                                 type="button"
+                                size="sm"
+                                variant={activeStatus === "offline" ? "default" : "outline"}
                                 onClick={() => handleStatusChange("offline")}
-                                className={`py-1.5 px-2 text-xs font-semibold rounded-lg transition-all text-center ${
+                                className={cn(
+                                    "h-9 text-xs font-medium",
                                     activeStatus === "offline"
-                                        ? "bg-white text-slate-800 shadow-xs border border-slate-200"
-                                        : "text-slate-600 hover:text-slate-900"
-                                }`}
+                                        ? "bg-slate-700 hover:bg-slate-800 text-white"
+                                        : "text-slate-700 bg-white hover:bg-slate-50"
+                                )}
                             >
-                                <span className="block text-[11px]">⚪ Offline</span>
-                                <span className="block text-[10px] font-normal text-slate-500">آف لائن</span>
-                            </button>
+                                ⚪ Offline
+                            </Button>
                         </div>
                     </div>
                 </div>
 
-                {/* Primary Action Button (White/Light Minimalist Hero) */}
+                {/* Primary Action Button */}
                 <div className="space-y-2">
                     {!isTracking ? (
                         <Button
                             onClick={startTracking}
-                            className="w-full h-14 text-sm sm:text-base font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl shadow-sm border border-primary/20 flex items-center justify-center gap-2.5 active:scale-[0.98] transition-all cursor-pointer"
+                            className="w-full h-12 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                         >
-                            <Play className="size-5 fill-current" />
-                            <span>START LIVE TRACKING (شروع کریں)</span>
+                            <Play className="size-4 fill-current" />
+                            <span>Start Live Tracking</span>
                         </Button>
                     ) : (
                         <div className="rounded-2xl border border-emerald-300 bg-emerald-50/70 p-4 shadow-xs space-y-3">
@@ -459,7 +371,7 @@ function RiderTrackingContent() {
                                     <div className="size-3 rounded-full bg-emerald-500 animate-ping" />
                                     <div>
                                         <p className="text-xs font-bold text-emerald-900">
-                                            Tracking Active (لوکیشن آن ہے)
+                                            Tracking Active
                                         </p>
                                         <p className="text-[11px] text-emerald-700">
                                             Broadcasting GPS coordinates to counter map
@@ -478,18 +390,14 @@ function RiderTrackingContent() {
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between px-1 text-[11px] text-slate-500">
-                        <span className="flex items-center gap-1">
-                            <ShieldCheck className="size-3.5 text-emerald-600" />
-                            Counter Encrypted & Secure
-                        </span>
-                        {screenWakeLocked && (
-                            <span className="flex items-center gap-1 text-amber-600 font-medium">
+                    {screenWakeLocked && (
+                        <div className="flex items-center justify-end px-1 text-[11px] text-amber-600 font-medium">
+                            <span className="flex items-center gap-1">
                                 <Sun className="size-3.5" />
                                 Screen Awake
                             </span>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* GPS Errors or Denied Notifications */}
@@ -554,101 +462,6 @@ function RiderTrackingContent() {
                         </div>
                     </div>
                 )}
-
-                {/* Telemetry Stats Grid (White Minimalist Cards) */}
-                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs space-y-3.5">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                            <Radio className="size-3.5 text-primary" /> Live Telemetry
-                        </span>
-                        <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                            {coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : "Standby"}
-                        </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2.5">
-                        <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/70">
-                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block flex items-center gap-1">
-                                <Gauge className="size-3 text-slate-400" /> Speed
-                            </span>
-                            <span className="text-xl font-bold font-mono text-slate-900 mt-1 block">
-                                {coords?.speed ? `${Math.round(coords.speed)}` : "0"}
-                                <span className="text-xs font-normal text-slate-500 ml-1">km/h</span>
-                            </span>
-                        </div>
-
-                        <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/70">
-                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block flex items-center gap-1">
-                                <Navigation className="size-3 text-slate-400" /> GPS Accuracy
-                            </span>
-                            <span className="text-xl font-bold font-mono text-emerald-600 mt-1 block">
-                                {coords?.accuracy ? `±${Math.round(coords.accuracy)}m` : "--"}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2.5 text-xs">
-                        <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70">
-                            <span className="text-[10px] text-slate-500 block">Pings Sent</span>
-                            <span className="font-mono font-bold text-slate-800 text-sm mt-0.5 block">
-                                {pingsSent} packets
-                            </span>
-                        </div>
-                        <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70">
-                            <span className="text-[10px] text-slate-500 block">Last Synced</span>
-                            <span className="font-mono font-medium text-slate-800 text-xs mt-0.5 block truncate">
-                                {lastPingTime || "Not yet sent"}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Test Ride Simulator */}
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <div className="text-[11px]">
-                            <span className="text-slate-800 font-semibold block">Demo Simulation</span>
-                            <span className="text-[10px] text-slate-500">Test route animation across Karachi</span>
-                        </div>
-                        <Button
-                            size="sm"
-                            variant={isSimulating ? "destructive" : "outline"}
-                            onClick={toggleSimulation}
-                            className="text-xs h-8 gap-1.5 font-medium rounded-lg"
-                        >
-                            <Sparkles className="size-3 text-amber-500" />
-                            {isSimulating ? "Stop Sim" : "Simulate Ride"}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Quick Share Link & Rider Guidance */}
-                <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-xs space-y-2.5">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-700">Rider Portal Link</span>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleCopyUrl}
-                            className="h-7 text-xs gap-1 text-slate-600 hover:text-slate-900"
-                        >
-                            {copiedLink ? (
-                                <>
-                                    <Check className="size-3 text-emerald-600" />
-                                    <span>Copied!</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Copy className="size-3" />
-                                    <span>Copy URL</span>
-                                </>
-                            )}
-                        </Button>
-                    </div>
-
-                    <div className="bg-slate-50 rounded-xl p-2.5 text-[11px] text-slate-600 space-y-1 border border-slate-200/60">
-                        <p className="font-medium text-slate-800">ہدایات برائے رائیڈر (Instructions):</p>
-                        <p>1. موٹر سائیکل چلاتے وقت اس پیج کو بند نہ کریں۔</p>
-                        <p>2. ڈلیوری مکمل ہونے پر اسٹیٹس &quot;Available&quot; یا &quot;Pause&quot; کر دیں۔</p>
-                    </div>
                 </div>
             </div>
         </main>

@@ -50,6 +50,7 @@ export function TeamView() {
 		mutationFn: (payload: any) => createTeamMember(payload),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.team.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
 		},
 	});
 
@@ -57,6 +58,7 @@ export function TeamView() {
 		mutationFn: (id: string) => deleteTeamMember(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.team.all });
+			queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
 		},
 	});
 

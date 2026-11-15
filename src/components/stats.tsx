@@ -32,9 +32,11 @@ export function DashboardStats() {
 	});
 
 	const orders = ordersData?.data || [];
-	const totalSales = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-	const totalOrdersCount = ordersData?.pagination?.totalCount || orders.length;
-	const totalUnits = orders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0);
+	// Exclude cancelled orders from total revenue, completed count, and dispatched units
+	const validOrders = orders.filter((o) => o.status !== "Cancelled");
+	const totalSales = validOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+	const totalOrdersCount = validOrders.length;
+	const totalUnits = validOrders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0);
 	const totalProducts = productsData?.pagination?.totalCount || 0;
 
 	const stats = [

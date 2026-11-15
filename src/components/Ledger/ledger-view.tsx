@@ -329,7 +329,7 @@ export function LedgerView() {
 					</div>
 					<div>
 						<div className="flex items-center gap-2">
-							<h1 className="font-heading font-black text-lg sm:text-xl text-foreground">
+							<h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
 								Customer Khata & Ledgers
 							</h1>
 							<Badge variant="outline" className="text-[10px] py-0 px-2 font-mono">

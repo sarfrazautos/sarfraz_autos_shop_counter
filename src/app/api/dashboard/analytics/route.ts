@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { orders, orderItems, branches } from '@/schema';
-import { sql, eq, gte, desc } from 'drizzle-orm';
+import { sql, eq, gte, desc, and, ne } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,14 +13,14 @@ export async function GET(req: NextRequest) {
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
 
-    // 1. Daily Sales Revenue
+    // 1. Daily Sales Revenue (excluding Cancelled orders)
     const dailyRows = await db
       .select({
         dayStr: sql<string>`TO_CHAR(${orders.createdAt}, 'YYYY-MM-DD')`,
         totalSales: sql<number>`COALESCE(SUM(${orders.totalAmount}::numeric), 0)`,
       })
       .from(orders)
-      .where(gte(orders.createdAt, startDate))
+      .where(and(gte(orders.createdAt, startDate), ne(orders.orderStatus, 'Cancelled')))
       .groupBy(sql`TO_CHAR(${orders.createdAt}, 'YYYY-MM-DD')`);
 
     const salesMap = new Map<string, number>();
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2. Sales by Order Type
+    // 2. Sales by Order Type (excluding Cancelled)
     const typeRows = await db
       .select({
         type: orders.orderType,
@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
         total: sql<number>`COALESCE(SUM(${orders.totalAmount}::numeric), 0)`,
       })
       .from(orders)
+      .where(ne(orders.orderStatus, 'Cancelled'))
       .groupBy(orders.orderType);
 
     const grandTotal = typeRows.reduce((acc, r) => acc + Number(r.total), 0);
@@ -82,14 +83,14 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // 3. Branch Counter Performance
+    // 3. Branch Counter Performance (excluding Cancelled)
     const branchRows = await db
       .select({
         id: branches.id,
         name: branches.name,
         shortName: branches.shortName,
-        sales: sql<number>`COALESCE(SUM(${orders.totalAmount}::numeric), 0)`,
-        orders: sql<number>`count(${orders.id})`,
+        sales: sql<number>`COALESCE(SUM(CASE WHEN ${orders.orderStatus} != 'Cancelled' THEN ${orders.totalAmount}::numeric ELSE 0 END), 0)`,
+        orders: sql<number>`count(CASE WHEN ${orders.orderStatus} != 'Cancelled' THEN ${orders.id} ELSE NULL END)`,
       })
       .from(branches)
       .leftJoin(orders, eq(orders.branchId, branches.id))
@@ -101,13 +102,15 @@ export async function GET(req: NextRequest) {
       orders: Number(b.orders),
     }));
 
-    // 4. Top Bike Models Spare Parts Demand
+    // 4. Top Bike Models Spare Parts Demand (excluding Cancelled orders)
     const bikeModelRows = await db
       .select({
         bikeModel: orderItems.bikeModel,
         partsSold: sql<number>`COALESCE(SUM(${orderItems.quantity}), 0)`,
       })
       .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .where(ne(orders.orderStatus, 'Cancelled'))
       .groupBy(orderItems.bikeModel)
       .orderBy(desc(sql`SUM(${orderItems.quantity})`))
       .limit(5);
