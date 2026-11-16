@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CustomerFormDialog } from "@/components/Customers/customer-form-dialog";
-import type { CustomerProfile } from "./types";
+import { type CustomerProfile, DEFAULT_WALKIN_CUSTOMER } from "./types";
 
 interface CustomerSearchSelectProps {
 	selectedCustomerId?: string;
@@ -57,6 +57,19 @@ export function CustomerSearchSelect({
 	useEffect(() => {
 		fetchInitialCustomers();
 	}, []);
+
+	// Keep activeCustomer in sync with selectedCustomerId prop from parent
+	useEffect(() => {
+		if (!selectedCustomerId || selectedCustomerId === "walkin") {
+			setActiveCustomer(null);
+			setSearchQuery("");
+		} else if (apiResults.length > 0) {
+			const found = apiResults.find((c) => c.id === selectedCustomerId);
+			if (found) {
+				setActiveCustomer(found);
+			}
+		}
+	}, [selectedCustomerId, apiResults]);
 
 	// Close on click outside
 	useEffect(() => {
@@ -144,8 +157,8 @@ export function CustomerSearchSelect({
 		e.stopPropagation();
 		setActiveCustomer(null);
 		setSearchQuery("");
-		setIsOpen(true);
-		setTimeout(() => inputRef.current?.focus(), 50);
+		onSelectCustomer(DEFAULT_WALKIN_CUSTOMER);
+		setIsOpen(false);
 	};
 
 	const isWalkin = !activeCustomer || activeCustomer.id === "walkin";

@@ -216,12 +216,12 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
       print-color-adjust: exact !important;
     }
     html, body {
-      width: 76mm;
-      max-width: 80mm;
+      width: 72mm;
+      max-width: 74mm;
       margin: 0 auto;
-      padding: 2mm 2.5mm 3mm 2.5mm;
+      padding: 1.5mm 2mm 3mm 2mm;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", Tahoma, Arial, sans-serif;
-      font-size: 11px;
+      font-size: 12px;
       line-height: 1.25;
       color: #000;
       background: #fff;
@@ -241,17 +241,19 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
     }
     table.receipt-grid th {
       border: 1px solid #000;
-      padding: 3px 2px;
-      font-size: 10px;
-      font-weight: 800;
+      padding: 4px 2px;
+      font-size: 11.5px;
+      font-weight: 900;
       text-align: center;
-      background: #f7f7f7;
+      background: #f0f0f0;
+      color: #000;
     }
     table.receipt-grid td {
       border: 1px solid #000;
-      padding: 3px 2px;
-      font-size: 10.5px;
+      padding: 4px 2.5px;
+      font-size: 12.5px;
       vertical-align: middle;
+      color: #000;
     }
 
     /* Summary Grid directly attached to bottom of table */
@@ -260,11 +262,11 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
       border-collapse: collapse;
       border: 1.5px solid #000;
       border-top: none;
-      font-size: 10.5px;
+      font-size: 12px;
     }
     table.summary-grid td {
       border: 1px solid #000;
-      padding: 2.5px 3px;
+      padding: 3px 3px;
     }
 
     .row {
@@ -274,39 +276,45 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
       padding: 1.5px 0;
     }
     .header-title {
-      font-size: 13.5px;
+      font-size: 16px;
       font-weight: 900;
       letter-spacing: 0.5px;
       text-transform: uppercase;
+      color: #000;
     }
     .header-sub {
-      font-size: 9.5px;
-      font-weight: 700;
-      color: #111;
-      line-height: 1.2;
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #000;
+      line-height: 1.25;
     }
     .customer-line {
       text-align: center;
-      font-size: 12.5px;
+      font-size: 15px;
       font-weight: 900;
       text-decoration: underline;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
       margin: 4px 0 3px 0;
+      color: #000;
     }
     .meta-box {
-      font-size: 10px;
+      font-size: 11px;
       line-height: 1.35;
+      font-weight: 700;
       border-top: 1px solid #000;
       padding-top: 2px;
+      color: #000;
     }
     .terms-box {
       margin-top: 6px;
       padding-top: 4px;
       text-align: center;
-      font-size: 10px;
+      font-size: 10.5px;
       font-weight: bold;
-      line-height: 1.4;
+      line-height: 1.35;
       border-top: 1px solid #000;
+      color: #000;
     }
   </style>
 </head>
@@ -316,7 +324,7 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
     <div class="header-title">${t.shopName}</div>
     <div class="header-sub">${t.address}</div>
     <div class="header-sub">${t.cityPhone}</div>
-    <div style="font-size: 8.5px; text-align: right; margin-top: 1px; color: #333;">${t.pageText}</div>
+    <div style="font-size: 9px; font-weight: bold; text-align: right; margin-top: 1px; color: #111;">${t.pageText}</div>
   </div>
 
   <!-- Customer Party Name (Centered & Underlined) -->
@@ -330,13 +338,13 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
       <span><strong>${t.invNo}</strong> ${order.invoiceNumber}</span>
       <span><strong>${t.date}</strong> ${order.date}</span>
     </div>
-    ${order.remarks ? `<div class="row" style="font-size: 9px;"><span><strong>${t.remarks}</strong> ${order.remarks}</span></div>` : ""}
+    ${order.remarks ? `<div class="row" style="font-size: 9.5px; font-weight: 600;"><span><strong>${t.remarks}</strong> ${order.remarks}</span></div>` : ""}
     <div class="row">
       <span><strong>${t.godown}</strong> <u>${translateGodown(order.godown)}</u></span>
     </div>
     <div class="row" style="border-bottom: 1.5px solid #000; padding-bottom: 2px; margin-top: 1px;">
-      <span style="font-size: 9.5px;">${order.dateTimeFull} ${t.ownerLabel}</span>
-      <span style="font-weight: bold;">${translatePayment(order.paymentMethod)}${order.paymentProofUrl ? (isUrdu ? " (سلپ منسلک)" : " (Slip Attached)") : ""}</span>
+      <span style="font-size: 10px; font-weight: bold;">${order.dateTimeFull} ${t.ownerLabel}</span>
+      <span style="font-size: 10.5px; font-weight: 900;">${translatePayment(order.paymentMethod)}${order.paymentProofUrl ? (isUrdu ? " (سلپ)" : " (Slip)") : ""}</span>
     </div>
   </div>
 
@@ -344,9 +352,9 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
   <table class="receipt-grid">
     <thead>
       <tr>
-        <th style="width: 23%; text-align: right;">${t.tableTotal}</th>
-        <th style="width: 27%; text-align: center;">${t.tableRate}</th>
-        <th style="width: 38%; text-align: ${isUrdu ? "right" : "left"};">${t.tableItem}</th>
+        <th style="width: 22%; text-align: right;">${t.tableTotal}</th>
+        <th style="width: 18%; text-align: center;">${t.tableRate}</th>
+        <th style="width: 48%; text-align: ${isUrdu ? "right" : "left"};">${t.tableItem}</th>
         <th style="width: 12%; text-align: center;">${t.tableQty}</th>
       </tr>
     </thead>
@@ -355,17 +363,17 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 				.map(
 					(row) => `
         <tr style="${row.isFree ? "background-color: #fafafa; font-weight: bold;" : ""}">
-          <td style="text-align: right; font-family: 'Courier New', Courier, monospace; font-weight: bold;">
+          <td style="text-align: right; font-family: 'Courier New', Courier, monospace; font-weight: 900; font-size: 13px;">
             ${row.totalDisplay}
           </td>
-          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 10px;">
+          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 11.5px; font-weight: 800;">
             ${row.rateDisplay}
           </td>
           <td style="text-align: ${isUrdu ? "right" : "left"};">
-            <div style="font-weight: bold; line-height: 1.15;">${row.name}</div>
-            ${row.subLabel ? `<div style="font-size: 8px; color: #555;">${row.subLabel}</div>` : ""}
+            <div style="font-weight: 900; font-size: 13px; line-height: 1.2; color: #000;">${row.name}</div>
+            ${row.subLabel ? `<div style="font-size: 10px; font-weight: 700; color: #222; margin-top: 1.5px;">${row.subLabel}</div>` : ""}
           </td>
-          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-weight: bold;">
+          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-weight: 900; font-size: 14px;">
             ${row.qty}
           </td>
         </tr>
@@ -378,13 +386,13 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
   <!-- Boxed Bottom Summary (Exact Match to Old Receipt) -->
   <table class="summary-grid">
     <tr>
-      <td style="width: 25%; text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+      <td style="width: 22%; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
         ${order.totalAmount.toLocaleString()}
       </td>
-      <td style="text-align: center; font-weight: bold;">
+      <td style="text-align: center; font-weight: 900; font-size: 12px;">
         ${t.itemsCount}: ${order.items.length}
       </td>
-      <td style="width: 15%; text-align: center; font-family: 'Courier New', monospace; font-weight: bold;">
+      <td style="width: 12%; text-align: center; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px;">
         ${totalDeliveredPieces}
       </td>
     </tr>
@@ -393,10 +401,10 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 			discountAmount > 0
 				? `
     <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 12.5px;">
         -${discountAmount.toLocaleString()}
       </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 9.5px;">
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 11px; font-weight: 800;">
         <strong>${t.discLabel}</strong> Trade Scheme Discount Relief
       </td>
     </tr>
@@ -405,19 +413,19 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 		}
 
     <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold; font-size: 11px;">
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px;">
         ${order.netBill.toLocaleString()}
       </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-weight: bold; font-size: 11px;">
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 13.5px;">
         <strong>${t.netLabel}</strong>
       </td>
     </tr>
 
     <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
         ${order.cashReceived.toLocaleString()}
       </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 10px;">
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 12px; font-weight: 800;">
         <strong>${t.cashLabel}</strong>
       </td>
     </tr>
@@ -426,10 +434,10 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 			openingBal !== 0
 				? `
     <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
         ${openingBal.toLocaleString()}
       </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 10px;">
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 12px; font-weight: 800;">
         <strong>${t.openingLabel}</strong>
       </td>
     </tr>
@@ -438,10 +446,10 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 		}
 
     <tr style="background: #f2f2f2;">
-      <td style="border: 2px solid #000; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 12.5px;">
+      <td style="border: 2px solid #000; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 15px;">
         ${order.finalBalance.toLocaleString()}
       </td>
-      <td colspan="2" style="border: 2px solid #000; text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 12px;">
+      <td colspan="2" style="border: 2px solid #000; text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 14px;">
         <strong>${t.finalLabel}</strong>
       </td>
     </tr>
@@ -658,29 +666,29 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 								height={36}
 								className="mx-auto mb-1 object-contain"
 							/>
-							<h1 className="font-black text-sm tracking-wide text-black uppercase">
+							<h1 className="font-black text-base tracking-wide text-black uppercase">
 								{t.shopName}
 							</h1>
-							<p className="text-[9.5px] font-bold text-neutral-800 leading-tight">
+							<p className="text-[10.5px] font-bold text-neutral-800 leading-tight">
 								{t.address}
 							</p>
-							<p className="text-[9.5px] font-bold text-neutral-700">
+							<p className="text-[10.5px] font-bold text-neutral-700">
 								{t.cityPhone}
 							</p>
-							<div className="flex items-center justify-end text-[8.5px] text-neutral-600 pt-0.5">
+							<div className="flex items-center justify-end text-[9px] text-neutral-600 pt-0.5">
 								<span>{t.pageText}</span>
 							</div>
 						</div>
 
 						{/* Customer Party Name (Underlined Header as shown in video) */}
 						<div className="text-center py-1 my-1 border-t border-black">
-							<p className="font-black text-xs uppercase tracking-wide underline">
+							<p className="font-black text-sm uppercase tracking-wide underline">
 								{order.customerName}
 							</p>
 						</div>
 
 						{/* Invoice Meta Rows */}
-						<div className="border-t border-black pt-1 space-y-0.5 text-[10px]">
+						<div className="border-t border-black pt-1 space-y-0.5 text-[11px]">
 							<div className="flex justify-between items-baseline">
 								<span><strong>{t.invNo}</strong> <span className="font-mono">{order.invoiceNumber}</span></span>
 								<span><strong>{t.date}</strong> {order.date}</span>
@@ -698,12 +706,12 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 						</div>
 
 						{/* Boxed Grid Table for Items */}
-						<table className="w-full border-collapse border border-black mt-2 text-[10.5px]">
+						<table className="w-full border-collapse border border-black mt-2 text-xs">
 							<thead>
-								<tr className="bg-neutral-100 font-bold border-b border-black text-[10px]">
-									<th className="border border-black p-1 text-right w-[23%]">{t.tableTotal}</th>
-									<th className="border border-black p-1 text-center w-[27%]">{t.tableRate}</th>
-									<th className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} w-[38%]`}>{t.tableItem}</th>
+								<tr className="bg-neutral-100 font-bold border-b border-black text-[11.5px]">
+									<th className="border border-black p-1 text-right w-[22%]">{t.tableTotal}</th>
+									<th className="border border-black p-1 text-center w-[18%]">{t.tableRate}</th>
+									<th className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} w-[48%]`}>{t.tableItem}</th>
 									<th className="border border-black p-1 text-center w-[12%]">{t.tableQty}</th>
 								</tr>
 							</thead>
@@ -713,19 +721,19 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 										key={idx}
 										className={row.isFree ? "bg-neutral-50 font-bold" : ""}
 									>
-										<td className="border border-black p-1 text-right font-mono font-bold text-[10px]">
+										<td className="border border-black p-1 text-right font-mono font-bold text-[13px]">
 											{row.totalDisplay}
 										</td>
-										<td className="border border-black p-1 text-center font-mono text-[9.5px]">
+										<td className="border border-black p-1 text-center font-mono text-[11.5px] font-bold">
 											{row.rateDisplay}
 										</td>
 										<td className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"}`}>
-											<div className="font-bold leading-tight">{row.name}</div>
+											<div className="font-black text-[13px] leading-tight text-black">{row.name}</div>
 											{row.subLabel && (
-												<div className="text-[8px] text-neutral-600">{row.subLabel}</div>
+												<div className="text-[10px] font-bold text-neutral-800 mt-0.5">{row.subLabel}</div>
 											)}
 										</td>
-										<td className="border border-black p-1 text-center font-mono font-bold">
+										<td className="border border-black p-1 text-center font-mono font-black text-sm">
 											{row.qty}
 										</td>
 									</tr>
@@ -734,17 +742,17 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 						</table>
 
 						{/* Boxed Bottom Summary Section */}
-						<table className="w-full border-collapse border-2 border-t-0 border-black text-[10.5px]">
+						<table className="w-full border-collapse border-2 border-t-0 border-black text-xs">
 							<tbody>
 								{/* Total Amount & Total Quantity */}
 								<tr className="border-b border-black font-bold">
-									<td className="border border-black p-1 text-right font-mono w-[25%] font-bold">
+									<td className="border border-black p-1 text-right font-mono w-[22%] font-black text-[13px]">
 										{order.totalAmount.toLocaleString()}
 									</td>
-									<td className="border border-black p-1 text-center">
+									<td className="border border-black p-1 text-center font-bold text-xs">
 										{t.itemsCount}: {order.items.length}
 									</td>
-									<td className="border border-black p-1 text-center font-mono w-[15%] font-bold">
+									<td className="border border-black p-1 text-center font-mono w-[12%] font-black text-sm">
 										{totalDeliveredPieces}
 									</td>
 								</tr>
@@ -752,10 +760,10 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 								{/* Discount if present */}
 								{discountAmount > 0 && (
 									<tr className="border-b border-black">
-										<td className="border border-black p-1 text-right font-mono font-bold">
+										<td className="border border-black p-1 text-right font-mono font-bold text-xs">
 											-{discountAmount.toLocaleString()}
 										</td>
-										<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[9.5px]`}>
+										<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10.5px] font-bold`}>
 											<strong>{t.discLabel}</strong> Trade Scheme Discount Relief
 										</td>
 									</tr>
@@ -763,20 +771,20 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 
 								{/* Net Bill */}
 								<tr className="border-b border-black font-bold">
-									<td className="border border-black p-1 text-right font-mono text-[11px] font-black">
+									<td className="border border-black p-1 text-right font-mono text-sm font-black">
 										{order.netBill.toLocaleString()}
 									</td>
-									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} font-bold text-[11px]`}>
+									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} font-black text-[13px]`}>
 										<strong>{t.netLabel}</strong>
 									</td>
 								</tr>
 
 								{/* Cash Received */}
 								<tr className="border-b border-black">
-									<td className="border border-black p-1 text-right font-mono font-bold">
+									<td className="border border-black p-1 text-right font-mono font-bold text-xs">
 										{order.cashReceived.toLocaleString()}
 									</td>
-									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10px]`}>
+									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[11px] font-bold`}>
 										<strong>{t.cashLabel}</strong>
 									</td>
 								</tr>
@@ -795,10 +803,10 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 
 								{/* Highlighted Final Balance Box (Double thick border as in video) */}
 								<tr className="bg-neutral-100 border-t-2 border-black">
-									<td className="border-2 border-black p-1.5 text-right font-mono font-black text-[13px]">
+									<td className="border-2 border-black p-1.5 text-right font-mono font-black text-[15px]">
 										{order.finalBalance.toLocaleString()}
 									</td>
-									<td colSpan={2} className={`border-2 border-black p-1.5 ${language === "ur" ? "text-right" : "text-left"} font-black text-[12px]`}>
+									<td colSpan={2} className={`border-2 border-black p-1.5 ${language === "ur" ? "text-right" : "text-left"} font-black text-[13.5px]`}>
 										<strong>{t.finalLabel}</strong>
 									</td>
 								</tr>

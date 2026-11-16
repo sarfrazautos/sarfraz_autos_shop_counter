@@ -42,6 +42,7 @@ import {
 	ExternalLink,
 	ImageIcon,
 	Zap,
+	RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -540,6 +541,41 @@ export function CounterView() {
 		setCart((prev) => prev.filter((item) => item.id !== id));
 	};
 
+	// Reset all counter states back to fresh zero state for the next sale/invoice
+	const resetCounter = () => {
+		setCart([]);
+		setCustomer(DEFAULT_WALKIN_CUSTOMER);
+		setSearchQuery("");
+		setDebouncedSearchQuery("");
+		setInputQuantity(1);
+		setSelectedCategory("All");
+		setSelectedBikeModel("All Models");
+		setSelectedPricingTier("Retail");
+		setDiscountValue(0);
+		setShippingOrFitting(0);
+		setCashReceived(0);
+		setOnlineReceived(0);
+		setRegisterPaymentMode("cash");
+		setPaymentSlipUrl(null);
+		setPreviewSlipModalOpen(false);
+		if (fileInputRef.current) {
+			fileInputRef.current.value = "";
+		}
+	};
+
+	const handleNewSale = () => {
+		const hasData = cart.length > 0 || customer.id !== "walkin" || customer.phone || cashReceived > 0 || onlineReceived > 0;
+		if (hasData) {
+			if (confirm("Reset counter and start a fresh blank sale?")) {
+				resetCounter();
+				showFlashNotice("Counter reset to blank state.");
+			}
+		} else {
+			resetCounter();
+			showFlashNotice("Counter reset.");
+		}
+	};
+
 	const clearCart = () => {
 		if (cart.length === 0) return;
 		if (confirm("Clear current counter cart?")) {
@@ -547,6 +583,7 @@ export function CounterView() {
 			setDiscountValue(0);
 			setShippingOrFitting(0);
 			setCashReceived(0);
+			setOnlineReceived(0);
 			showFlashNotice("Counter cart cleared");
 		}
 	};
@@ -891,13 +928,14 @@ export function CounterView() {
 
 			setActiveInvoiceOrder(generatedOrder);
 
+			// Automatically clear entire counter page: cart, customer, search, and amounts become zero
+			resetCounter();
+
 			if (action === "print") {
 				setIsInvoiceOpen(true);
+				showFlashNotice(`Order ${generatedOrder.invoiceNumber} recorded! Counter cleared for next bill.`);
 			} else {
-				showFlashNotice(`Order ${generatedOrder.invoiceNumber} recorded successfully!`);
-				setCart([]);
-				setDiscountValue(0);
-				setShippingOrFitting(0);
+				showFlashNotice(`Order ${generatedOrder.invoiceNumber} recorded successfully! Counter cleared for next bill.`);
 			}
 		} catch (err: any) {
 			console.error("Failed to save order to database:", err);
@@ -1337,6 +1375,16 @@ export function CounterView() {
 									Branch Stock:{" "}
 									<strong className="text-foreground">{currentBranch.shortName}</strong>
 								</span>
+								<Button
+									variant="outline"
+									size="xs"
+									onClick={handleNewSale}
+									className="text-xs h-7 gap-1 border-dashed hover:bg-muted cursor-pointer"
+									title="Clear all inputs and start a fresh bill"
+								>
+									<RotateCcw className="size-3" />
+									New Sale
+								</Button>
 								<Button
 									variant="ghost"
 									size="xs"

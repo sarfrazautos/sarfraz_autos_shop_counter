@@ -99,7 +99,7 @@ export interface CustomerProfile {
 export const DEFAULT_WALKIN_CUSTOMER: CustomerProfile = {
 	id: "walkin",
 	name: "Walk-in Retail Rider",
-	phone: "0300-0000000",
+	phone: "",
 	city: "Karachi",
 	route: "Saddar Counter",
 	salesman: "Counter Cashier",
