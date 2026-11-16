@@ -19,6 +19,8 @@ import {
 	Bell,
 	BookOpen,
 	Clock,
+	ShoppingCart,
+	Building2,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -101,6 +103,26 @@ export const navGroups: SidebarNavGroup[] = [
 				title: "Aging Receivables",
 				path: "/dashboard/reports/aging",
 				icon: <Clock className="size-4" />,
+			},
+		],
+	},
+	{
+		label: "Purchases & Vendors",
+		items: [
+			{
+				title: "Inward Purchases",
+				path: "/dashboard/purchases",
+				icon: <ShoppingCart className="size-4" />,
+			},
+			{
+				title: "Excel Bill / New Purchase",
+				path: "/dashboard/purchases/new",
+				icon: <FileSpreadsheet className="size-4" />,
+			},
+			{
+				title: "Suppliers & Vendors",
+				path: "/dashboard/vendors",
+				icon: <Building2 className="size-4" />,
 			},
 		],
 	},

@@ -459,3 +459,145 @@ export const deliveryRidersRelations = relations(deliveryRiders, ({ one, many })
   }),
   logs: many(riderLocationLogs),
 }));
+
+// --------------------------------------------------------------------------
+// 13. VENDORS & PURCHASES (INWARD STOCK & SUPPLIER KHATA)
+// --------------------------------------------------------------------------
+export const vendors = pgTable(
+  'vendors',
+  {
+    id: varchar('id', { length: 50 }).primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    contactPerson: varchar('contact_person', { length: 150 }),
+    phone: varchar('phone', { length: 50 }).notNull(),
+    email: varchar('email', { length: 100 }),
+    city: varchar('city', { length: 100 }).default('Karachi').notNull(),
+    address: text('address'),
+    openingBalance: numeric('opening_balance', { precision: 12, scale: 2 }).default('0.00').notNull(),
+    currentBalance: numeric('current_balance', { precision: 12, scale: 2 }).default('0.00').notNull(),
+    status: varchar('status', { length: 30 }).default('Active').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('vendors_name_idx').on(table.name),
+    index('vendors_phone_idx').on(table.phone),
+  ]
+);
+
+export const purchases = pgTable(
+  'purchases',
+  {
+    id: varchar('id', { length: 50 }).primaryKey(),
+    invoiceNumber: varchar('invoice_number', { length: 100 }).notNull(),
+    vendorId: varchar('vendor_id', { length: 50 })
+      .notNull()
+      .references(() => vendors.id, { onDelete: 'cascade' }),
+    vendorName: varchar('vendor_name', { length: 255 }).notNull(),
+    branchId: varchar('branch_id', { length: 50 })
+      .notNull()
+      .references(() => branches.id),
+    totalAmount: numeric('total_amount', { precision: 12, scale: 2 }).notNull(),
+    paidAmount: numeric('paid_amount', { precision: 12, scale: 2 }).default('0.00').notNull(),
+    balanceDue: numeric('balance_due', { precision: 12, scale: 2 }).default('0.00').notNull(),
+    paymentStatus: varchar('payment_status', { length: 30 }).default('Unpaid').notNull(),
+    billAttachmentUrl: text('bill_attachment_url'),
+    remarks: text('remarks'),
+    purchaseDate: timestamp('purchase_date').defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('purchases_vendor_idx').on(table.vendorId),
+    index('purchases_branch_idx').on(table.branchId),
+    index('purchases_date_idx').on(table.purchaseDate),
+  ]
+);
+
+export const purchaseItems = pgTable(
+  'purchase_items',
+  {
+    id: varchar('id', { length: 100 }).primaryKey(),
+    purchaseId: varchar('purchase_id', { length: 50 })
+      .notNull()
+      .references(() => purchases.id, { onDelete: 'cascade' }),
+    productId: varchar('product_id', { length: 50 })
+      .notNull()
+      .references(() => products.id),
+    productName: varchar('product_name', { length: 255 }).notNull(),
+    sku: varchar('sku', { length: 100 }).notNull(),
+    bikeModel: varchar('bike_model', { length: 100 }).default('Universal').notNull(),
+    purchaseRate: numeric('purchase_rate', { precision: 10, scale: 2 }).notNull(),
+    quantity: integer('quantity').notNull(),
+    freeQuantity: integer('free_quantity').default(0).notNull(),
+    isNetScheme: boolean('is_net_scheme').default(false).notNull(),
+    schemeNote: varchar('scheme_note', { length: 100 }),
+    lineTotal: numeric('line_total', { precision: 12, scale: 2 }).notNull(),
+  },
+  (table) => [
+    index('purchase_items_purchase_idx').on(table.purchaseId),
+    index('purchase_items_product_idx').on(table.productId),
+  ]
+);
+
+export const vendorLedgerTransactions = pgTable(
+  'vendor_ledger_transactions',
+  {
+    id: varchar('id', { length: 100 }).primaryKey(),
+    vendorId: varchar('vendor_id', { length: 50 })
+      .notNull()
+      .references(() => vendors.id, { onDelete: 'cascade' }),
+    purchaseId: varchar('purchase_id', { length: 50 }).references(() => purchases.id, { onDelete: 'set null' }),
+    transactionType: varchar('transaction_type', { length: 30 }).notNull(),
+    amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+    balanceAfter: numeric('balance_after', { precision: 12, scale: 2 }).notNull(),
+    paymentMode: varchar('payment_mode', { length: 50 }).default('Cash').notNull(),
+    referenceNumber: varchar('reference_number', { length: 100 }),
+    proofAttachmentUrl: text('proof_attachment_url'),
+    description: text('description').notNull(),
+    transactionDate: timestamp('transaction_date').defaultNow().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('vendor_ledger_vendor_idx').on(table.vendorId),
+    index('vendor_ledger_date_idx').on(table.transactionDate),
+  ]
+);
+
+export const vendorsRelations = relations(vendors, ({ many }) => ({
+  purchases: many(purchases),
+  transactions: many(vendorLedgerTransactions),
+}));
+
+export const purchasesRelations = relations(purchases, ({ one, many }) => ({
+  vendor: one(vendors, {
+    fields: [purchases.vendorId],
+    references: [vendors.id],
+  }),
+  branch: one(branches, {
+    fields: [purchases.branchId],
+    references: [branches.id],
+  }),
+  items: many(purchaseItems),
+  ledgerTransaction: one(vendorLedgerTransactions),
+}));
+
+export const purchaseItemsRelations = relations(purchaseItems, ({ one }) => ({
+  purchase: one(purchases, {
+    fields: [purchaseItems.purchaseId],
+    references: [purchases.id],
+  }),
+  product: one(products, {
+    fields: [purchaseItems.productId],
+    references: [products.id],
+  }),
+}));
+
+export const vendorLedgerTransactionsRelations = relations(vendorLedgerTransactions, ({ one }) => ({
+  vendor: one(vendors, {
+    fields: [vendorLedgerTransactions.vendorId],
+    references: [vendors.id],
+  }),
+  purchase: one(purchases, {
+    fields: [vendorLedgerTransactions.purchaseId],
+    references: [purchases.id],
+  }),
+}));
