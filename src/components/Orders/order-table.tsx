@@ -30,6 +30,11 @@ import {
 	Package,
 	MessageCircle,
 	Store,
+	Paperclip,
+	ExternalLink,
+	X,
+	Zap,
+	Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OrderRecord, OrderStatus } from "./types";
@@ -47,6 +52,8 @@ export function OrderTable({
 	onStatusChange,
 	onDeleteOrder,
 }: OrderTableProps) {
+	const [selectedProofOrder, setSelectedProofOrder] = useState<OrderRecord | null>(null);
+
 	const getStatusBadge = (status: OrderStatus) => {
 		switch (status) {
 			case "Completed":
@@ -239,6 +246,31 @@ export function OrderTable({
 														+{moreItemsCount} more
 													</Badge>
 												)}
+												{/* Trade Scheme Indicators */}
+												{order.items.some(
+													(i) => i.isNetScheme || i.subLabel?.includes("Net Scheme")
+												) && (
+													<Badge
+														variant="outline"
+														className="text-[9px] py-0 px-1.5 font-bold border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/10 flex items-center gap-0.5"
+														title="Billed under Net Scheme (Cash Discount, 0 Free Items)"
+													>
+														<Zap className="size-2.5 fill-amber-500 text-amber-500" />
+														Net Scheme
+													</Badge>
+												)}
+												{order.items.some(
+													(i) => (i.freeQuantity && i.freeQuantity > 0) || i.subLabel?.includes("Free Bonus")
+												) && (
+													<Badge
+														variant="outline"
+														className="text-[9px] py-0 px-1.5 font-bold border-emerald-500/50 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 flex items-center gap-0.5"
+														title="Includes Free Bonus Units (Normal 10+1 Scheme)"
+													>
+														<Gift className="size-2.5 text-emerald-600" />
+														10+1 Free
+													</Badge>
+												)}
 											</div>
 										</TableCell>
 
@@ -256,9 +288,22 @@ export function OrderTable({
 
 										{/* Amount */}
 										<TableCell className="py-2.5 px-3 text-right">
-											<span className="font-bold font-mono text-xs text-foreground">
-												Rs. {order.totalAmount.toLocaleString()}
-											</span>
+											<div className="flex flex-col items-end">
+												<span className="font-bold font-mono text-xs text-foreground">
+													Rs. {order.totalAmount.toLocaleString()}
+												</span>
+												{order.paymentProofUrl && (
+													<button
+														type="button"
+														onClick={() => setSelectedProofOrder(order)}
+														className="inline-flex items-center gap-1 text-[10px] text-sky-600 hover:text-sky-700 font-semibold bg-sky-50 dark:bg-sky-950/40 px-1.5 py-0.5 rounded border border-sky-300 dark:border-sky-800 cursor-pointer hover:bg-sky-100 transition-colors mt-0.5"
+														title="View WhatsApp Payment Slip"
+													>
+														<Paperclip className="size-2.5" />
+														<span>Slip</span>
+													</button>
+												)}
+											</div>
 										</TableCell>
 
 										{/* Status */}
@@ -293,6 +338,28 @@ export function OrderTable({
 														<TooltipContent className="text-xs">Send on WhatsApp</TooltipContent>
 													</Tooltip>
 												</TooltipProvider>
+
+												{/* WhatsApp Slip Proof Button */}
+												{order.paymentProofUrl && (
+													<TooltipProvider>
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		aria-label="View WhatsApp Slip"
+																		size="icon"
+																		variant="outline"
+																		onClick={() => setSelectedProofOrder(order)}
+																		className="size-7 rounded-md text-sky-600 bg-sky-500/10 hover:bg-sky-500/20 border-sky-400/50 cursor-pointer"
+																	/>
+																}
+															>
+																<Paperclip className="size-3.5 text-sky-600" />
+															</TooltipTrigger>
+															<TooltipContent className="text-xs">View WhatsApp Slip Proof</TooltipContent>
+														</Tooltip>
+													</TooltipProvider>
+												)}
 
 												{/* Printable Invoice Button */}
 												<Button
@@ -339,6 +406,61 @@ export function OrderTable({
 					</TableBody>
 				</Table>
 			</div>
+
+			{/* FULL ENLARGED WHATSAPP SLIP MODAL */}
+			{selectedProofOrder && selectedProofOrder.paymentProofUrl && (
+				<div
+					className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+					onClick={() => setSelectedProofOrder(null)}
+				>
+					<div
+						className="bg-background rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl border flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="px-4 py-3 border-b flex items-center justify-between bg-muted/30">
+							<div className="flex items-center gap-2">
+								<Paperclip className="size-4 text-sky-600" />
+								<div>
+									<h3 className="font-heading font-bold text-xs text-foreground">
+										WhatsApp Payment Proof: {selectedProofOrder.invoiceNumber}
+									</h3>
+									<span className="text-[10px] text-muted-foreground">
+										Customer: {selectedProofOrder.customerName} ({selectedProofOrder.customerCity})
+									</span>
+								</div>
+							</div>
+							<button
+								type="button"
+								onClick={() => setSelectedProofOrder(null)}
+								className="text-muted-foreground hover:text-foreground cursor-pointer p-1 rounded-md"
+							>
+								<X className="size-4" />
+							</button>
+						</div>
+						<div className="p-3 overflow-auto flex items-center justify-center bg-black/5 dark:bg-black/40">
+							<img
+								src={selectedProofOrder.paymentProofUrl}
+								alt="WhatsApp Payment Proof"
+								className="max-h-[65vh] w-auto rounded-lg object-contain shadow-sm border"
+							/>
+						</div>
+						<div className="px-4 py-2.5 border-t bg-muted/20 flex items-center justify-between text-xs">
+							<span className="text-[11px] text-muted-foreground font-mono">
+								Bill Total: Rs. {selectedProofOrder.netBill.toLocaleString()}
+							</span>
+							<a
+								href={selectedProofOrder.paymentProofUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-xs"
+							>
+								<span>Open Original File</span>
+								<ExternalLink className="size-3" />
+							</a>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

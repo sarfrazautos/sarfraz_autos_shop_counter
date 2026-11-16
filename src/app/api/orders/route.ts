@@ -142,7 +142,11 @@ export async function GET(req: NextRequest) {
             ? 'Cash on Counter'
             : o.paymentMethod === 'Credit / Khata'
             ? 'On Credit / COD'
+            : o.paymentMethod === 'Split (Cash + Online)'
+            ? 'Split (Cash + Online)'
             : 'Online Transfer',
+        paymentProofUrl: o.paymentProofUrl || null,
+        onlineReceived: Number(o.onlineReceived || 0),
         godown: godownName,
         remarks: o.remarks || '',
       };
@@ -186,6 +190,8 @@ export async function POST(req: NextRequest) {
       shippingCharges = 0,
       totalAmount = 0,
       cashReceived = 0,
+      onlineReceived = 0,
+      paymentProofUrl = null,
       changeReturned = 0,
       netBalanceAdded = 0,
       remarks = '',
@@ -244,6 +250,8 @@ export async function POST(req: NextRequest) {
       shippingCharges: parseFloat(shippingCharges).toFixed(2),
       totalAmount: parseFloat(totalAmount).toFixed(2),
       cashReceived: parseFloat(cashReceived).toFixed(2),
+      onlineReceived: parseFloat(onlineReceived || 0).toFixed(2),
+      paymentProofUrl: paymentProofUrl || null,
       changeReturned: parseFloat(changeReturned).toFixed(2),
       netBalanceAdded: parseFloat(netBalanceAdded).toFixed(2),
       remarks,
@@ -332,6 +340,7 @@ export async function POST(req: NextRequest) {
         creditAmount: '0.00',
         runningBalance: updatedBal.toFixed(2),
         collectorName: 'Counter Cashier',
+        proofUrl: paymentProofUrl || null,
         transactionDate: new Date(),
       });
 

@@ -74,6 +74,7 @@ export async function GET(
       credit: Number(r.creditAmount),
       runningBalance: Number(r.runningBalance),
       collectorName: r.collectorName,
+      proofUrl: r.proofUrl || null,
       date: r.transactionDate.toISOString().split('T')[0],
       createdAt: r.transactionDate.toISOString(),
     }));
@@ -123,6 +124,7 @@ export async function POST(
       description,
       collectorName = 'Counter Cashier',
       paymentMethod = 'Cash',
+      proofUrl = null,
     } = body;
 
     const parsedAmount = Math.abs(parseFloat(amount) || 0);
@@ -179,6 +181,7 @@ export async function POST(
       creditAmount: creditAmount.toFixed(2),
       runningBalance: newBalance.toFixed(2),
       collectorName,
+      proofUrl: proofUrl || null,
       transactionDate: new Date(),
     });
 

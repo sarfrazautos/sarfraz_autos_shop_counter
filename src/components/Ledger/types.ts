@@ -8,6 +8,8 @@ export interface LedgerTransaction {
 	credit: number; // Received payments (decreases customer debt)
 	balance: number; // Running balance after transaction
 	collectorOrCashier?: string;
+	proofUrl?: string | null;
+	orderId?: string | null;
 }
 
 export interface CustomerLedgerAccount {

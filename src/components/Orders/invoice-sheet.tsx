@@ -15,7 +15,7 @@ import {
 	CheckCircle,
 	Languages,
 } from "lucide-react";
-import type { OrderRecord } from "./types";
+import type { OrderRecord, OrderItem } from "./types";
 
 interface InvoiceSheetProps {
 	order: OrderRecord | null;
@@ -25,6 +25,75 @@ interface InvoiceSheetProps {
 
 type InvoiceLanguage = "en" | "ur";
 
+export interface FormattedBillRow {
+	qty: number;
+	name: string;
+	subLabel?: string;
+	rateDisplay: string;
+	totalDisplay: string;
+	isFree: boolean;
+}
+
+export function expandBillRows(items: OrderItem[]): {
+	rows: FormattedBillRow[];
+	totalDeliveredPieces: number;
+	totalFreePieces: number;
+} {
+	const rows: FormattedBillRow[] = [];
+	let totalDeliveredPieces = 0;
+	let totalFreePieces = 0;
+
+	for (const it of items) {
+		let freeUnits = it.freeQuantity || 0;
+		if (!freeUnits && it.subLabel) {
+			const m = it.subLabel.match(/(?:\+|🎁\s*\+)(\d+)\s*Free/i);
+			if (m) freeUnits = parseInt(m[1], 10);
+		}
+
+		totalDeliveredPieces += it.quantity + freeUnits;
+		totalFreePieces += freeUnits;
+
+		// Clean sublabel of free bonus tags to avoid repetitive text
+		const cleanSubLabel = it.subLabel
+			? it.subLabel.replace(/\[🎁\s*\+\d+\s*Free[^\]]*\]/gi, "").trim()
+			: "";
+
+		// Rate display: show original company list rate + (discounted net rate) if scheme applied
+		let rateStr = it.rate.toLocaleString();
+		if (
+			it.originalRate &&
+			it.discountedRate &&
+			it.originalRate !== it.discountedRate
+		) {
+			rateStr = `${it.originalRate.toLocaleString()} (${it.discountedRate.toLocaleString()})`;
+		}
+
+		// 1. Purchased item line
+		rows.push({
+			qty: it.quantity,
+			name: it.name,
+			subLabel: cleanSubLabel,
+			rateDisplay: rateStr,
+			totalDisplay: it.total.toLocaleString(),
+			isFree: false,
+		});
+
+		// 2. Dedicated FREE bonus item line directly below (as requested by client)
+		if (freeUnits > 0) {
+			rows.push({
+				qty: freeUnits,
+				name: it.name,
+				subLabel: "",
+				rateDisplay: "FREE",
+				totalDisplay: "FREE",
+				isFree: true,
+			});
+		}
+	}
+
+	return { rows, totalDeliveredPieces, totalFreePieces };
+}
+
 export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 	const printAreaRef = useRef<HTMLDivElement>(null);
 	const [whatsappSent, setWhatsappSent] = useState(false);
@@ -32,83 +101,99 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 
 	if (!order) return null;
 
+	const { rows: billRows, totalDeliveredPieces } = expandBillRows(order.items);
+	const discountAmount =
+		order.discountAmount ??
+		Math.max(
+			0,
+			order.totalAmount + (order.shippingCharges || 0) - order.netBill
+		);
+	const openingBal = order.openingBalance ?? 0;
+
 	// Translation dictionaries
 	const t = {
 		en: {
-			shopName: "SARFRAZ AUTOS",
+			shopName: "SARFRAZ AUTOS (SHAHMIR)",
 			address: "SHOP #23 TAJ MEHAL QASIM AUTO MKT, SADDAR",
-			cityPhone: "KARACHI | PH: 0333-1285556, 0333-2624410",
+			cityPhone: "KARACHI, 03331285556, 03332624410",
 			pageText: "Page 1 of 1",
 			customerLabel: "CUSTOMER / PARTY",
-			invNo: "Inv #:",
-			date: "Dated:",
+			invNo: "Inv #",
+			date: "Dated",
 			remarks: "Remarks:",
 			godown: "Godown:",
 			paymentMethod: "Payment:",
 			tableTotal: "Total",
 			tableRate: "Rate",
-			tableQty: "Qty",
 			tableItem: "Item Description",
-			grossTotal: "Gross Total:",
+			tableQty: "Qty",
+			grossTotal: "Gross Total",
 			itemsCount: "Items",
 			totalQty: "Qty",
-			shippingCharges: "Shipping / Carriage:",
-			netBill: "Net Bill:",
-			cashReceived: "Cash Received / Adj:",
-			finalBalance: "Remaining Khata Bal:",
+			discLabel: ":Disc",
+			netLabel: ":Net Bill",
+			cashLabel: ":Cash Received/Adj",
+			openingLabel: ":Opening Bal",
+			finalLabel: ":Final Bal",
 			warrantyNotice: "Warranty: 7 Days Check Warranty Only.",
-			termsNote1: "Please report shortage or defect within 3 days.",
-			termsNote2: "Original invoice mandatory for return or exchange.",
+			termsNote1: "Please report shortage or defect within 3 days,",
+			termsNote2: "and original invoice is mandatory for return or exchange.",
 			thankYou: "Thank you for choosing Sarfraz Autos!",
-			ownerLabel: "OWNER COPY / CASH MEMO",
+			ownerLabel: "OWNER",
 		},
 		ur: {
-			shopName: "سرفراز آٹوز",
+			shopName: "سرفراز آٹوز (شہمیر)",
 			address: "دکان نمبر 23، تاج محل قاسم آٹو مارکیٹ، صدر",
-			cityPhone: "کراچی | فون: 0333-1285556، 0333-2624410",
+			cityPhone: "کراچی، 03331285556، 03332624410",
 			pageText: "صفحہ 1 از 1",
 			customerLabel: "گاہک / پارٹی کا نام",
-			invNo: "بل نمبر:",
-			date: "تاریخ:",
+			invNo: "بل نمبر",
+			date: "تاریخ",
 			remarks: "ریمارکس:",
 			godown: "گودام:",
 			paymentMethod: "ادائیگی:",
-			tableTotal: "کل رقم",
+			tableTotal: "ٹوٹل",
 			tableRate: "ریٹ",
+			tableItem: "تفصیل آئٹم",
 			tableQty: "تعداد",
-			tableItem: "تفصیل سامان / آئٹم",
-			grossTotal: "مال کی رقم:",
+			grossTotal: "مال کی رقم",
 			itemsCount: "آئٹمز",
 			totalQty: "تعداد",
-			shippingCharges: "کرایہ / بلٹی خرچ:",
-			netBill: "کل صافی بل:",
-			cashReceived: "نقد وصولی / جمع:",
-			finalBalance: "بقایا واجب الادا کھاتہ:",
+			discLabel: ":ڈسکاؤنٹ",
+			netLabel: ":صافی بل",
+			cashLabel: ":نقد وصولی / جمع",
+			openingLabel: ":سابقہ بقایا کھاتہ",
+			finalLabel: ":کل بقایا واجب الادا",
 			warrantyNotice: "چیک وارنٹی: 7 دن (تبدیلی کی مدت)",
-			termsNote1: "اگر مال میں کمی ہو تو 3 دن کے اندر اطلاع دیں،",
-			termsNote2: "اور کسی بھی تبدیلی کے لیے اصل بل ہمراہ لانا لازمی ہے۔",
+			termsNote1: "اگر مال کی کمی ہو تو 3 دن میں اطلاع دیں،",
+			termsNote2: "اور تبدیلی کے لیے اصل بل ضروری ہے۔",
 			thankYou: "سرفراز آٹوز پر تشریف لانے کا شکریہ!",
-			ownerLabel: "سیلز رسید / کھاتہ میمو",
+			ownerLabel: "OWNER",
 		},
 	}[language];
 
 	const translatePayment = (method: string) => {
-		if (language === "en") return method;
+		if (language === "en") {
+			return method === "Credit / Khata" || method.includes("Credit")
+				? "On Credit"
+				: method;
+		}
 		if (method.includes("Cash")) return "نقد کاؤنٹر";
 		if (method.includes("Online")) return "آن لائن بینک";
-		if (method.includes("Credit")) return "ادھار کھاتہ";
+		if (method.includes("Credit")) return "On Credit";
 		return method;
 	};
 
 	const translateGodown = (godown: string) => {
 		if (language === "en") return godown;
-		if (godown.includes("SADDAR") || godown.includes("HEAD")) return "صدر مین ورکشاپ";
-		if (godown.includes("GULSHAN")) return "گلشن اقبال";
-		if (godown.includes("DHA")) return "ڈی ایچ اے کاؤنٹر";
+		if (godown.includes("SADDAR") || godown.includes("HEAD") || godown.includes("1ST"))
+			return "HEAD OFFICE";
+		if (godown.includes("GULSHAN") || godown.includes("2ND")) return "GULSHAN AUTO HUB";
+		if (godown.includes("DHA") || godown.includes("3RD")) return "DHA EXPRESS COUNTER";
 		return godown;
 	};
 
-	// Dedicated Isolated Iframe Print for Thermal Receipt (Guarantees zero blank feed & exact 80mm cut)
+	// Dedicated Isolated Iframe Print for Thermal Receipt (Guarantees exact 80mm cut & solid box borders)
 	const handlePrint = () => {
 		const isUrdu = language === "ur";
 
@@ -146,133 +231,143 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
     .text-left { text-align: left; }
     .bold { font-weight: bold; }
     .font-mono { font-family: "Courier New", Courier, monospace; }
-    .divider {
-      border-top: 1px dashed #000;
-      margin: 3px 0;
-    }
-    .solid-divider {
-      border-top: 1.5px solid #000;
-      margin: 4px 0;
-    }
-    table {
+
+    /* Boxed Grid Table exactly matching client legacy receipt */
+    table.receipt-grid {
       width: 100%;
       border-collapse: collapse;
-      margin: 3px 0;
+      border: 1.5px solid #000;
+      margin-top: 4px;
     }
-    th {
-      font-weight: bold;
-      border-bottom: 1.5px solid #000;
-      padding: 3px 1px;
+    table.receipt-grid th {
+      border: 1px solid #000;
+      padding: 3px 2px;
+      font-size: 10px;
+      font-weight: 800;
+      text-align: center;
+      background: #f7f7f7;
+    }
+    table.receipt-grid td {
+      border: 1px solid #000;
+      padding: 3px 2px;
+      font-size: 10.5px;
+      vertical-align: middle;
+    }
+
+    /* Summary Grid directly attached to bottom of table */
+    table.summary-grid {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1.5px solid #000;
+      border-top: none;
       font-size: 10.5px;
     }
-    td {
-      padding: 2.5px 1px;
-      vertical-align: top;
-      font-size: 10.5px;
-      border-bottom: 0.5px dashed #ccc;
+    table.summary-grid td {
+      border: 1px solid #000;
+      padding: 2.5px 3px;
     }
+
     .row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
       padding: 1.5px 0;
     }
-    .header-logo {
-      width: 38px;
-      height: 38px;
-      margin: 0 auto 3px auto;
-      display: block;
-      object-fit: contain;
-    }
-    .title {
-      font-size: 14px;
-      font-weight: 900;
-      letter-spacing: 0.5px;
-    }
-    .subtitle {
-      font-size: 9.5px;
-      color: #111;
-      font-weight: 600;
-    }
-    .customer-box {
-      border-top: 1px solid #333;
-      border-bottom: 1px solid #333;
-      padding: 4px 2px;
-      margin: 3px 0;
-      text-align: center;
-    }
-    .customer-name {
-      font-size: 13px;
-      font-weight: 800;
-    }
-    .total-highlight {
+    .header-title {
       font-size: 13.5px;
       font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .header-sub {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #111;
+      line-height: 1.2;
+    }
+    .customer-line {
+      text-align: center;
+      font-size: 12.5px;
+      font-weight: 900;
+      text-decoration: underline;
+      text-transform: uppercase;
+      margin: 4px 0 3px 0;
+    }
+    .meta-box {
+      font-size: 10px;
+      line-height: 1.35;
+      border-top: 1px solid #000;
+      padding-top: 2px;
     }
     .terms-box {
       margin-top: 6px;
       padding-top: 4px;
-      border-top: 1.5px solid #000;
       text-align: center;
       font-size: 10px;
       font-weight: bold;
-      line-height: 1.35;
+      line-height: 1.4;
+      border-top: 1px solid #000;
     }
   </style>
 </head>
 <body>
   <!-- Header -->
   <div class="text-center">
-    <img src="/logo.png" alt="Logo" class="header-logo" onerror="this.style.display='none'" />
-    <div class="title">${t.shopName}</div>
-    <div class="subtitle">${t.address}</div>
-    <div class="subtitle">${t.cityPhone}</div>
-    <div style="font-size: 9px; color: #555; margin-top: 1px;">${t.ownerLabel} • ${t.pageText}</div>
+    <div class="header-title">${t.shopName}</div>
+    <div class="header-sub">${t.address}</div>
+    <div class="header-sub">${t.cityPhone}</div>
+    <div style="font-size: 8.5px; text-align: right; margin-top: 1px; color: #333;">${t.pageText}</div>
   </div>
 
-  <!-- Customer Party -->
-  <div class="customer-box">
-    <div class="customer-name">${order.customerName}</div>
-    <div style="font-size: 10px; font-weight: 600;">
-      ${order.customerCity.toUpperCase()} ${order.customerPhone ? `• ${order.customerPhone}` : ""}
-    </div>
+  <!-- Customer Party Name (Centered & Underlined) -->
+  <div class="customer-line">
+    ${order.customerName}
   </div>
 
   <!-- Meta Info -->
-  <div class="solid-divider"></div>
-  <div class="row">
-    <span><strong>${t.invNo}</strong> ${order.invoiceNumber}</span>
-    <span class="font-mono text-sm"><strong>${t.date}</strong> ${order.dateTimeFull}</span>
+  <div class="meta-box">
+    <div class="row">
+      <span><strong>${t.invNo}</strong> ${order.invoiceNumber}</span>
+      <span><strong>${t.date}</strong> ${order.date}</span>
+    </div>
+    ${order.remarks ? `<div class="row" style="font-size: 9px;"><span><strong>${t.remarks}</strong> ${order.remarks}</span></div>` : ""}
+    <div class="row">
+      <span><strong>${t.godown}</strong> <u>${translateGodown(order.godown)}</u></span>
+    </div>
+    <div class="row" style="border-bottom: 1.5px solid #000; padding-bottom: 2px; margin-top: 1px;">
+      <span style="font-size: 9.5px;">${order.dateTimeFull} ${t.ownerLabel}</span>
+      <span style="font-weight: bold;">${translatePayment(order.paymentMethod)}${order.paymentProofUrl ? (isUrdu ? " (سلپ منسلک)" : " (Slip Attached)") : ""}</span>
+    </div>
   </div>
-  <div class="row" style="font-size: 10px;">
-    <span><strong>${t.godown}</strong> ${translateGodown(order.godown)}</span>
-    <span><strong>${t.paymentMethod}</strong> ${translatePayment(order.paymentMethod)}</span>
-  </div>
-  ${order.remarks ? `<div class="row" style="font-size: 9.5px;"><span><strong>${t.remarks}</strong> ${order.remarks}</span></div>` : ""}
-  <div class="solid-divider"></div>
 
-  <!-- Items Table -->
-  <table>
+  <!-- Boxed Items Table (Matching old legacy receipt) -->
+  <table class="receipt-grid">
     <thead>
       <tr>
-        <th class="${isUrdu ? "text-right" : "text-left"}" style="width: 50%;">${t.tableItem}</th>
-        <th class="text-center" style="width: 14%;">${t.tableQty}</th>
-        <th class="${isUrdu ? "text-left" : "text-right"}" style="width: 18%;">${t.tableRate}</th>
-        <th class="${isUrdu ? "text-left" : "text-right"}" style="width: 18%;">${t.tableTotal}</th>
+        <th style="width: 23%; text-align: right;">${t.tableTotal}</th>
+        <th style="width: 27%; text-align: center;">${t.tableRate}</th>
+        <th style="width: 38%; text-align: ${isUrdu ? "right" : "left"};">${t.tableItem}</th>
+        <th style="width: 12%; text-align: center;">${t.tableQty}</th>
       </tr>
     </thead>
     <tbody>
-      ${order.items
+      ${billRows
 				.map(
-					(item) => `
-        <tr>
-          <td class="${isUrdu ? "text-right" : "text-left"}">
-            <div class="bold">${item.name}</div>
-            ${item.subLabel ? `<div style="font-size: 8.5px; color: #444;">${item.subLabel}</div>` : ""}
+					(row) => `
+        <tr style="${row.isFree ? "background-color: #fafafa; font-weight: bold;" : ""}">
+          <td style="text-align: right; font-family: 'Courier New', Courier, monospace; font-weight: bold;">
+            ${row.totalDisplay}
           </td>
-          <td class="text-center font-mono bold">${item.quantity}</td>
-          <td class="${isUrdu ? "text-left" : "text-right"} font-mono">${item.rate.toLocaleString()}</td>
-          <td class="${isUrdu ? "text-left" : "text-right"} font-mono bold">${item.total.toLocaleString()}</td>
+          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 10px;">
+            ${row.rateDisplay}
+          </td>
+          <td style="text-align: ${isUrdu ? "right" : "left"};">
+            <div style="font-weight: bold; line-height: 1.15;">${row.name}</div>
+            ${row.subLabel ? `<div style="font-size: 8px; color: #555;">${row.subLabel}</div>` : ""}
+          </td>
+          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-weight: bold;">
+            ${row.qty}
+          </td>
         </tr>
       `
 				)
@@ -280,46 +375,84 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
     </tbody>
   </table>
 
-  <!-- Bill Summary -->
-  <div class="solid-divider"></div>
-  <div class="row">
-    <span>${t.grossTotal} (${t.itemsCount}: ${order.items.length} | ${t.totalQty}: ${order.totalQuantity})</span>
-    <span class="font-mono bold">Rs. ${order.totalAmount.toLocaleString()}</span>
-  </div>
+  <!-- Boxed Bottom Summary (Exact Match to Old Receipt) -->
+  <table class="summary-grid">
+    <tr>
+      <td style="width: 25%; text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+        ${order.totalAmount.toLocaleString()}
+      </td>
+      <td style="text-align: center; font-weight: bold;">
+        ${t.itemsCount}: ${order.items.length}
+      </td>
+      <td style="width: 15%; text-align: center; font-family: 'Courier New', monospace; font-weight: bold;">
+        ${totalDeliveredPieces}
+      </td>
+    </tr>
 
-  ${
-		order.shippingCharges > 0
-			? `
-    <div class="row" style="font-size: 10px;">
-      <span>${t.shippingCharges}</span>
-      <span class="font-mono">+${order.shippingCharges.toLocaleString()}</span>
-    </div>
-  `
-			: ""
-	}
+    ${
+			discountAmount > 0
+				? `
+    <tr>
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+        -${discountAmount.toLocaleString()}
+      </td>
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 9.5px;">
+        <strong>${t.discLabel}</strong> Trade Scheme Discount Relief
+      </td>
+    </tr>
+    `
+				: ""
+		}
 
-  <div class="divider"></div>
-  <div class="row total-highlight">
-    <span>${t.netBill}</span>
-    <span class="font-mono">Rs. ${order.netBill.toLocaleString()}</span>
-  </div>
+    <tr>
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold; font-size: 11px;">
+        ${order.netBill.toLocaleString()}
+      </td>
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-weight: bold; font-size: 11px;">
+        <strong>${t.netLabel}</strong>
+      </td>
+    </tr>
 
-  <div class="row" style="font-size: 10.5px;">
-    <span>${t.cashReceived}</span>
-    <span class="font-mono">Rs. ${order.cashReceived.toLocaleString()}</span>
-  </div>
+    <tr>
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+        ${order.cashReceived.toLocaleString()}
+      </td>
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 10px;">
+        <strong>${t.cashLabel}</strong>
+      </td>
+    </tr>
 
-  <div class="row bold" style="font-size: 11.5px; margin-top: 2px;">
-    <span>${t.finalBalance}</span>
-    <span class="font-mono" style="text-decoration: underline;">Rs. ${order.finalBalance.toLocaleString()}</span>
-  </div>
+    ${
+			openingBal !== 0
+				? `
+    <tr>
+      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: bold;">
+        ${openingBal.toLocaleString()}
+      </td>
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 10px;">
+        <strong>${t.openingLabel}</strong>
+      </td>
+    </tr>
+    `
+				: ""
+		}
 
-  <!-- Terms & Policy -->
+    <tr style="background: #f2f2f2;">
+      <td style="border: 2px solid #000; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 12.5px;">
+        ${order.finalBalance.toLocaleString()}
+      </td>
+      <td colspan="2" style="border: 2px solid #000; text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 12px;">
+        <strong>${t.finalLabel}</strong>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Urdu Policy Footer -->
   <div class="terms-box">
-    <div>${t.warrantyNotice}</div>
-    <div style="margin-top: 2px;">${t.termsNote1}</div>
-    <div>${t.termsNote2}</div>
-    <div style="margin-top: 3px; font-weight: normal; font-size: 9px; color: #444;">${t.thankYou}</div>
+    <div>${t.termsNote1} ${t.termsNote2}</div>
+    <div style="margin-top: 2px; font-weight: normal; font-size: 9px; color: #444;">
+      ${t.warrantyNotice} • ${t.thankYou}
+    </div>
   </div>
 </body>
 </html>
@@ -362,8 +495,12 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 		}
 
 		const isUrdu = language === "ur";
-		const itemsSummary = order.items
-			.map((it) => `• ${it.name} (${it.quantity}x @ Rs.${it.rate}) = Rs.${it.total}`)
+		const itemsSummary = billRows
+			.map((r) =>
+				r.isFree
+					? `  🎁 *[FREE BONUS]*: +${r.qty}x ${r.name} = FREE`
+					: `• *${r.name}* (${r.qty}x @ Rs.${r.rateDisplay}) = Rs.${r.totalDisplay}`
+			)
 			.join("\n");
 
 		const message = isUrdu
@@ -371,29 +508,37 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 				`━━━━━━━━━━━━━━━━━━━━\n` +
 				`*بل نمبر:* ${order.invoiceNumber}\n` +
 				`*گاہک / پارٹی:* ${order.customerName} (${order.customerCity})\n` +
-				`*تاریخ:* ${order.dateTimeFull}\n` +
-				`*گودام:* ${translateGodown(order.godown)}\n\n` +
-				`*تفصیل سامان:*\n${itemsSummary}\n\n` +
+				`*تاریخ:* ${order.date}\n` +
+				`*گودام:* ${translateGodown(order.godown)}\n` +
+				`*ادائیگی:* ${translatePayment(order.paymentMethod)}\n\n` +
+				`*تفصیل بل و سامان (کل تعداد: ${totalDeliveredPieces}):*\n${itemsSummary}\n\n` +
 				`━━━━━━━━━━━━━━━━━━━━\n` +
-				`*کل بل (صافی):* روپے ${order.netBill.toLocaleString()}\n` +
+				`*مال کی رقم:* روپے ${order.totalAmount.toLocaleString()}\n` +
+				(discountAmount > 0 ? `*ڈسکاؤنٹ رعایت:* -روپے ${discountAmount.toLocaleString()}\n` : "") +
+				`*کل صافی بل:* روپے ${order.netBill.toLocaleString()}\n` +
 				`*نقد وصولی:* روپے ${order.cashReceived.toLocaleString()}\n` +
-				`*بقایا کھاتہ:* روپے ${order.finalBalance.toLocaleString()}\n` +
+				(openingBal !== 0 ? `*سابقہ بقایا:* روپے ${openingBal.toLocaleString()}\n` : "") +
+				`*کل بقایا واجب الادا:* روپے ${order.finalBalance.toLocaleString()}\n` +
 				`━━━━━━━━━━━━━━━━━━━━\n` +
-				`چیک وارنٹی: 7 دن۔ کسی بھی تبدیلی کیلئے اصل بل ہمراہ لانا ضروری ہے۔\n` +
+				`اگر مال کی کمی ہو تو 3 دن میں اطلاع دیں، اور تبدیلی کے لیے اصل بل ضروری ہے۔\n` +
 				`_سرفراز آٹوز پر تشریف لانے کا شکریہ!_`
 			: `*SARFRAZ AUTOS — INVOICE*\n` +
 				`━━━━━━━━━━━━━━━━━━━━\n` +
 				`*Invoice #:* ${order.invoiceNumber}\n` +
 				`*Customer:* ${order.customerName} (${order.customerCity})\n` +
-				`*Date:* ${order.dateTimeFull}\n` +
-				`*Godown:* ${order.godown}\n\n` +
-				`*Items Purchased:*\n${itemsSummary}\n\n` +
+				`*Date:* ${order.date}\n` +
+				`*Godown:* ${translateGodown(order.godown)}\n` +
+				`*Payment:* ${translatePayment(order.paymentMethod)}\n\n` +
+				`*Items (Total Qty: ${totalDeliveredPieces}):*\n${itemsSummary}\n\n` +
 				`━━━━━━━━━━━━━━━━━━━━\n` +
-				`*Total Net Bill:* Rs. ${order.netBill.toLocaleString()}\n` +
+				`*Gross Total:* Rs. ${order.totalAmount.toLocaleString()}\n` +
+				(discountAmount > 0 ? `*Discount Relief:* -Rs. ${discountAmount.toLocaleString()}\n` : "") +
+				`*Net Bill:* Rs. ${order.netBill.toLocaleString()}\n` +
 				`*Cash Received:* Rs. ${order.cashReceived.toLocaleString()}\n` +
-				`*Remaining Balance:* Rs. ${order.finalBalance.toLocaleString()}\n` +
+				(openingBal !== 0 ? `*Opening Balance:* Rs. ${openingBal.toLocaleString()}\n` : "") +
+				`*Final Balance Due:* Rs. ${order.finalBalance.toLocaleString()}\n` +
 				`━━━━━━━━━━━━━━━━━━━━\n` +
-				`7-Day Check Warranty Standard Applicable. Return/Exchange requires invoice.\n` +
+				`Please report shortage within 3 days. Return/Exchange requires invoice.\n` +
 				`_Thank you for choosing Sarfraz Autos!_`;
 
 		const waUrl = rawPhone
@@ -412,7 +557,7 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 				showCloseButton={false}
 				className="w-full sm:max-w-lg md:max-w-xl p-0 flex flex-col bg-background overflow-hidden border-l"
 			>
-				{/* Top Actions & Language Bar (Clean, well-spaced, NO format clutter) */}
+				{/* Top Actions & Language Bar */}
 				<div className="flex flex-col gap-2.5 px-4 sm:px-5 py-3 border-b bg-muted/20 print:hidden">
 					{/* Row 1: Title & Main Action Buttons */}
 					<div className="flex items-center justify-between gap-2">
@@ -461,7 +606,7 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 						</div>
 					</div>
 
-					{/* Row 2: Print Language Switcher (Spacious and clearly aligned) */}
+					{/* Row 2: Print Language Switcher */}
 					<div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40">
 						<span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
 							<Languages className="size-3.5 text-primary" />
@@ -495,7 +640,7 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 					</div>
 				</div>
 
-				{/* Scrollable Receipt Body */}
+				{/* Scrollable Receipt Body (On-screen preview matching legacy box receipt) */}
 				<div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-muted/15 flex justify-center print:p-0 print:m-0 print:bg-white">
 					{/* 80mm Optimized Thermal Slip Container */}
 					<div
@@ -505,133 +650,167 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 						style={{ height: "fit-content" }}
 					>
 						{/* Company Header */}
-						<div className="text-center space-y-1 pb-2">
+						<div className="text-center space-y-0.5 pb-1">
 							<Image
 								src="/logo.png"
 								alt="Sarfraz Autos Logo"
-								width={40}
-								height={40}
+								width={36}
+								height={36}
 								className="mx-auto mb-1 object-contain"
 							/>
-							<h1 className="font-black text-base sm:text-lg tracking-wide text-black">
+							<h1 className="font-black text-sm tracking-wide text-black uppercase">
 								{t.shopName}
 							</h1>
-							<p className="text-[10px] font-semibold text-neutral-800 leading-tight">
+							<p className="text-[9.5px] font-bold text-neutral-800 leading-tight">
 								{t.address}
 							</p>
-							<p className="text-[10px] font-semibold text-neutral-700">
+							<p className="text-[9.5px] font-bold text-neutral-700">
 								{t.cityPhone}
 							</p>
-							<div className="flex items-center justify-between text-[9px] text-neutral-500 pt-0.5 border-t border-neutral-200">
-								<span>{t.ownerLabel}</span>
+							<div className="flex items-center justify-end text-[8.5px] text-neutral-600 pt-0.5">
 								<span>{t.pageText}</span>
 							</div>
 						</div>
 
-						{/* Customer Info Section */}
-						<div className="text-center py-1.5 border-t border-b border-neutral-800 my-1 bg-neutral-50">
-							<p className="font-black text-sm uppercase tracking-wide">
+						{/* Customer Party Name (Underlined Header as shown in video) */}
+						<div className="text-center py-1 my-1 border-t border-black">
+							<p className="font-black text-xs uppercase tracking-wide underline">
 								{order.customerName}
-							</p>
-							<p className="text-[10px] font-semibold uppercase text-neutral-700">
-								{order.customerCity.toUpperCase()} {order.customerPhone ? `• ${order.customerPhone}` : ""}
 							</p>
 						</div>
 
 						{/* Invoice Meta Rows */}
-						<div className="py-1.5 border-b-2 border-black space-y-1 text-[10.5px]">
+						<div className="border-t border-black pt-1 space-y-0.5 text-[10px]">
 							<div className="flex justify-between items-baseline">
 								<span><strong>{t.invNo}</strong> <span className="font-mono">{order.invoiceNumber}</span></span>
-								<span className="font-mono text-[10px]"><strong>{t.date}</strong> {order.dateTimeFull}</span>
+								<span><strong>{t.date}</strong> {order.date}</span>
 							</div>
-							<div className="flex justify-between items-baseline text-neutral-800">
-								<span><strong>{t.godown}</strong> {translateGodown(order.godown)}</span>
-								<span><strong>{t.paymentMethod}</strong> {translatePayment(order.paymentMethod)}</span>
+							<div className="flex justify-between items-baseline text-neutral-900">
+								<span><strong>{t.godown}</strong> <u>{translateGodown(order.godown)}</u></span>
 							</div>
-							{order.remarks && (
-								<div className="text-[9.5px] text-neutral-600 truncate">
-									<strong>{t.remarks}</strong> {order.remarks}
-								</div>
-							)}
-						</div>
-
-						{/* Items Table Headers: 50% Description, 14% Qty, 18% Rate, 18% Total */}
-						<div className="grid grid-cols-12 py-1.5 border-b-2 border-black font-bold text-[10.5px] items-center">
-							<div className={`col-span-6 ${language === "ur" ? "text-right" : "text-left"}`}>
-								{t.tableItem}
-							</div>
-							<div className="col-span-2 text-center">
-								{t.tableQty}
-							</div>
-							<div className={`col-span-2 ${language === "ur" ? "text-left" : "text-right"}`}>
-								{t.tableRate}
-							</div>
-							<div className={`col-span-2 ${language === "ur" ? "text-left" : "text-right"}`}>
-								{t.tableTotal}
-							</div>
-						</div>
-
-						{/* Items Rows */}
-						<div className="divide-y divide-dashed divide-neutral-300 py-0.5">
-							{order.items.map((item, idx) => (
-								<div key={idx} className="grid grid-cols-12 py-1.5 items-start text-[10.5px]">
-									<div className={`col-span-6 ${language === "ur" ? "text-right" : "text-left"} pr-1`}>
-										<p className="font-bold text-neutral-900 leading-tight">{item.name}</p>
-										{item.subLabel && (
-											<p className="text-[8.5px] text-neutral-600 font-normal">{item.subLabel}</p>
-										)}
-									</div>
-									<div className="col-span-2 text-center font-bold font-mono">
-										{item.quantity}
-									</div>
-									<div className={`col-span-2 ${language === "ur" ? "text-left" : "text-right"} font-mono text-neutral-800 text-[10px]`}>
-										{item.rate.toLocaleString()}
-									</div>
-									<div className={`col-span-2 ${language === "ur" ? "text-left" : "text-right"} font-bold font-mono text-[10.5px]`}>
-										{item.total.toLocaleString()}
-									</div>
-								</div>
-							))}
-						</div>
-
-						{/* Bill Totals Summary (Fully aligned with no text collision) */}
-						<div className="border-t-2 border-black pt-1.5 space-y-1 text-xs">
-							<div className="flex justify-between items-baseline text-[10.5px]">
-								<span className="text-neutral-700">
-									{t.grossTotal} ({t.itemsCount}: {order.items.length} | {t.totalQty}: {order.totalQuantity})
+							<div className="flex justify-between items-baseline border-b-2 border-black pb-1 pt-0.5 font-semibold text-[9.5px]">
+								<span>{order.dateTimeFull} {t.ownerLabel}</span>
+								<span className="font-bold">
+									{translatePayment(order.paymentMethod)}
+									{order.paymentProofUrl ? (language === "ur" ? " (سلپ منسلک)" : " (Slip Attached)") : ""}
 								</span>
-								<span className="font-mono font-bold">Rs. {order.totalAmount.toLocaleString()}</span>
-							</div>
-
-							{order.shippingCharges > 0 && (
-								<div className="flex justify-between items-baseline text-neutral-800 text-[10.5px]">
-									<span>{t.shippingCharges}</span>
-									<span className="font-mono font-semibold">+{order.shippingCharges.toLocaleString()}</span>
-								</div>
-							)}
-
-							<div className="flex justify-between items-baseline font-black text-sm pt-1 border-t border-dashed border-neutral-400">
-								<span>{t.netBill}</span>
-								<span className="font-mono text-base font-black">Rs. {order.netBill.toLocaleString()}</span>
-							</div>
-
-							<div className="flex justify-between items-baseline text-neutral-800 text-[10.5px]">
-								<span>{t.cashReceived}</span>
-								<span className="font-mono">Rs. {order.cashReceived.toLocaleString()}</span>
-							</div>
-
-							<div className="flex justify-between items-baseline font-black text-xs pt-0.5 border-t border-neutral-200">
-								<span>{t.finalBalance}</span>
-								<span className="font-mono underline text-sm">Rs. {order.finalBalance.toLocaleString()}</span>
 							</div>
 						</div>
 
-						{/* Urdu Note & Policy Footer */}
-						<div className="mt-3.5 pt-2 border-t-2 border-black text-center font-bold text-[11px] text-neutral-900 leading-relaxed">
-							<p className="text-[10px] text-neutral-700">{t.warrantyNotice}</p>
-							<p className="mt-0.5">{t.termsNote1}</p>
-							<p>{t.termsNote2}</p>
-							<p className="text-[9.5px] font-normal text-neutral-600 mt-1">{t.thankYou}</p>
+						{/* Boxed Grid Table for Items */}
+						<table className="w-full border-collapse border border-black mt-2 text-[10.5px]">
+							<thead>
+								<tr className="bg-neutral-100 font-bold border-b border-black text-[10px]">
+									<th className="border border-black p-1 text-right w-[23%]">{t.tableTotal}</th>
+									<th className="border border-black p-1 text-center w-[27%]">{t.tableRate}</th>
+									<th className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} w-[38%]`}>{t.tableItem}</th>
+									<th className="border border-black p-1 text-center w-[12%]">{t.tableQty}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{billRows.map((row, idx) => (
+									<tr
+										key={idx}
+										className={row.isFree ? "bg-neutral-50 font-bold" : ""}
+									>
+										<td className="border border-black p-1 text-right font-mono font-bold text-[10px]">
+											{row.totalDisplay}
+										</td>
+										<td className="border border-black p-1 text-center font-mono text-[9.5px]">
+											{row.rateDisplay}
+										</td>
+										<td className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"}`}>
+											<div className="font-bold leading-tight">{row.name}</div>
+											{row.subLabel && (
+												<div className="text-[8px] text-neutral-600">{row.subLabel}</div>
+											)}
+										</td>
+										<td className="border border-black p-1 text-center font-mono font-bold">
+											{row.qty}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+
+						{/* Boxed Bottom Summary Section */}
+						<table className="w-full border-collapse border-2 border-t-0 border-black text-[10.5px]">
+							<tbody>
+								{/* Total Amount & Total Quantity */}
+								<tr className="border-b border-black font-bold">
+									<td className="border border-black p-1 text-right font-mono w-[25%] font-bold">
+										{order.totalAmount.toLocaleString()}
+									</td>
+									<td className="border border-black p-1 text-center">
+										{t.itemsCount}: {order.items.length}
+									</td>
+									<td className="border border-black p-1 text-center font-mono w-[15%] font-bold">
+										{totalDeliveredPieces}
+									</td>
+								</tr>
+
+								{/* Discount if present */}
+								{discountAmount > 0 && (
+									<tr className="border-b border-black">
+										<td className="border border-black p-1 text-right font-mono font-bold">
+											-{discountAmount.toLocaleString()}
+										</td>
+										<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[9.5px]`}>
+											<strong>{t.discLabel}</strong> Trade Scheme Discount Relief
+										</td>
+									</tr>
+								)}
+
+								{/* Net Bill */}
+								<tr className="border-b border-black font-bold">
+									<td className="border border-black p-1 text-right font-mono text-[11px] font-black">
+										{order.netBill.toLocaleString()}
+									</td>
+									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} font-bold text-[11px]`}>
+										<strong>{t.netLabel}</strong>
+									</td>
+								</tr>
+
+								{/* Cash Received */}
+								<tr className="border-b border-black">
+									<td className="border border-black p-1 text-right font-mono font-bold">
+										{order.cashReceived.toLocaleString()}
+									</td>
+									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10px]`}>
+										<strong>{t.cashLabel}</strong>
+									</td>
+								</tr>
+
+								{/* Opening Balance if applicable */}
+								{openingBal !== 0 && (
+									<tr className="border-b border-black">
+										<td className="border border-black p-1 text-right font-mono font-bold">
+											{openingBal.toLocaleString()}
+										</td>
+										<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10px]`}>
+											<strong>{t.openingLabel}</strong>
+										</td>
+									</tr>
+								)}
+
+								{/* Highlighted Final Balance Box (Double thick border as in video) */}
+								<tr className="bg-neutral-100 border-t-2 border-black">
+									<td className="border-2 border-black p-1.5 text-right font-mono font-black text-[13px]">
+										{order.finalBalance.toLocaleString()}
+									</td>
+									<td colSpan={2} className={`border-2 border-black p-1.5 ${language === "ur" ? "text-right" : "text-left"} font-black text-[12px]`}>
+										<strong>{t.finalLabel}</strong>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+
+						{/* Urdu Disclaimer & Policy Footer */}
+						<div className="mt-3 pt-1.5 border-t border-black text-center font-bold text-[10.5px] text-neutral-900 leading-snug">
+							<p>{t.termsNote1} {t.termsNote2}</p>
+							<p className="text-[9.5px] font-normal text-neutral-700 mt-1">
+								{t.warrantyNotice} • {t.thankYou}
+							</p>
 						</div>
 					</div>
 				</div>
@@ -639,7 +818,7 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 				{/* Bottom Footer inside Sheet */}
 				<SheetFooter className="px-4 py-2.5 border-t bg-muted/20 flex flex-row items-center justify-between print:hidden">
 					<span className="text-[11px] text-muted-foreground truncate">
-						Thermal slip stops and auto-cuts at receipt footer.
+						Thermal slip formatted in legacy boxed grid structure.
 					</span>
 					<div className="flex items-center gap-2 shrink-0">
 						<Button size="sm" onClick={handlePrint} className="cursor-pointer gap-1.5 h-8 text-xs font-semibold">

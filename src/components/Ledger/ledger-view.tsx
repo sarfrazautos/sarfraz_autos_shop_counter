@@ -25,6 +25,8 @@ import {
 	Users,
 	Loader2,
 	UserPlus,
+	Paperclip,
+	ExternalLink,
 } from "lucide-react";
 import { CustomerFormDialog } from "@/components/Customers/customer-form-dialog";
 import { CustomerLedgerSkeleton } from "@/components/Skeletons";
@@ -70,6 +72,7 @@ export function LedgerView() {
 	const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 	const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+	const [selectedSlipUrl, setSelectedSlipUrl] = useState<string | null>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 
 	const handleCustomerCreated = (newCust: any) => {
@@ -124,6 +127,8 @@ export function LedgerView() {
 				credit: Number(tx.credit || tx.creditAmount || 0),
 				balance: Number(tx.balance || tx.runningBalance || 0),
 				collectorOrCashier: tx.collector || tx.collectorOrCashier || "Counter Cashier",
+				proofUrl: tx.proofUrl || null,
+				orderId: tx.orderId || null,
 			})),
 		}));
 	}, [ledgerData]);
@@ -682,7 +687,20 @@ export function LedgerView() {
 													{tx.date}
 												</td>
 												<td className="py-3 px-3.5 font-bold text-foreground whitespace-nowrap">
-													{tx.voucherNo}
+													<div className="flex items-center gap-1.5">
+														<span>{tx.voucherNo}</span>
+														{tx.proofUrl && (
+															<button
+																type="button"
+																onClick={() => setSelectedSlipUrl(tx.proofUrl || null)}
+																className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-md bg-sky-50 text-sky-700 border border-sky-300 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 hover:bg-sky-100 cursor-pointer shadow-2xs"
+																title="View payment proof slip"
+															>
+																<Paperclip className="size-2.5 text-sky-600" />
+																<span>Slip</span>
+															</button>
+														)}
+													</div>
 												</td>
 												<td className="py-3 px-3.5 font-sans whitespace-nowrap">
 													<Badge
@@ -900,6 +918,61 @@ export function LedgerView() {
 				onOpenChange={setIsAddCustomerOpen}
 				onSuccess={handleCustomerCreated}
 			/>
+
+			{/* FULL ENLARGED SLIP MODAL */}
+			{selectedSlipUrl && (
+				<div
+					className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+					onClick={() => setSelectedSlipUrl(null)}
+				>
+					<div
+						className="bg-background rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl border flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="px-4 py-3 border-b flex items-center justify-between bg-muted/30">
+							<div className="flex items-center gap-2">
+								<Paperclip className="size-4 text-sky-600" />
+								<div>
+									<h3 className="font-heading font-bold text-xs text-foreground">
+										Payment Proof Voucher Slip
+									</h3>
+									<span className="text-[10px] text-muted-foreground">
+										Account: {currentAccount.name} ({currentAccount.city})
+									</span>
+								</div>
+							</div>
+							<button
+								type="button"
+								onClick={() => setSelectedSlipUrl(null)}
+								className="text-muted-foreground hover:text-foreground cursor-pointer p-1 rounded-md"
+							>
+								<X className="size-4" />
+							</button>
+						</div>
+						<div className="p-3 overflow-auto flex items-center justify-center bg-black/5 dark:bg-black/40">
+							<img
+								src={selectedSlipUrl}
+								alt="Payment Proof Slip"
+								className="max-h-[65vh] w-auto rounded-lg object-contain shadow-sm border"
+							/>
+						</div>
+						<div className="px-4 py-2.5 border-t bg-muted/20 flex items-center justify-between text-xs">
+							<span className="text-[11px] text-muted-foreground">
+								Saved via Vercel Blob Storage
+							</span>
+							<a
+								href={selectedSlipUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-xs"
+							>
+								<span>Open Original Image</span>
+								<ExternalLink className="size-3" />
+							</a>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

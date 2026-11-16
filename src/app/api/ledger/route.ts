@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
         credit: Number(tx.creditAmount),
         balance: Number(tx.runningBalance),
         collector: tx.collectorName || 'Counter Cashier',
+        proofUrl: tx.proofUrl || null,
+        orderId: tx.orderId || null,
       }));
     }
 

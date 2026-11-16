@@ -8,6 +8,12 @@ export interface OrderItem {
 	quantity: number;
 	rate: number;
 	total: number;
+	originalRate?: number;
+	discountedRate?: number;
+	freeQuantity?: number;
+	isFreeBonus?: boolean;
+	isNetScheme?: boolean;
+	schemeType?: "net_scheme" | "normal_scheme" | "none";
 }
 
 export interface OrderRecord {
@@ -28,10 +34,14 @@ export interface OrderRecord {
 	cashReceived: number;
 	netBill: number;
 	finalBalance: number;
+	openingBalance?: number;
+	discountAmount?: number;
 	status: OrderStatus;
 	date: string; // e.g. "07 Nov 2026"
 	dateTimeFull: string; // e.g. "07 NOV 26 21:54"
-	paymentMethod: "On Credit / COD" | "Cash on Counter" | "Online Transfer";
+	paymentMethod: "On Credit / COD" | "Cash on Counter" | "Online Transfer" | string;
+	paymentProofUrl?: string | null;
+	onlineReceived?: number;
 	godown: string; // e.g. "HEAD OFFICE" or "SADDAR WORKSHOP"
 	remarks?: string;
 }

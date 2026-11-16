@@ -178,6 +178,8 @@ export const orders = pgTable(
     shippingCharges: numeric('shipping_charges', { precision: 10, scale: 2 }).default('0.00').notNull(),
     totalAmount: numeric('total_amount', { precision: 12, scale: 2 }).notNull(),
     cashReceived: numeric('cash_received', { precision: 12, scale: 2 }).default('0.00').notNull(),
+    onlineReceived: numeric('online_received', { precision: 12, scale: 2 }).default('0.00').notNull(),
+    paymentProofUrl: text('payment_proof_url'),
     changeReturned: numeric('change_returned', { precision: 10, scale: 2 }).default('0.00').notNull(),
     netBalanceAdded: numeric('net_balance_added', { precision: 12, scale: 2 }).default('0.00').notNull(),
     remarks: text('remarks'),
@@ -233,6 +235,7 @@ export const customerLedgerTransactions = pgTable(
     creditAmount: numeric('credit_amount', { precision: 12, scale: 2 }).default('0.00').notNull(),
     runningBalance: numeric('running_balance', { precision: 12, scale: 2 }).notNull(),
     collectorName: varchar('collector_name', { length: 100 }),
+    proofUrl: text('proof_url'),
     transactionDate: timestamp('transaction_date').defaultNow().notNull(),
   },
   (table) => [

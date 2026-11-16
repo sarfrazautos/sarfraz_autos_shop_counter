@@ -22,8 +22,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Format a clean, unique file path
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const path = `products/${Date.now()}-${sanitizedName}`;
+    const folder = (formData.get('folder') as string) || 'products';
+    const rawName = file.name || 'slip.jpg';
+    const sanitizedName = rawName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const path = `${folder}/${Date.now()}-${sanitizedName}`;
 
     const blob = await put(path, file, {
       access: 'public',
