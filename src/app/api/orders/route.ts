@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const totalCount = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(totalCount / pageSize);
 
-    // Fetch 12 orders with items
+    // Fetch 12 orders with items and branch
     const orderRows = await db.query.orders.findMany({
       where: whereClause,
       limit: pageSize,
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
       orderBy: [desc(orders.createdAt)],
       with: {
         items: true,
+        branch: true,
       },
     });
 
@@ -87,6 +88,27 @@ export async function GET(req: NextRequest) {
         minute: '2-digit',
       });
 
+      const branchId = o.branchId || 'main';
+      const branchShortName =
+        o.branch?.shortName ||
+        (branchId === 'main'
+          ? 'Saddar Main'
+          : branchId === 'branch-2'
+          ? 'Gulshan Branch'
+          : branchId === 'branch-3'
+          ? 'DHA Branch'
+          : 'Saddar Main');
+
+      const branchName =
+        o.branch?.name ||
+        (branchId === 'main'
+          ? '1st Branch (Saddar - Main Counter)'
+          : branchId === 'branch-2'
+          ? '2nd Branch (Gulshan-e-Iqbal Counter)'
+          : branchId === 'branch-3'
+          ? '3rd Branch (DHA Phase 2 Counter)'
+          : 'Saddar Main Counter');
+
       const godownName =
         o.branchId === 'main'
           ? 'SADDAR MAIN WORKSHOP'
@@ -101,6 +123,9 @@ export async function GET(req: NextRequest) {
         customerCity: o.customerCity,
         customerAddress: `${o.customerCity}, Pakistan`,
         customerPhone: o.customerPhone || 'N/A',
+        branchId,
+        branchName,
+        branchShortName,
         items: itemsList,
         totalQuantity,
         type: o.orderType as 'Wholesale' | 'Retail' | 'Both',

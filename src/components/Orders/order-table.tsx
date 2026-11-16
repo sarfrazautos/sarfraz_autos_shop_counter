@@ -29,7 +29,9 @@ import {
 	CheckCircle2,
 	Package,
 	MessageCircle,
+	Store,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { OrderRecord, OrderStatus } from "./types";
 
 interface OrderTableProps {
@@ -148,6 +150,9 @@ export function OrderTable({
 							<TableHead className="h-10 px-3 text-[11px] uppercase font-semibold text-foreground min-w-[130px]">
 								Customer / Dealer
 							</TableHead>
+							<TableHead className="h-10 px-3 text-[11px] uppercase font-semibold text-foreground min-w-[125px]">
+								Branch
+							</TableHead>
 							<TableHead className="h-10 px-3 text-[11px] uppercase font-semibold text-foreground min-w-[180px]">
 								Spare Parts Summary
 							</TableHead>
@@ -194,6 +199,31 @@ export function OrderTable({
 													{order.customerCity}
 												</span>
 											</div>
+										</TableCell>
+
+										{/* Branch Origin */}
+										<TableCell className="py-2.5 px-3">
+											<Badge
+												variant="outline"
+												className={cn(
+													"text-[10px] py-0.5 px-2 font-medium flex items-center gap-1.5 w-fit whitespace-nowrap",
+													order.branchId === "branch-2"
+														? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+														: order.branchId === "branch-3"
+														? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+														: "bg-primary/5 text-primary border-primary/20"
+												)}
+											>
+												<Store className="size-3 shrink-0" />
+												<span>
+													{order.branchShortName ||
+														(order.branchId === "branch-2"
+															? "Gulshan Branch"
+															: order.branchId === "branch-3"
+															? "DHA Branch"
+															: "Saddar Main")}
+												</span>
+											</Badge>
 										</TableCell>
 
 										{/* Products with individual quantities badges */}
@@ -301,7 +331,7 @@ export function OrderTable({
 							})
 						) : (
 							<TableRow>
-								<TableCell colSpan={9} className="h-28 text-center text-muted-foreground text-xs">
+								<TableCell colSpan={10} className="h-28 text-center text-muted-foreground text-xs">
 									No orders match your current filters.
 								</TableCell>
 							</TableRow>

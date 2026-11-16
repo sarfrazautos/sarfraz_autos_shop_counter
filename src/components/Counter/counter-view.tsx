@@ -569,6 +569,9 @@ export function CounterView() {
 				customerName: customer.name || "Walk-in Retail Customer",
 				customerCity: customer.city || "Karachi",
 				customerPhone: customer.phone,
+				branchId: activeBranchId,
+				branchName: currentBranch.name,
+				branchShortName: currentBranch.shortName,
 				type: customer.type.includes("Wholesale") ? "Wholesale" : "Retail",
 				items: cart.map((ci) => {
 					const sch = calculateItemScheme(ci);

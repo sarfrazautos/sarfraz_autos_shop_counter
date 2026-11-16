@@ -16,6 +16,7 @@ export async function GET(
       where: (table, { or, eq }) => or(eq(table.id, cleanId), eq(table.invoiceNumber, cleanId)),
       with: {
         items: true,
+        branch: true,
       },
     });
 
@@ -94,6 +95,7 @@ export async function DELETE(
       where: (table, { or, eq }) => or(eq(table.id, cleanId), eq(table.invoiceNumber, cleanId)),
       with: {
         items: true,
+        branch: true,
       },
     });
 

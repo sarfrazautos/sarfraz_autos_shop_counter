@@ -24,12 +24,20 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
 	Search,
 	Download,
 	Package,
 	Loader2,
 	AlertTriangle,
 	X,
+	Store,
 } from "lucide-react";
 import { queryKeys } from "@/lib/query-keys";
 import {
@@ -47,6 +55,7 @@ export function OrderView() {
 
 	const [selectedType, setSelectedType] = useState<string>("all");
 	const [selectedStatus, setSelectedStatus] = useState<string>("all");
+	const [selectedBranch, setSelectedBranch] = useState<string>("all");
 	const [searchInput, setSearchInput] = useState("");
 	const [activeSearch, setActiveSearch] = useState("");
 	const [currentPage, setCurrentPage] = useState(1);
@@ -67,6 +76,7 @@ export function OrderView() {
 			search: activeSearch,
 			status: selectedStatus,
 			type: selectedType,
+			branchId: selectedBranch,
 		}),
 		queryFn: () =>
 			fetchOrders({
@@ -74,6 +84,7 @@ export function OrderView() {
 				search: activeSearch,
 				status: selectedStatus,
 				type: selectedType,
+				branchId: selectedBranch,
 			}),
 		staleTime: 1000 * 60 * 5,
 	});
@@ -192,31 +203,58 @@ export function OrderView() {
 					</Button>
 				</form>
 
-				{/* Order Type Tabs */}
-				<div className="flex flex-wrap items-center gap-1.5">
-					<span className="text-xs text-muted-foreground mr-1 hidden sm:inline-flex items-center gap-1">
-						<Package className="size-3" /> Type:
-					</span>
-					{typeTabs.map((tab) => {
-						const active = selectedType === tab.id;
-						return (
-							<button
-								key={tab.id}
-								type="button"
-								onClick={() => {
-									setSelectedType(tab.id);
-									setCurrentPage(1);
-								}}
-								className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 cursor-pointer ${
-									active
-										? "bg-primary text-primary-foreground shadow-2xs"
-										: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-								}`}
-							>
-								{tab.label}
-							</button>
-						);
-					})}
+				{/* Filter Controls: Branch Selector & Order Type Tabs */}
+				<div className="flex flex-wrap items-center gap-3">
+					{/* Branch Filter */}
+					<div className="flex items-center gap-1.5">
+						<span className="text-xs text-muted-foreground hidden sm:inline-flex items-center gap-1">
+							<Store className="size-3" /> Branch:
+						</span>
+						<Select
+							value={selectedBranch}
+							onValueChange={(val) => {
+								setSelectedBranch(val || "all");
+								setCurrentPage(1);
+							}}
+						>
+							<SelectTrigger className="h-8 text-xs min-w-[130px] bg-background">
+								<SelectValue placeholder="All Branches" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">All Branches</SelectItem>
+								<SelectItem value="main">Saddar Main</SelectItem>
+								<SelectItem value="branch-2">Gulshan Branch</SelectItem>
+								<SelectItem value="branch-3">DHA Branch</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					{/* Order Type Tabs */}
+					<div className="flex flex-wrap items-center gap-1.5">
+						<span className="text-xs text-muted-foreground mr-1 hidden sm:inline-flex items-center gap-1">
+							<Package className="size-3" /> Type:
+						</span>
+						{typeTabs.map((tab) => {
+							const active = selectedType === tab.id;
+							return (
+								<button
+									key={tab.id}
+									type="button"
+									onClick={() => {
+										setSelectedType(tab.id);
+										setCurrentPage(1);
+									}}
+									className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 cursor-pointer ${
+										active
+											? "bg-primary text-primary-foreground shadow-2xs"
+											: "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+									}`}
+								>
+									{tab.label}
+								</button>
+							);
+						})}
+					</div>
 				</div>
 			</div>
 

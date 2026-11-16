@@ -17,6 +17,9 @@ export interface OrderRecord {
 	customerCity: string; // e.g. "Karachi"
 	customerAddress?: string;
 	customerPhone?: string;
+	branchId?: string; // 'main' | 'branch-2' | 'branch-3'
+	branchName?: string;
+	branchShortName?: string;
 	items: OrderItem[];
 	totalQuantity: number;
 	type: OrderType;
@@ -41,6 +44,9 @@ export const INITIAL_ORDERS: OrderRecord[] = [
 		customerCity: "Karachi",
 		customerAddress: "Sarfraz auto market, Saddar Karachi",
 		customerPhone: "+92 333 1285556",
+		branchId: "main",
+		branchShortName: "Saddar Main",
+		branchName: "1st Branch (Saddar - Main Counter)",
 		type: "Wholesale",
 		items: [
 			{
@@ -113,6 +119,9 @@ export const INITIAL_ORDERS: OrderRecord[] = [
 		customerCity: "Karachi",
 		customerAddress: "Taj Mehal Qasim Auto Mkt, Karachi",
 		customerPhone: "03331285556, 03332624410",
+		branchId: "main",
+		branchShortName: "Saddar Main",
+		branchName: "1st Branch (Saddar - Main Counter)",
 		type: "Wholesale",
 		items: [
 			{
@@ -171,6 +180,9 @@ export const INITIAL_ORDERS: OrderRecord[] = [
 		customerCity: "Hyderabad",
 		customerAddress: "Station Road Auto Market",
 		customerPhone: "+92 312 9988771",
+		branchId: "main",
+		branchShortName: "Saddar Main",
+		branchName: "1st Branch (Saddar - Main Counter)",
 		type: "Retail",
 		items: [
 			{
@@ -215,6 +227,9 @@ export const INITIAL_ORDERS: OrderRecord[] = [
 		customerCity: "Rawalpindi",
 		customerAddress: "Gawalmandi Auto Zone",
 		customerPhone: "+92 345 5566778",
+		branchId: "branch-3",
+		branchShortName: "DHA Branch",
+		branchName: "3rd Branch (DHA Phase 2 Counter)",
 		type: "Wholesale",
 		items: [
 			{
@@ -252,6 +267,9 @@ export const INITIAL_ORDERS: OrderRecord[] = [
 		customerCity: "Karachi",
 		customerAddress: "Gulshan-e-Iqbal Block 13-D",
 		customerPhone: "+92 300 4433221",
+		branchId: "branch-2",
+		branchShortName: "Gulshan Branch",
+		branchName: "2nd Branch (Gulshan-e-Iqbal Counter)",
 		type: "Retail",
 		items: [
 			{
@@ -289,6 +307,9 @@ export const INITIAL_ORDERS: OrderRecord[] = [
 		customerCity: "Lahore",
 		customerAddress: "Mcleod Road Motorcycle Market",
 		customerPhone: "+92 321 7766554",
+		branchId: "main",
+		branchShortName: "Saddar Main",
+		branchName: "1st Branch (Saddar - Main Counter)",
 		type: "Wholesale",
 		items: [
 			{
