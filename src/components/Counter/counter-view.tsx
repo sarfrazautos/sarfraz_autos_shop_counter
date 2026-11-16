@@ -88,28 +88,21 @@ export interface ItemSchemeCalculation {
 }
 
 export function calculateNetRate(
-	wholesaleRate: number,
+	baseRate: number,
 	tradeScheme?: {
 		buyQuantity?: number;
 		freeQuantity?: number;
 		netSchemeRate?: number | string | null;
 	} | null
 ): number {
-	if (!tradeScheme) return wholesaleRate;
+	if (!tradeScheme) return baseRate;
 	const buyQty = Number(tradeScheme.buyQuantity) || 10;
 	const freeQty = Number(tradeScheme.freeQuantity) || 1;
-	// Legacy software formula: Wholesale Rate * Buy Qty / (Buy Qty + Free Qty)
-	// e.g. 137 * 10 / 11 = 124.55 -> 125, 260 * 10 / 11 = 236.36 -> 236, 1170 * 10 / 11 = 1064
-	const formulaRate = Math.round((wholesaleRate * buyQty) / (buyQty + freeQty));
-	// If a manual netSchemeRate exists in DB and is strictly LESS than wholesaleRate, allow it;
-	// otherwise use formulaRate (this protects against bugs like 2127).
-	if (tradeScheme.netSchemeRate != null) {
-		const dbRate = Number(tradeScheme.netSchemeRate);
-		if (dbRate > 0 && dbRate < wholesaleRate) {
-			return dbRate;
-		}
-	}
-	return formulaRate;
+	if (buyQty + freeQty <= 0) return baseRate;
+	// Dynamic scheme formula requested by client: Rate * Buy Qty / (Buy Qty + Free Qty)
+	// e.g. Transmission 14+1: 3398 * 14 / 15 = 3171 (or wholesale 2955 * 14 / 15 = 2758)
+	// Clutch Plate 10+1: 163 * 10 / 11 = 148, 137 * 10 / 11 = 125
+	return Math.round((baseRate * buyQty) / (buyQty + freeQty));
 }
 
 export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculation {
@@ -137,8 +130,9 @@ export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculatio
 
 	// 1. NET SCHEME MODE (Cash Discount instead of Free Inventory, matching legacy software)
 	if (item.isSchemeActive) {
-		const netRate = calculateNetRate(item.wholesaleRate, scheme);
-		const savingsPerUnit = Math.max(0, item.wholesaleRate - netRate);
+		const baseRate = item.pricingTier === "Retail" ? item.retailRate : item.wholesaleRate;
+		const netRate = calculateNetRate(baseRate, scheme);
+		const savingsPerUnit = Math.max(0, baseRate - netRate);
 		const totalSavings = savingsPerUnit * qty;
 
 		return {
@@ -389,7 +383,7 @@ export function CounterView() {
 			selectedPricingTier === "Retail"
 				? Math.round(product.retailPrice || product.price * 1.15)
 				: product.price;
-		const netSchemeRate = calculateNetRate(product.price, product.tradeScheme);
+		const netSchemeRate = calculateNetRate(rate, product.tradeScheme);
 		const targetModel = selectedBikeModel === "All Models" ? product.bikeModel : selectedBikeModel;
 
 		setCart((prev) => {
@@ -464,9 +458,9 @@ export function CounterView() {
 			prev.map((item) => {
 				if (item.id === id) {
 					const willBeActive = !item.isSchemeActive;
-					const netRate = calculateNetRate(item.wholesaleRate, item.tradeScheme);
 					const standardRate =
 						item.pricingTier === "Retail" ? item.retailRate : item.wholesaleRate;
+					const netRate = calculateNetRate(standardRate, item.tradeScheme);
 					return {
 						...item,
 						isSchemeActive: willBeActive,
@@ -491,9 +485,9 @@ export function CounterView() {
 		setCart((prev) =>
 			prev.map((item) => {
 				if (!item.tradeScheme) return item;
-				const netRate = calculateNetRate(item.wholesaleRate, item.tradeScheme);
 				const standardRate =
 					item.pricingTier === "Retail" ? item.retailRate : item.wholesaleRate;
+				const netRate = calculateNetRate(standardRate, item.tradeScheme);
 				return {
 					...item,
 					isSchemeActive: enable,

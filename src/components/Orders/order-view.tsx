@@ -49,6 +49,7 @@ import { INITIAL_ORDERS, type OrderRecord, type OrderStatus } from "./types";
 import { OrderStatsCards } from "./order-stats";
 import { OrderTable } from "./order-table";
 import { InvoiceSheet } from "./invoice-sheet";
+import { OrderEditDialog } from "./order-edit-dialog";
 
 export function OrderView() {
 	const queryClient = useQueryClient();
@@ -61,6 +62,8 @@ export function OrderView() {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<OrderRecord | null>(null);
 	const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+	const [editTargetOrder, setEditTargetOrder] = useState<OrderRecord | null>(null);
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [deleteTargetOrder, setDeleteTargetOrder] = useState<OrderRecord | null>(null);
 
 	const typeTabs = [
@@ -118,6 +121,11 @@ export function OrderView() {
 	const handleOpenInvoice = (order: OrderRecord) => {
 		setSelectedInvoiceOrder(order);
 		setIsInvoiceOpen(true);
+	};
+
+	const handleOpenEdit = (order: OrderRecord) => {
+		setEditTargetOrder(order);
+		setIsEditDialogOpen(true);
 	};
 
 	const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
@@ -274,6 +282,7 @@ export function OrderView() {
 				<OrderTable
 					orders={ordersList}
 					onViewInvoice={handleOpenInvoice}
+					onEditOrder={handleOpenEdit}
 					onStatusChange={handleStatusChange}
 					onDeleteOrder={handleDeleteOrder}
 				/>
@@ -329,6 +338,19 @@ export function OrderView() {
 				order={selectedInvoiceOrder}
 				isOpen={isInvoiceOpen}
 				onClose={() => setIsInvoiceOpen(false)}
+			/>
+
+			{/* Comprehensive Order Edit Dialog */}
+			<OrderEditDialog
+				order={editTargetOrder}
+				isOpen={isEditDialogOpen}
+				onClose={() => {
+					setIsEditDialogOpen(false);
+					setEditTargetOrder(null);
+				}}
+				onOrderUpdated={() => {
+					queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+				}}
 			/>
 
 			{/* shadcn Delete Confirmation Dialog */}

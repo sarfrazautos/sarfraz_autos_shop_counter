@@ -35,6 +35,7 @@ import {
 	X,
 	Zap,
 	Gift,
+	Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OrderRecord, OrderStatus } from "./types";
@@ -42,6 +43,7 @@ import type { OrderRecord, OrderStatus } from "./types";
 interface OrderTableProps {
 	orders: OrderRecord[];
 	onViewInvoice: (order: OrderRecord) => void;
+	onEditOrder?: (order: OrderRecord) => void;
 	onStatusChange?: (orderId: string, status: OrderStatus) => void;
 	onDeleteOrder?: (order: OrderRecord) => void;
 }
@@ -49,6 +51,7 @@ interface OrderTableProps {
 export function OrderTable({
 	orders,
 	onViewInvoice,
+	onEditOrder,
 	onStatusChange,
 	onDeleteOrder,
 }: OrderTableProps) {
@@ -371,6 +374,26 @@ export function OrderTable({
 													<Printer className="size-3 text-primary" />
 													<span>Bill</span>
 												</Button>
+
+												{/* Edit Order Button */}
+												<TooltipProvider>
+													<Tooltip>
+														<TooltipTrigger
+															render={
+																<Button
+																	aria-label="Edit Order"
+																	size="icon"
+																	variant="outline"
+																	className="size-7 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40 border-amber-300 dark:border-amber-800 cursor-pointer shadow-2xs"
+																	onClick={() => onEditOrder?.(order)}
+																/>
+															}
+														>
+															<Pencil className="size-3.5" />
+														</TooltipTrigger>
+														<TooltipContent className="text-xs">Edit Order</TooltipContent>
+													</Tooltip>
+												</TooltipProvider>
 
 												{/* Delete Order Button */}
 												<TooltipProvider>

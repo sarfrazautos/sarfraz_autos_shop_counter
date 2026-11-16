@@ -76,6 +76,24 @@ export async function createOrder(payload: any): Promise<{
   return res.json();
 }
 
+export async function updateOrder(
+  id: string,
+  payload: any
+): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to update order');
+  }
+
+  return res.json();
+}
+
 export async function updateOrderStatus(
   id: string,
   status: OrderStatus,
