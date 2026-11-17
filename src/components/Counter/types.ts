@@ -98,12 +98,12 @@ export interface CustomerProfile {
 
 export const DEFAULT_WALKIN_CUSTOMER: CustomerProfile = {
 	id: "walkin",
-	name: "Walk-in Retail Rider",
+	name: "Walk-in Wholesale Dealer",
 	phone: "",
 	city: "Karachi",
 	route: "Saddar Counter",
 	salesman: "Counter Cashier",
-	type: "Retail Customer",
+	type: "Wholesale Dealer",
 	paymentMethod: "Cash on Counter",
 	openingBalance: 0,
 	currentBalance: 0,

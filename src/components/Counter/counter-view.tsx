@@ -263,7 +263,7 @@ export function CounterView() {
 	const [isDebouncing, setIsDebouncing] = useState(false);
 	const [selectedCategory, setSelectedCategory] = useState("All");
 	const [selectedBikeModel, setSelectedBikeModel] = useState<string>("All Models");
-	const [selectedPricingTier, setSelectedPricingTier] = useState<"Retail" | "Wholesale">("Retail");
+	const [selectedPricingTier, setSelectedPricingTier] = useState<"Retail" | "Wholesale">("Wholesale");
 	const [inputQuantity, setInputQuantity] = useState<number>(1);
 	const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
@@ -508,7 +508,7 @@ export function CounterView() {
 		if (typeof selected === "string") {
 			if (selected === "walkin") {
 				setCustomer(DEFAULT_WALKIN_CUSTOMER);
-				showFlashNotice("Loaded Walk-in Retail Customer");
+				showFlashNotice("Loaded Walk-in Wholesale Customer");
 			}
 		} else {
 			setCustomer(selected);
@@ -544,7 +544,7 @@ export function CounterView() {
 		setInputQuantity(1);
 		setSelectedCategory("All");
 		setSelectedBikeModel("All Models");
-		setSelectedPricingTier("Retail");
+		setSelectedPricingTier("Wholesale");
 		setDiscountValue(0);
 		setShippingOrFitting(0);
 		setCashReceived(0);
