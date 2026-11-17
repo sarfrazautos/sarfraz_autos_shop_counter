@@ -326,7 +326,8 @@ export function CounterView() {
 	const isSearchLoading = searchQuery.trim().length > 0 && (isDebouncing || isSearchingApi || isFetchingApi);
 
 	// Financials & Register
-	const [discountValue, setDiscountValue] = useState<number>(0);
+	const [discountMode, setDiscountMode] = useState<"fixed" | "percent">("fixed");
+	const [discountInput, setDiscountInput] = useState<string>("0");
 	const [shippingOrFitting, setShippingOrFitting] = useState<number>(0);
 	const [cashReceived, setCashReceived] = useState<number>(0);
 	const [registerPaymentMode, setRegisterPaymentMode] = useState<"cash" | "online" | "split" | "credit">("cash");
@@ -545,7 +546,8 @@ export function CounterView() {
 		setSelectedCategory("All");
 		setSelectedBikeModel("All Models");
 		setSelectedPricingTier("Wholesale");
-		setDiscountValue(0);
+		setDiscountMode("fixed");
+		setDiscountInput("0");
 		setShippingOrFitting(0);
 		setCashReceived(0);
 		setOnlineReceived(0);
@@ -574,7 +576,8 @@ export function CounterView() {
 		if (cart.length === 0) return;
 		if (confirm("Clear current counter cart?")) {
 			setCart([]);
-			setDiscountValue(0);
+			setDiscountMode("fixed");
+			setDiscountInput("0");
 			setShippingOrFitting(0);
 			setCashReceived(0);
 			setOnlineReceived(0);
@@ -597,6 +600,40 @@ export function CounterView() {
 	const subtotal = useMemo(() => {
 		return cart.reduce((sum, item) => sum + item.rate * item.quantity, 0);
 	}, [cart]);
+
+	// Auto-calculated Counter Discount (supports Flat PKR or Percentage %)
+	const discountValue = useMemo(() => {
+		const raw = parseFloat(discountInput.replace(/[^0-9.]/g, "")) || 0;
+		if (discountMode === "percent") {
+			return Math.min(subtotal, Math.round((subtotal * Math.max(0, raw)) / 100));
+		}
+		return Math.min(subtotal, Math.max(0, raw));
+	}, [subtotal, discountMode, discountInput]);
+
+	const handleSwitchDiscountToPercent = () => {
+		if (discountMode === "percent") return;
+		setDiscountMode("percent");
+		const cur = parseFloat(discountInput) || 0;
+		if (subtotal > 0 && cur > 0 && cur <= subtotal) {
+			const pct = ((cur / subtotal) * 100).toFixed(1).replace(/\.0$/, "");
+			setDiscountInput(pct);
+		}
+	};
+
+	const handleSwitchDiscountToFixed = () => {
+		if (discountMode === "fixed") return;
+		setDiscountMode("fixed");
+		setDiscountInput(String(discountValue));
+	};
+
+	const handleDiscountInputChange = (val: string) => {
+		if (val.includes("%")) {
+			setDiscountMode("percent");
+			setDiscountInput(val.replace(/%/g, "").trim());
+		} else {
+			setDiscountInput(val);
+		}
+	};
 
 	const totalItemsCount = useMemo(() => {
 		return cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -1909,20 +1946,73 @@ export function CounterView() {
 								</span>
 							</div>
 
-							<div className="flex items-center justify-between py-1 border-b border-border/40">
-								<span className="text-muted-foreground">Counter Discount:</span>
-								<div className="flex items-center gap-1">
-									<span className="text-rose-600 font-bold">- Rs.</span>
-									<input
-										type="number"
-										min={0}
-										value={discountValue}
-										onChange={(e) =>
-											setDiscountValue(Math.max(0, parseInt(e.target.value) || 0))
-										}
-										className="w-20 h-7 px-1.5 font-mono font-bold text-xs rounded border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary"
-									/>
+							<div className="py-1.5 border-b border-border/40 space-y-1">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-1.5">
+										<span className="text-muted-foreground font-medium">Counter Discount:</span>
+										<div className="inline-flex items-center bg-muted/80 p-0.5 rounded-md border border-border/60">
+											<button
+												type="button"
+												onClick={handleSwitchDiscountToFixed}
+												className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${
+													discountMode === "fixed"
+														? "bg-background text-foreground shadow-2xs font-black"
+														: "text-muted-foreground hover:text-foreground"
+												}`}
+												title="Fixed Rupee Discount"
+											>
+												Rs.
+											</button>
+											<button
+												type="button"
+												onClick={handleSwitchDiscountToPercent}
+												className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${
+													discountMode === "percent"
+														? "bg-primary text-primary-foreground shadow-2xs font-black"
+														: "text-muted-foreground hover:text-foreground"
+												}`}
+												title="Percentage Discount (e.g. 5%)"
+											>
+												%
+											</button>
+										</div>
+									</div>
+
+									<div className="flex items-center gap-1">
+										<span className="text-rose-600 font-bold text-xs">
+											{discountMode === "percent" ? "- %" : "- Rs."}
+										</span>
+										<div className="relative">
+											<input
+												type="text"
+												value={discountInput}
+												onChange={(e) => handleDiscountInputChange(e.target.value)}
+												placeholder={discountMode === "percent" ? "5" : "100"}
+												className="w-20 h-7 px-1.5 pr-6 font-mono font-bold text-xs rounded border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary"
+											/>
+											<span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground pointer-events-none">
+												{discountMode === "percent" ? "%" : "PKR"}
+											</span>
+										</div>
+									</div>
 								</div>
+
+								{/* Computed Rupee Deduction Helper under input */}
+								{(discountValue > 0 || (discountMode === "percent" && parseFloat(discountInput) > 0)) && (
+									<div className="flex items-center justify-end text-[10px]">
+										{discountMode === "percent" ? (
+											<span className="text-rose-600 dark:text-rose-400 font-bold font-mono">
+												= Rs. {discountValue.toLocaleString()} deduction ({parseFloat(discountInput) || 0}%)
+											</span>
+										) : (
+											<span className="text-muted-foreground font-mono">
+												{subtotal > 0
+													? `~${((discountValue / subtotal) * 100).toFixed(1)}% of subtotal`
+													: "Flat cash discount"}
+											</span>
+										)}
+									</div>
+								)}
 							</div>
 
 							<div className="flex items-center justify-between py-1 border-b border-border/40">
