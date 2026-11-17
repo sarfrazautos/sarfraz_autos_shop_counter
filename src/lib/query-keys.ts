@@ -41,6 +41,7 @@ export const queryKeys = {
   reports: {
     all: ["reports"] as const,
     aging: (filters: Record<string, unknown> = {}) => ["reports", "aging", filters] as const,
+    topSelling: (filters: Record<string, unknown> = {}) => ["reports", "top-selling", filters] as const,
   },
 
   // Team & Attendance

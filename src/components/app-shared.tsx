@@ -21,6 +21,7 @@ import {
 	Clock,
 	ShoppingCart,
 	Building2,
+	TrendingUp,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -93,6 +94,11 @@ export const navGroups: SidebarNavGroup[] = [
 				title: "Orders & Sales",
 				path: "/dashboard/orders",
 				icon: <ShoppingBag className="size-4" />,
+			},
+			{
+				title: "Top Selling Items",
+				path: "/dashboard/reports/top-selling",
+				icon: <TrendingUp className="size-4" />,
 			},
 			{
 				title: "Customer Ledgers",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import {
 	AlertTriangle,
 	X,
 	Store,
+	TrendingUp,
 } from "lucide-react";
 import { queryKeys } from "@/lib/query-keys";
 import {
@@ -161,8 +163,18 @@ export function OrderView() {
 					</p>
 				</div>
 
-				<div className="flex items-center gap-2">
-					<Button variant="outline" size="sm" className="gap-2 cursor-pointer">
+				<div className="flex items-center gap-2 flex-wrap">
+					<Link href="/dashboard/reports/top-selling">
+						<Button
+							variant="outline"
+							size="sm"
+							className="gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/5 text-xs font-semibold"
+						>
+							<TrendingUp className="size-3.5 text-primary" />
+							Top Selling Report
+						</Button>
+					</Link>
+					<Button variant="outline" size="sm" className="gap-2 cursor-pointer text-xs">
 						<Download className="size-3.5" />
 						Export Invoices
 					</Button>
