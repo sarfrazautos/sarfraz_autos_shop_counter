@@ -72,7 +72,8 @@ export function OrderEditDialog({
 	const [orderStatus, setOrderStatus] = useState<OrderStatus>("Completed");
 	const [paymentMethod, setPaymentMethod] = useState("Cash on Counter");
 	const [items, setItems] = useState<EditableOrderItem[]>([]);
-	const [discountAmount, setDiscountAmount] = useState(0);
+	const [discountMode, setDiscountMode] = useState<"fixed" | "percent">("fixed");
+	const [discountInput, setDiscountInput] = useState<string>("0");
 	const [shippingCharges, setShippingCharges] = useState(0);
 	const [cashReceived, setCashReceived] = useState(0);
 	const [onlineReceived, setOnlineReceived] = useState(0);
@@ -89,7 +90,9 @@ export function OrderEditDialog({
 			setOrderType(order.type || "Wholesale");
 			setOrderStatus(order.status || "Completed");
 			setPaymentMethod(order.paymentMethod || "Cash on Counter");
-			setDiscountAmount(Number(order.discountAmount) || 0);
+			const initialDiscount = Number(order.discountAmount) || 0;
+			setDiscountMode("fixed");
+			setDiscountInput(initialDiscount > 0 ? String(initialDiscount) : "0");
 			setShippingCharges(Number(order.shippingCharges) || 0);
 			setCashReceived(Number(order.cashReceived) || 0);
 			setOnlineReceived(Number(order.onlineReceived) || 0);
@@ -117,6 +120,39 @@ export function OrderEditDialog({
 	const subtotal = useMemo(() => {
 		return items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.rate) || 0), 0);
 	}, [items]);
+
+	const discountAmount = useMemo(() => {
+		const raw = parseFloat(discountInput.replace(/[^0-9.]/g, "")) || 0;
+		if (discountMode === "percent") {
+			return Math.min(subtotal, Math.round((subtotal * Math.max(0, raw)) / 100));
+		}
+		return Math.min(subtotal, Math.max(0, raw));
+	}, [subtotal, discountMode, discountInput]);
+
+	const handleSwitchToPercent = () => {
+		if (discountMode === "percent") return;
+		setDiscountMode("percent");
+		const cur = parseFloat(discountInput) || 0;
+		if (subtotal > 0 && cur > 0 && cur <= subtotal) {
+			const pct = ((cur / subtotal) * 100).toFixed(1).replace(/\.0$/, "");
+			setDiscountInput(pct);
+		}
+	};
+
+	const handleSwitchToFixed = () => {
+		if (discountMode === "fixed") return;
+		setDiscountMode("fixed");
+		setDiscountInput(String(discountAmount));
+	};
+
+	const handleDiscountInputChange = (val: string) => {
+		if (val.includes("%")) {
+			setDiscountMode("percent");
+			setDiscountInput(val.replace(/%/g, "").trim());
+		} else {
+			setDiscountInput(val);
+		}
+	};
 
 	const netBill = useMemo(() => {
 		return Math.max(0, subtotal - discountAmount + shippingCharges);
@@ -500,16 +536,62 @@ export function OrderEditDialog({
 							</div>
 
 							<div className="space-y-1">
-								<label className="text-xs font-semibold text-muted-foreground">
-									Discount (PKR):
-								</label>
-								<Input
-									type="number"
-									min={0}
-									value={discountAmount}
-									onChange={(e) => setDiscountAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-									className="h-9 text-xs sm:text-sm font-mono font-bold bg-background"
-								/>
+								<div className="flex items-center justify-between">
+									<label className="text-xs font-semibold text-muted-foreground">
+										Discount:
+									</label>
+									<div className="flex items-center bg-muted/80 p-0.5 rounded-lg border border-border/60">
+										<button
+											type="button"
+											onClick={handleSwitchToFixed}
+											className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+												discountMode === "fixed"
+													? "bg-background text-foreground shadow-2xs"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+											title="Fixed Rupee Discount"
+										>
+											Rs.
+										</button>
+										<button
+											type="button"
+											onClick={handleSwitchToPercent}
+											className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+												discountMode === "percent"
+													? "bg-primary text-primary-foreground shadow-2xs"
+													: "text-muted-foreground hover:text-foreground"
+											}`}
+											title="Percentage Discount (e.g. 5%)"
+										>
+											%
+										</button>
+									</div>
+								</div>
+								<div className="relative">
+									<Input
+										type="text"
+										value={discountInput}
+										onChange={(e) => handleDiscountInputChange(e.target.value)}
+										placeholder={discountMode === "percent" ? "e.g. 5 or 10" : "e.g. 500"}
+										className="h-9 pr-14 text-xs sm:text-sm font-mono font-bold bg-background"
+									/>
+									<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-muted-foreground pointer-events-none bg-muted/80 px-1.5 py-0.5 rounded border border-border/50">
+										{discountMode === "percent" ? "% OFF" : "PKR"}
+									</span>
+								</div>
+								<div className="flex items-center justify-between text-[11px] min-h-[16px] px-0.5">
+									{discountMode === "percent" ? (
+										<span className="text-primary font-semibold font-mono">
+											= Rs. {discountAmount.toLocaleString()} off
+										</span>
+									) : (
+										<span className="text-muted-foreground font-mono">
+											{subtotal > 0 && discountAmount > 0
+												? `~${((discountAmount / subtotal) * 100).toFixed(1)}% of bill`
+												: "Flat cash discount"}
+										</span>
+									)}
+								</div>
 							</div>
 
 							<div className="space-y-1">
