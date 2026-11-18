@@ -870,6 +870,7 @@ export function CounterView() {
 					};
 				}),
 				totalQuantity: totalItemsCount,
+				subtotalAmount: subtotal,
 				totalAmount: subtotal,
 				shippingCharges: shippingOrFitting,
 				cashReceived: registerPaymentMode === "online" ? 0 : registerPaymentMode === "credit" ? 0 : cashReceived,

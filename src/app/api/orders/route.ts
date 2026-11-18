@@ -8,6 +8,7 @@ import {
   customers,
   customerLedgerTransactions,
   notifications,
+  tradeSchemes,
 } from '@/schema';
 import { sql, and, eq, ilike, desc } from 'drizzle-orm';
 
@@ -66,14 +67,35 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // Fetch active trade schemes to reconstruct any free bonus units delivered
+    const activeSchemes = await db.query.tradeSchemes.findMany({
+      where: eq(tradeSchemes.status, 'Active'),
+    });
+    const schemeByProdId = new Map(activeSchemes.map((s) => [s.productId, s]));
+
     const formatted = orderRows.map((o) => {
-      const itemsList = o.items.map((i) => ({
-        name: i.productName,
-        subLabel: `${i.sku} | ${i.bikeModel}`,
-        quantity: i.quantity,
-        rate: Number(i.unitRate),
-        total: Number(i.lineTotal),
-      }));
+      const itemsList = o.items.map((i) => {
+        const sch = schemeByProdId.get(i.productId);
+        let freeQuantity = 0;
+        if (
+          sch &&
+          sch.schemeType === 'buy_x_get_y' &&
+          sch.buyQuantity > 0 &&
+          (i.isSchemeApplied || (o.remarks && o.remarks.includes('Trade Scheme')))
+        ) {
+          freeQuantity = Math.floor(i.quantity / sch.buyQuantity) * sch.freeQuantity;
+        }
+
+        return {
+          name: i.productName,
+          subLabel: `${i.sku} | ${i.bikeModel}`,
+          quantity: i.quantity,
+          rate: Number(i.unitRate),
+          total: Number(i.lineTotal),
+          freeQuantity: freeQuantity > 0 ? freeQuantity : undefined,
+          isSchemeApplied: Boolean(i.isSchemeApplied),
+        };
+      });
 
       const totalQuantity = o.items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -129,11 +151,13 @@ export async function GET(req: NextRequest) {
         items: itemsList,
         totalQuantity,
         type: o.orderType as 'Wholesale' | 'Retail' | 'Both',
-        totalAmount: Number(o.totalAmount),
-        shippingCharges: Number(o.shippingCharges),
-        cashReceived: Number(o.cashReceived),
-        netBill: Number(o.totalAmount) + Number(o.shippingCharges),
-        finalBalance: Number(o.netBalanceAdded),
+        subtotalAmount: Number(o.subtotalAmount || o.totalAmount),
+        discountAmount: Number(o.discountAmount || 0),
+        totalAmount: Number(o.subtotalAmount || o.totalAmount),
+        shippingCharges: Number(o.shippingCharges || 0),
+        cashReceived: Number(o.cashReceived || 0),
+        netBill: Number(o.totalAmount) + Number(o.shippingCharges || 0),
+        finalBalance: Number(o.netBalanceAdded || 0),
         status: o.orderStatus as 'Completed' | 'Pending' | 'In-Progress' | 'Cancelled',
         date: dateFormatted,
         dateTimeFull: `${dateFormatted.toUpperCase()} ${timeFormatted}`,

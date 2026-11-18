@@ -30,6 +30,7 @@ export interface OrderRecord {
 	totalQuantity: number;
 	type: OrderType;
 	totalAmount: number; // in PKR Rs.
+	subtotalAmount?: number; // Gross items subtotal before discount
 	shippingCharges: number;
 	cashReceived: number;
 	netBill: number;

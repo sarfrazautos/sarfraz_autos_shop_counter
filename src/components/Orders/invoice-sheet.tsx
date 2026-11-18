@@ -108,6 +108,12 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 			0,
 			order.totalAmount + (order.shippingCharges || 0) - order.netBill
 		);
+	const grossSubtotal =
+		order.subtotalAmount && order.subtotalAmount > 0
+			? order.subtotalAmount
+			: discountAmount > 0 && order.totalAmount <= order.netBill
+			? order.netBill + discountAmount
+			: order.totalAmount;
 	const openingBal = order.openingBalance ?? 0;
 
 	// Translation dictionaries
@@ -371,7 +377,6 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
           </td>
           <td style="text-align: ${isUrdu ? "right" : "left"};">
             <div style="font-weight: 900; font-size: 13px; line-height: 1.2; color: #000;">${row.name}</div>
-            ${row.subLabel ? `<div style="font-size: 10px; font-weight: 700; color: #222; margin-top: 1.5px;">${row.subLabel}</div>` : ""}
           </td>
           <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-weight: 900; font-size: 14px;">
             ${row.qty}
@@ -387,10 +392,10 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
   <table class="summary-grid">
     <tr>
       <td style="width: 22%; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
-        ${order.totalAmount.toLocaleString()}
+        ${grossSubtotal.toLocaleString()}
       </td>
       <td style="text-align: center; font-weight: 900; font-size: 12px;">
-        ${t.itemsCount}: ${order.items.length}
+        ${t.itemsCount}: ${billRows.length}
       </td>
       <td style="width: 12%; text-align: center; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px;">
         ${totalDeliveredPieces}
@@ -404,8 +409,8 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
       <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 12.5px;">
         -${discountAmount.toLocaleString()}
       </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 11px; font-weight: 800;">
-        <strong>${t.discLabel}</strong> Trade Scheme Discount Relief
+      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 11.5px; font-weight: 900;">
+        ${t.discLabel} ${grossSubtotal > 0 ? `(${Math.round((discountAmount / grossSubtotal) * 100)}%)` : ""}
       </td>
     </tr>
     `
@@ -729,9 +734,6 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 										</td>
 										<td className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"}`}>
 											<div className="font-black text-[13px] leading-tight text-black">{row.name}</div>
-											{row.subLabel && (
-												<div className="text-[10px] font-bold text-neutral-800 mt-0.5">{row.subLabel}</div>
-											)}
 										</td>
 										<td className="border border-black p-1 text-center font-mono font-black text-sm">
 											{row.qty}
@@ -747,10 +749,10 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 								{/* Total Amount & Total Quantity */}
 								<tr className="border-b border-black font-bold">
 									<td className="border border-black p-1 text-right font-mono w-[22%] font-black text-[13px]">
-										{order.totalAmount.toLocaleString()}
+										{grossSubtotal.toLocaleString()}
 									</td>
 									<td className="border border-black p-1 text-center font-bold text-xs">
-										{t.itemsCount}: {order.items.length}
+										{t.itemsCount}: {billRows.length}
 									</td>
 									<td className="border border-black p-1 text-center font-mono w-[12%] font-black text-sm">
 										{totalDeliveredPieces}
@@ -764,7 +766,7 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 											-{discountAmount.toLocaleString()}
 										</td>
 										<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10.5px] font-bold`}>
-											<strong>{t.discLabel}</strong> Trade Scheme Discount Relief
+											<strong>{t.discLabel}</strong> {grossSubtotal > 0 ? `(${Math.round((discountAmount / grossSubtotal) * 100)}%)` : ""}
 										</td>
 									</tr>
 								)}
