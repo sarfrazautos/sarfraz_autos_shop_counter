@@ -107,11 +107,11 @@ export function calculateNetRate(
 
 export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculation {
 	const scheme = item.tradeScheme;
-	if (!scheme || scheme.status !== "Active") {
+	if (!scheme || scheme.status !== "Active" || item.isSchemeDisabled) {
 		return {
 			hasScheme: false,
-			title: "",
-			shortLabel: "",
+			title: item.isSchemeDisabled ? "Scheme Disabled" : "",
+			shortLabel: item.isSchemeDisabled ? "Scheme Off" : "",
 			schemeType: "none",
 			buyQuantity: 0,
 			freeQuantityPerTier: 0,
@@ -474,18 +474,40 @@ export function CounterView() {
 		showFlashNotice("Toggled Wholesale Trade Scheme");
 	};
 
+	// 1-Click Toggle Scheme Disabled / Enabled (Check & Cross option requested by client to sell at standard rate with 0 free)
+	const toggleSchemeDisabled = (id: string) => {
+		setCart((prev) =>
+			prev.map((item) => {
+				if (item.id === id) {
+					const willBeDisabled = !item.isSchemeDisabled;
+					const standardRate =
+						item.pricingTier === "Retail" ? item.retailRate : item.wholesaleRate;
+					return {
+						...item,
+						isSchemeDisabled: willBeDisabled,
+						// If turning off scheme, ensure net scheme is also turned off and rate is standard rate
+						isSchemeActive: willBeDisabled ? false : item.isSchemeActive,
+						rate: willBeDisabled ? standardRate : item.isSchemeActive ? item.rate : standardRate,
+					};
+				}
+				return item;
+			})
+		);
+		showFlashNotice("Updated Scheme status for item");
+	};
+
 	// Master Net Scheme controls for entire cart
 	const [isNetSchemeModalOpen, setIsNetSchemeModalOpen] = useState(false);
 
-	const schemeEligibleCount = cart.filter((ci) => Boolean(ci.tradeScheme)).length;
+	const schemeEligibleCount = cart.filter((ci) => Boolean(ci.tradeScheme) && !ci.isSchemeDisabled).length;
 	const allNetSchemeActive =
 		schemeEligibleCount > 0 &&
-		cart.filter((ci) => Boolean(ci.tradeScheme)).every((ci) => ci.isSchemeActive);
+		cart.filter((ci) => Boolean(ci.tradeScheme) && !ci.isSchemeDisabled).every((ci) => ci.isSchemeActive);
 
 	const handleApplyAllNetScheme = (enable: boolean) => {
 		setCart((prev) =>
 			prev.map((item) => {
-				if (!item.tradeScheme) return item;
+				if (!item.tradeScheme || item.isSchemeDisabled) return item;
 				const standardRate =
 					item.pricingTier === "Retail" ? item.retailRate : item.wholesaleRate;
 				const netRate = calculateNetRate(standardRate, item.tradeScheme);
@@ -821,7 +843,7 @@ export function CounterView() {
 			const orderId = `#${invoiceNo}`;
 
 			const totalFreeBonus = cartSchemesSummary.totalFreeUnits;
-			const netSchemeCount = cart.filter((ci) => ci.isSchemeActive).length;
+			const netSchemeCount = cart.filter((ci) => !ci.isSchemeDisabled && ci.isSchemeActive).length;
 			let schemeRemarks = DEFAULT_WARRANTY_POLICY;
 			if (totalFreeBonus > 0 && netSchemeCount > 0) {
 				schemeRemarks += ` | 🎁 Trade Schemes: +${totalFreeBonus} Free Bonus Units & ⚡ ${netSchemeCount} items billed on Net Scheme (Cash Discount)`;
@@ -843,9 +865,10 @@ export function CounterView() {
 				type: customer.type.includes("Wholesale") ? "Wholesale" : "Retail",
 				items: cart.map((ci) => {
 					const sch = calculateItemScheme(ci);
-					const schemeTag = ci.isSchemeActive
+					const isSchemeOn = !ci.isSchemeDisabled;
+					const schemeTag = (isSchemeOn && ci.isSchemeActive)
 						? " [⚡ Net Scheme]"
-						: sch.freeUnits > 0
+						: (isSchemeOn && sch.freeUnits > 0)
 						? ` [🎁 +${sch.freeUnits} Free Bonus Included]`
 						: "";
 					return {
@@ -855,16 +878,16 @@ export function CounterView() {
 						rate: ci.rate,
 						total: ci.rate * ci.quantity,
 						originalRate: ci.wholesaleRate || ci.rate,
-						discountedRate: ci.isSchemeActive
+						discountedRate: (isSchemeOn && ci.isSchemeActive)
 							? ci.rate
-							: sch.hasScheme && sch.effectiveRate !== ci.rate
+							: (isSchemeOn && sch.hasScheme && sch.effectiveRate !== ci.rate)
 							? sch.effectiveRate
 							: undefined,
-						freeQuantity: sch.freeUnits > 0 ? sch.freeUnits : undefined,
-						isNetScheme: Boolean(ci.isSchemeActive),
-						schemeType: ci.isSchemeActive
+						freeQuantity: (isSchemeOn && sch.freeUnits > 0) ? sch.freeUnits : undefined,
+						isNetScheme: Boolean(isSchemeOn && ci.isSchemeActive),
+						schemeType: (isSchemeOn && ci.isSchemeActive)
 							? "net_scheme"
-							: sch.freeUnits > 0
+							: (isSchemeOn && sch.freeUnits > 0)
 							? "normal_scheme"
 							: "none",
 					};
@@ -926,6 +949,7 @@ export function CounterView() {
 				paymentProofUrl: paymentSlipUrl || null,
 				items: cart.map((ci) => {
 					const sch = calculateItemScheme(ci);
+					const isSchemeOn = !ci.isSchemeDisabled;
 					return {
 						productId: ci.productId || ci.id,
 						productName: ci.name,
@@ -933,11 +957,11 @@ export function CounterView() {
 						bikeModel: ci.bikeModel,
 						category: ci.category,
 						unitRate: ci.rate,
-						pricingTier: ci.isSchemeActive ? "Net Scheme" : ci.pricingTier,
-						isSchemeApplied: Boolean(ci.isSchemeActive || sch.hasScheme),
-						schemeRate: ci.isSchemeActive
+						pricingTier: (isSchemeOn && ci.isSchemeActive) ? "Net Scheme" : ci.pricingTier,
+						isSchemeApplied: Boolean(isSchemeOn && (ci.isSchemeActive || sch.hasScheme)),
+						schemeRate: (isSchemeOn && ci.isSchemeActive)
 							? ci.rate
-							: ci.schemeRate || (sch.hasScheme ? sch.effectiveRate : null),
+							: (isSchemeOn && (ci.schemeRate || (sch.hasScheme ? sch.effectiveRate : null))),
 						quantity: ci.quantity,
 						lineTotal: ci.rate * ci.quantity,
 					};
@@ -1498,8 +1522,49 @@ export function CounterView() {
 																		))}
 																	</select>
 
+																	{/* Scheme Active / Disabled Check & Cross Toggle */}
+																	{item.tradeScheme && (
+																		<button
+																			type="button"
+																			onClick={() => toggleSchemeDisabled(item.id)}
+																			className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer flex items-center gap-1 shadow-2xs ${
+																				item.isSchemeDisabled
+																					? "bg-rose-50 border-rose-300 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
+																					: "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-300"
+																			}`}
+																			title={
+																				item.isSchemeDisabled
+																					? "Scheme is OFF: Selling at standard rate with 0 free pieces. Click to turn ON scheme."
+																					: "Scheme is ON. Click to turn OFF scheme (sell at standard rate with 0 free pieces)."
+																			}
+																		>
+																			{item.isSchemeDisabled ? (
+																				<>
+																					<X className="size-2.5 text-rose-600 stroke-[3]" />
+																					<span>Scheme Off</span>
+																				</>
+																			) : (
+																				<>
+																					<Check className="size-2.5 text-emerald-600 stroke-[3]" />
+																					<span>Scheme On</span>
+																				</>
+																			)}
+																		</button>
+																	)}
+
+																	{/* Scheme Disabled Badge info */}
+																	{item.tradeScheme && item.isSchemeDisabled && (
+																		<Badge
+																			variant="secondary"
+																			className="text-[9.5px] py-0 px-1.5 font-medium text-muted-foreground bg-muted/60 border border-muted"
+																			title="This item is billed at normal rate without any scheme or free units"
+																		>
+																			Standard Rate • 0 Free
+																		</Badge>
+																	)}
+
 																	{/* Short Scheme Badge: e.g. "10 + 1 Free" or "Net Scheme" */}
-																	{schemeInfo.hasScheme && (
+																	{!item.isSchemeDisabled && schemeInfo.hasScheme && (
 																		item.isSchemeActive ? (
 																			<Badge
 																				variant="outline"
@@ -1522,7 +1587,7 @@ export function CounterView() {
 																	)}
 
 																	{/* Free Bonus Earned Badge - e.g. "+2 Free (28 total)" (Only in Normal Scheme) */}
-																	{!item.isSchemeActive && schemeInfo.hasScheme && schemeInfo.freeUnits > 0 && (
+																	{!item.isSchemeDisabled && !item.isSchemeActive && schemeInfo.hasScheme && schemeInfo.freeUnits > 0 && (
 																		<Badge
 																			className="text-[10px] py-0 px-1.5 font-black bg-emerald-600 text-white font-mono shadow-2xs flex items-center gap-0.5"
 																			title={`Total ${schemeInfo.totalDeliveredUnits} units delivered (${item.quantity} billed + ${schemeInfo.freeUnits} free)`}
@@ -1532,7 +1597,7 @@ export function CounterView() {
 																	)}
 
 																	{/* Wholesale Net Scheme Button */}
-																	{item.tradeScheme && (
+																	{!item.isSchemeDisabled && item.tradeScheme && (
 																		<button
 																			type="button"
 																			onClick={() => toggleNetScheme(item.id)}

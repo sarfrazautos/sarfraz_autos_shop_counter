@@ -65,6 +65,7 @@ export interface CounterCartItem {
 	wholesaleRate: number;
 	schemeRate?: number;
 	isSchemeActive?: boolean;
+	isSchemeDisabled?: boolean;
 	quantity: number;
 	unit: string;
 	branchStock: number;
