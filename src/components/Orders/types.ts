@@ -43,6 +43,8 @@ export interface OrderRecord {
 	paymentMethod: "On Credit / COD" | "Cash on Counter" | "Online Transfer" | string;
 	paymentProofUrl?: string | null;
 	onlineReceived?: number;
+	bankAccountId?: string | null;
+	bankAccountName?: string | null;
 	godown: string; // e.g. "HEAD OFFICE" or "SADDAR WORKSHOP"
 	remarks?: string;
 }

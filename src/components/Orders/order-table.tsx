@@ -36,6 +36,7 @@ import {
 	Zap,
 	Gift,
 	Pencil,
+	Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OrderRecord, OrderStatus } from "./types";
@@ -295,6 +296,15 @@ export function OrderTable({
 												<span className="font-bold font-mono text-xs text-foreground">
 													Rs. {order.totalAmount.toLocaleString()}
 												</span>
+												{order.bankAccountName && (
+													<span
+														className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 px-1.5 py-0.5 rounded border border-sky-200 dark:border-sky-800 mt-0.5 max-w-[140px] truncate"
+														title={`Received in Bank: ${order.bankAccountName}`}
+													>
+														<Landmark className="size-2.5 shrink-0 text-sky-600" />
+														<span className="truncate">{order.bankAccountName}</span>
+													</span>
+												)}
 												{order.paymentProofUrl && (
 													<button
 														type="button"

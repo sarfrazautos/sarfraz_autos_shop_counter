@@ -7,6 +7,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { fetchProducts } from "@/lib/api/products/products-api";
 import { fetchCustomers } from "@/lib/api/customers/customers-api";
 import { createOrder } from "@/lib/api/orders/orders-api";
+import { fetchBankAccounts, type BankAccountItem } from "@/lib/api/bank-accounts/bank-accounts-api";
 import {
 	Store,
 	Search,
@@ -43,6 +44,7 @@ import {
 	ImageIcon,
 	Zap,
 	RotateCcw,
+	Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -374,6 +376,9 @@ export function CounterView() {
 	const [cashReceived, setCashReceived] = useState<number>(0);
 	const [registerPaymentMode, setRegisterPaymentMode] = useState<"cash" | "online" | "split" | "credit">("cash");
 	const [onlineReceived, setOnlineReceived] = useState<number>(0);
+	const [bankAccounts, setBankAccounts] = useState<BankAccountItem[]>([]);
+	const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
+	const [selectedBankAccountName, setSelectedBankAccountName] = useState<string | null>(null);
 	const [paymentSlipUrl, setPaymentSlipUrl] = useState<string | null>(null);
 	const [isUploadingSlip, setIsUploadingSlip] = useState(false);
 	const [previewSlipModalOpen, setPreviewSlipModalOpen] = useState(false);
@@ -402,6 +407,19 @@ export function CounterView() {
 		updateTime();
 		const interval = setInterval(updateTime, 1000);
 		return () => clearInterval(interval);
+	}, []);
+
+	// Fetch active bank accounts for online / split payments
+	useEffect(() => {
+		fetchBankAccounts(true)
+			.then((res) => {
+				if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+					setBankAccounts(res.data);
+					setSelectedBankAccountId(res.data[0].id);
+					setSelectedBankAccountName(`${res.data[0].bankName} - ${res.data[0].accountNumber}`);
+				}
+			})
+			.catch((err) => console.error("Failed to load bank accounts:", err));
 	}, []);
 
 	// Stock lookup helper for active branch
@@ -634,6 +652,10 @@ export function CounterView() {
 		setCashReceived(0);
 		setOnlineReceived(0);
 		setRegisterPaymentMode("cash");
+		if (bankAccounts.length > 0) {
+			setSelectedBankAccountId(bankAccounts[0].id);
+			setSelectedBankAccountName(`${bankAccounts[0].bankName} - ${bankAccounts[0].accountNumber}`);
+		}
 		setPaymentSlipUrl(null);
 		setPreviewSlipModalOpen(false);
 		if (fileInputRef.current) {
@@ -897,6 +919,36 @@ export function CounterView() {
 			return;
 		}
 
+		// Validation: Split payment reconciliation check
+		if (registerPaymentMode === "split") {
+			const splitDiff = (cashReceived + onlineReceived) - netBill;
+			if (splitDiff < 0) {
+				const confirmProceed = confirm(
+					`⚠️ Split payment is short by Rs. ${Math.abs(splitDiff).toLocaleString()}!\n\n` +
+					`Total Bill: Rs. ${netBill.toLocaleString()}\n` +
+					`Cash Paid: Rs. ${cashReceived.toLocaleString()}\n` +
+					`Online Transfer: Rs. ${onlineReceived.toLocaleString()}\n` +
+					`Collected Total: Rs. ${(cashReceived + onlineReceived).toLocaleString()}\n\n` +
+					`Do you want to proceed and record remaining Rs. ${Math.abs(splitDiff).toLocaleString()} as unpaid?`
+				);
+				if (!confirmProceed) {
+					return;
+				}
+			}
+		}
+
+		// Validation: Cash underpayment check for Walk-in customer
+		if (registerPaymentMode === "cash" && customer.id === "walkin" && cashReceived > 0 && cashReceived < netBill) {
+			const confirmProceed = confirm(
+				`⚠️ Cash tender (Rs. ${cashReceived.toLocaleString()}) is less than Net Bill (Rs. ${netBill.toLocaleString()}) by Rs. ${(netBill - cashReceived).toLocaleString()}.\n\n` +
+				`Walk-in riders typically do not have a credit khata account.\n\n` +
+				`Do you want to proceed and record this shortage as unpaid balance?`
+			);
+			if (!confirmProceed) {
+				return;
+			}
+		}
+
 		setIsSubmittingOrder(true);
 		try {
 			const invoiceNo = `SA-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -964,6 +1016,8 @@ export function CounterView() {
 				openingBalance: customer.currentBalance ?? customer.openingBalance ?? 0,
 				status: "Completed",
 				paymentProofUrl: paymentSlipUrl || undefined,
+				bankAccountId: (registerPaymentMode === "online" || registerPaymentMode === "split") ? selectedBankAccountId : null,
+				bankAccountName: (registerPaymentMode === "online" || registerPaymentMode === "split") ? selectedBankAccountName : null,
 				date: new Date().toLocaleDateString("en-GB", {
 					day: "2-digit",
 					month: "short",
@@ -1032,6 +1086,8 @@ export function CounterView() {
 				totalAmount: netBill,
 				cashReceived: registerPaymentMode === "online" ? 0 : registerPaymentMode === "credit" ? 0 : cashReceived,
 				onlineReceived: registerPaymentMode === "online" ? onlineReceived : registerPaymentMode === "split" ? onlineReceived : 0,
+				bankAccountId: (registerPaymentMode === "online" || registerPaymentMode === "split") ? selectedBankAccountId : null,
+				bankAccountName: (registerPaymentMode === "online" || registerPaymentMode === "split") ? selectedBankAccountName : null,
 				changeReturned: changeReturn > 0 ? changeReturn : 0,
 				netBalanceAdded: changeReturn < 0 ? Math.abs(changeReturn) : 0,
 				remarks: schemeRemarks,
@@ -2295,22 +2351,59 @@ export function CounterView() {
 							<div className="space-y-2.5">
 								{/* 1. CASH ONLY */}
 								{registerPaymentMode === "cash" && (
-									<div className="flex items-center justify-between">
-										<label className="text-xs font-bold text-foreground flex items-center gap-1">
-											<Banknote className="size-4 text-emerald-600" />
-											Cash Tender / Received:
-										</label>
-										<div className="flex items-center gap-1">
-											<span className="text-xs font-bold text-muted-foreground">Rs.</span>
-											<input
-												type="number"
-												min={0}
-												value={cashReceived}
-												onChange={(e) =>
-													setCashReceived(Math.max(0, parseInt(e.target.value) || 0))
-												}
-												className="w-28 h-8 px-2 font-mono font-black text-sm rounded-lg border-2 border-emerald-500/50 bg-background text-foreground text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
-											/>
+									<div className="space-y-2">
+										<div className="flex items-center justify-between">
+											<label className="text-xs font-bold text-foreground flex items-center gap-1">
+												<Banknote className="size-4 text-emerald-600" />
+												Cash Tender / Received:
+											</label>
+											<div className="flex items-center gap-1">
+												<span className="text-xs font-bold text-muted-foreground">Rs.</span>
+												<input
+													type="number"
+													min={0}
+													value={cashReceived === 0 ? "" : cashReceived}
+													placeholder="0"
+													onChange={(e) => {
+														const val = parseInt(e.target.value, 10);
+														setCashReceived(isNaN(val) ? 0 : Math.max(0, val));
+													}}
+													className="w-28 h-8 px-2 font-mono font-black text-sm rounded-lg border-2 border-emerald-500/50 bg-background text-foreground text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+												/>
+											</div>
+										</div>
+
+										{/* Quick Currency Tender Chips */}
+										<div className="flex items-center justify-between gap-1 flex-wrap pt-0.5">
+											<span className="text-[10px] text-muted-foreground font-medium">Quick Tender:</span>
+											<div className="flex items-center gap-1 flex-wrap">
+												<button
+													type="button"
+													onClick={() => setCashReceived(netBill)}
+													className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+														cashReceived === netBill
+															? "bg-emerald-600 text-white border-emerald-700 shadow-2xs"
+															: "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20"
+													}`}
+													title="Pay Exact Net Bill"
+												>
+													Exact ({netBill.toLocaleString()})
+												</button>
+												{[500, 1000, 2000, 5000].map((note) => (
+													<button
+														key={note}
+														type="button"
+														onClick={() => setCashReceived(note)}
+														className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+															cashReceived === note
+																? "bg-primary text-primary-foreground border-primary"
+																: "bg-muted/60 hover:bg-muted text-foreground border-border"
+														}`}
+													>
+														Rs. {note.toLocaleString()}
+													</button>
+												))}
+											</div>
 										</div>
 									</div>
 								)}
@@ -2344,44 +2437,115 @@ export function CounterView() {
 
 								{/* 3. SPLIT (CASH + ONLINE) */}
 								{registerPaymentMode === "split" && (
-									<div className="space-y-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
-										<div className="flex items-center justify-between">
-											<label className="text-xs font-semibold text-foreground flex items-center gap-1">
-												<Banknote className="size-3.5 text-emerald-600" />
-												Cash Paid:
-											</label>
-											<div className="flex items-center gap-1">
-												<span className="text-xs text-muted-foreground">Rs.</span>
-												<input
-													type="number"
-													min={0}
-													value={cashReceived}
-													onChange={(e) =>
-														setCashReceived(Math.max(0, parseInt(e.target.value) || 0))
-													}
-													className="w-24 h-7 px-1.5 font-mono font-bold text-xs rounded border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary"
-												/>
+									<div className="space-y-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
+										<div className="space-y-2">
+											{/* Cash Part */}
+											<div className="flex items-center justify-between">
+												<label className="text-xs font-semibold text-foreground flex items-center gap-1">
+													<Banknote className="size-3.5 text-emerald-600" />
+													Cash Paid:
+												</label>
+												<div className="flex items-center gap-1">
+													<span className="text-xs text-muted-foreground">Rs.</span>
+													<input
+														type="number"
+														min={0}
+														value={cashReceived === 0 ? "" : cashReceived}
+														placeholder="0"
+														onChange={(e) => {
+															const val = parseInt(e.target.value, 10);
+															setCashReceived(isNaN(val) ? 0 : Math.max(0, val));
+														}}
+														className="w-24 h-7 px-1.5 font-mono font-bold text-xs rounded border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary"
+													/>
+												</div>
+											</div>
+
+											{/* Online Part with Auto-Balance Button */}
+											<div className="flex items-center justify-between">
+												<label className="text-xs font-semibold text-foreground flex items-center gap-1">
+													<Smartphone className="size-3.5 text-sky-600" />
+													Online Transfer:
+												</label>
+												<div className="flex items-center gap-1.5">
+													<button
+														type="button"
+														onClick={() => setOnlineReceived(Math.max(0, netBill - cashReceived))}
+														className="text-[9.5px] font-bold text-sky-800 dark:text-sky-300 bg-sky-100 hover:bg-sky-200 dark:bg-sky-950/60 px-1.5 py-0.5 rounded border border-sky-300 dark:border-sky-800 transition-colors cursor-pointer"
+														title="Set Online to the exact remaining balance of the bill"
+													>
+														⚡ Auto-Balance
+													</button>
+													<span className="text-xs text-muted-foreground">Rs.</span>
+													<input
+														type="number"
+														min={0}
+														value={onlineReceived === 0 ? "" : onlineReceived}
+														placeholder="0"
+														onChange={(e) => {
+															const val = parseInt(e.target.value, 10);
+															setOnlineReceived(isNaN(val) ? 0 : Math.max(0, val));
+														}}
+														className="w-24 h-7 px-1.5 font-mono font-bold text-xs rounded border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary"
+													/>
+												</div>
 											</div>
 										</div>
 
-										<div className="flex items-center justify-between">
-											<label className="text-xs font-semibold text-foreground flex items-center gap-1">
-												<Smartphone className="size-3.5 text-sky-600" />
-												Online Transfer:
-											</label>
-											<div className="flex items-center gap-1">
-												<span className="text-xs text-muted-foreground">Rs.</span>
-												<input
-													type="number"
-													min={0}
-													value={onlineReceived}
-													onChange={(e) =>
-														setOnlineReceived(Math.max(0, parseInt(e.target.value) || 0))
-													}
-													className="w-24 h-7 px-1.5 font-mono font-bold text-xs rounded border bg-background text-foreground text-right focus:outline-none focus:ring-1 focus:ring-primary"
-												/>
-											</div>
-										</div>
+										{/* Live Split Reconciliation Status Strip */}
+										{(() => {
+											const splitTotal = cashReceived + onlineReceived;
+											const splitDiff = splitTotal - netBill;
+
+											if (splitDiff === 0) {
+												return (
+													<div className="rounded-lg bg-emerald-500/15 border border-emerald-500/30 p-2 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+														<span className="flex items-center gap-1">
+															<CheckCircle2 className="size-3.5 text-emerald-600" />
+															Split Fully Balanced
+														</span>
+														<span className="font-mono text-xs font-bold">
+															Rs. {cashReceived.toLocaleString()} + Rs. {onlineReceived.toLocaleString()} = Rs. {netBill.toLocaleString()}
+														</span>
+													</div>
+												);
+											}
+
+											if (splitDiff < 0) {
+												const shortAmount = Math.abs(splitDiff);
+												return (
+													<div className="rounded-lg bg-rose-500/15 border border-rose-500/30 p-2 text-[11px] text-rose-800 dark:text-rose-300 space-y-1">
+														<div className="flex items-center justify-between font-bold">
+															<span className="flex items-center gap-1 text-rose-700 dark:text-rose-400">
+																<AlertTriangle className="size-3.5" />
+																Short by Rs. {shortAmount.toLocaleString()}
+															</span>
+															<span className="font-mono text-xs">
+																Collected: Rs. {splitTotal.toLocaleString()} / {netBill.toLocaleString()}
+															</span>
+														</div>
+														<div className="flex items-center justify-end">
+															<button
+																type="button"
+																onClick={() => setOnlineReceived(Math.max(0, netBill - cashReceived))}
+																className="text-[10px] font-bold text-sky-800 dark:text-sky-200 underline hover:text-sky-950 cursor-pointer"
+															>
+																Add remaining Rs. {shortAmount.toLocaleString()} to Online Transfer →
+															</button>
+														</div>
+													</div>
+												);
+											}
+
+											return (
+												<div className="rounded-lg bg-amber-500/15 border border-amber-500/30 p-2 text-[11px] font-semibold text-amber-900 dark:text-amber-200 flex items-center justify-between">
+													<span>ℹ️ Overpayment:</span>
+													<span className="font-mono font-bold">
+														Rs. {splitDiff.toLocaleString()} excess change to return
+													</span>
+												</div>
+											);
+										})()}
 									</div>
 								)}
 
@@ -2395,6 +2559,48 @@ export function CounterView() {
 										<span className="font-mono font-black text-sm">
 											Rs. {netBill.toLocaleString()}
 										</span>
+									</div>
+								)}
+
+								{/* RECEIVING BANK ACCOUNT SELECTOR (ONLINE / SPLIT) */}
+								{(registerPaymentMode === "online" || registerPaymentMode === "split") && (
+									<div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-2.5 space-y-1.5 animate-in fade-in">
+										<div className="flex items-center justify-between">
+											<label className="text-[11px] font-bold text-sky-950 dark:text-sky-200 flex items-center gap-1.5">
+												<Landmark className="size-3.5 text-sky-600" />
+												Receiving Bank / Wallet Account:
+											</label>
+											<a
+												href="/dashboard/bank-accounts"
+												target="_blank"
+												rel="noreferrer"
+												className="text-[10px] text-sky-600 hover:text-sky-700 underline font-medium"
+												title="Add or manage bank accounts"
+											>
+												Manage Accounts ↗
+											</a>
+										</div>
+
+										<select
+											value={selectedBankAccountId || ""}
+											onChange={(e) => {
+												const id = e.target.value;
+												setSelectedBankAccountId(id);
+												const acc = bankAccounts.find((b) => b.id === id);
+												setSelectedBankAccountName(acc ? `${acc.bankName} - ${acc.accountNumber}` : null);
+											}}
+											className="w-full h-8 px-2 text-xs font-semibold rounded-lg border border-sky-400/50 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+										>
+											{bankAccounts.length === 0 ? (
+												<option value="">No active bank accounts found</option>
+											) : (
+												bankAccounts.map((b) => (
+													<option key={b.id} value={b.id}>
+														{b.bankName} — {b.accountNumber} ({b.accountTitle})
+													</option>
+												))
+											)}
+										</select>
 									</div>
 								)}
 

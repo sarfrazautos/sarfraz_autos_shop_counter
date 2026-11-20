@@ -179,6 +179,8 @@ export const orders = pgTable(
     totalAmount: numeric('total_amount', { precision: 12, scale: 2 }).notNull(),
     cashReceived: numeric('cash_received', { precision: 12, scale: 2 }).default('0.00').notNull(),
     onlineReceived: numeric('online_received', { precision: 12, scale: 2 }).default('0.00').notNull(),
+    bankAccountId: varchar('bank_account_id', { length: 50 }),
+    bankAccountName: varchar('bank_account_name', { length: 150 }),
     paymentProofUrl: text('payment_proof_url'),
     changeReturned: numeric('change_returned', { precision: 10, scale: 2 }).default('0.00').notNull(),
     netBalanceAdded: numeric('net_balance_added', { precision: 12, scale: 2 }).default('0.00').notNull(),
@@ -366,7 +368,29 @@ export const branchNodes = pgTable('branch_nodes', {
 });
 
 // --------------------------------------------------------------------------
-// 12. RELATIONS DEFINITIONS (DRIZZLE ORM)
+// 12. BANK ACCOUNTS CONFIGURATION (ONLINE / SPLIT PAYMENTS)
+// --------------------------------------------------------------------------
+export const bankAccounts = pgTable(
+  'bank_accounts',
+  {
+    id: varchar('id', { length: 50 }).primaryKey(), // 'BANK-001'
+    bankName: varchar('bank_name', { length: 100 }).notNull(), // 'Meezan Bank' | 'HBL' | 'JazzCash' etc.
+    accountTitle: varchar('account_title', { length: 150 }).notNull(), // 'Sarfraz Autos'
+    accountNumber: varchar('account_number', { length: 100 }).notNull(), // '0102-0105488172'
+    branchName: varchar('branch_name', { length: 150 }), // 'Saddar Branch Karachi'
+    iban: varchar('iban', { length: 100 }), // 'PK36MEZN...'
+    isActive: boolean('is_active').default(true).notNull(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('bank_accounts_active_idx').on(table.isActive),
+  ]
+);
+
+// --------------------------------------------------------------------------
+// 13. RELATIONS DEFINITIONS (DRIZZLE ORM)
 // --------------------------------------------------------------------------
 export const productsRelations = relations(products, ({ many }) => ({
   branchStock: many(productBranchStock),
@@ -402,8 +426,16 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.branchId],
     references: [branches.id],
   }),
+  bankAccount: one(bankAccounts, {
+    fields: [orders.bankAccountId],
+    references: [bankAccounts.id],
+  }),
   items: many(orderItems),
   ledgerTransaction: one(customerLedgerTransactions),
+}));
+
+export const bankAccountsRelations = relations(bankAccounts, ({ many }) => ({
+  orders: many(orders),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({

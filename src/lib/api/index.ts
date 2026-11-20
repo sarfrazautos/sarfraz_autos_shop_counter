@@ -10,3 +10,4 @@ export * from './riders/riders-api';
 export * from './notifications/notifications-api';
 export * from './system-health/system-health-api';
 export * from './branches/branches-api';
+export * from './bank-accounts/bank-accounts-api';

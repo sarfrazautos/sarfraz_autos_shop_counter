@@ -22,6 +22,7 @@ import {
 	ShoppingCart,
 	Building2,
 	TrendingUp,
+	Landmark,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -104,6 +105,11 @@ export const navGroups: SidebarNavGroup[] = [
 				title: "Customer Ledgers",
 				path: "/dashboard/ledger",
 				icon: <BookOpen className="size-4" />,
+			},
+			{
+				title: "Bank Accounts",
+				path: "/dashboard/bank-accounts",
+				icon: <Landmark className="size-4" />,
 			},
 			{
 				title: "Aging Receivables",
