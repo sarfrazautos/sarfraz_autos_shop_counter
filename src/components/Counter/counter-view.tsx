@@ -1518,12 +1518,12 @@ export function CounterView() {
 							<table className="w-full text-left text-xs">
 								<thead className="bg-muted/40 text-muted-foreground font-semibold border-b">
 									<tr>
-										<th className="py-2.5 px-3 w-10 text-center">#</th>
-										<th className="py-2.5 px-3 min-w-[200px]">Product & Bike Model</th>
-										<th className="py-2.5 px-3 min-w-[100px]">Type / Rate</th>
-										<th className="py-2.5 px-3 min-w-[120px] text-center">Qty</th>
-										<th className="py-2.5 px-3 min-w-[90px] text-right">Total (PKR)</th>
-										<th className="py-2.5 px-3 w-10 text-center"></th>
+										<th className="py-2.5 px-2 w-8 text-center">#</th>
+										<th className="py-2.5 px-3">Product & Bike Model</th>
+										<th className="py-2.5 px-2.5 w-24 whitespace-nowrap">Type / Rate</th>
+										<th className="py-2.5 px-2.5 w-28 text-center whitespace-nowrap">Qty</th>
+										<th className="py-2.5 px-3 w-24 text-right whitespace-nowrap">Total (PKR)</th>
+										<th className="py-2.5 px-1.5 w-8 text-center"></th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-border">
@@ -1546,15 +1546,15 @@ export function CounterView() {
 
 											return (
 												<tr key={item.id} className="hover:bg-muted/30 transition-colors">
-													<td className="py-2.5 px-3 text-center font-mono text-muted-foreground align-middle">
+													<td className="py-2.5 px-2 text-center font-mono text-muted-foreground align-top pt-3">
 														{index + 1}
 													</td>
 
 													{/* Product Name, Thumbnail & Model selection */}
-													<td className="py-2.5 px-3 align-middle">
-														<div className="flex items-center gap-2.5">
+													<td className="py-2.5 px-3 align-top">
+														<div className="flex items-start gap-2.5">
 															{/* Visual Part Thumbnail Image */}
-															<div className="size-9 rounded-lg border bg-muted/30 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+															<div className="size-9 rounded-lg border bg-muted/30 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs mt-0.5">
 																<Image
 																	src={item.imageUrl || "/logo.png"}
 																	alt={item.name}
@@ -1565,15 +1565,17 @@ export function CounterView() {
 															</div>
 
 															<div className="min-w-0 flex-1">
-																<div className="font-semibold text-foreground text-xs leading-snug truncate max-w-[280px] sm:max-w-md">
+																{/* Product Heading */}
+																<div className="font-semibold text-foreground text-xs leading-snug line-clamp-1" title={item.name}>
 																	{item.name}
 																</div>
-																<div className="flex items-center flex-wrap gap-1.5 mt-1">
-																	{/* Model Dropdown */}
+
+																{/* Below Heading Line 1: Bike Model Dropdown */}
+																<div className="flex items-center gap-1.5 mt-1">
 																	<select
 																		value={item.bikeModel}
 																		onChange={(e) => updateItemModel(item.id, e.target.value)}
-																		className="text-[10px] font-semibold bg-muted/60 hover:bg-muted rounded px-1.5 py-0.5 border text-foreground focus:outline-none cursor-pointer"
+																		className="text-[10px] font-semibold bg-muted/60 hover:bg-muted rounded px-1.5 py-0.5 border text-foreground focus:outline-none cursor-pointer max-w-[160px] truncate"
 																	>
 																		{BIKE_MODELS.map((m) => (
 																			<option key={m} value={m}>
@@ -1582,171 +1584,79 @@ export function CounterView() {
 																		))}
 																	</select>
 
-																	{/* Scheme Active / Disabled Check & Cross Toggle */}
-																	{item.tradeScheme && (
+																	{isLowBranchStock && (
+																		<Badge
+																			variant="destructive"
+																			className="text-[9px] py-0 px-1 font-normal flex items-center gap-0.5 shrink-0"
+																			title={`Branch has ${item.branchStock} in stock`}
+																		>
+																			<AlertTriangle className="size-2.5" />
+																			Low ({item.branchStock})
+																		</Badge>
+																	)}
+																</div>
+
+																{/* Below Heading Line 2: Scheme & Net Badges (Stacked below to prevent column overflow) */}
+																{item.tradeScheme && (
+																	<div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+																		{/* Single Clean Interactive Scheme Pill */}
 																		<button
 																			type="button"
 																			onClick={() => toggleSchemeDisabled(item.id)}
-																			className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer flex items-center gap-1 shadow-2xs ${
+																			className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
 																				item.isSchemeDisabled
-																					? "bg-rose-50 border-rose-300 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
-																					: "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-300"
+																					? "bg-rose-50/80 border-rose-300 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
+																					: item.isSchemeActive
+																					? "bg-amber-500/15 border-amber-500/50 text-amber-800 dark:text-amber-200"
+																					: "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 text-emerald-800 dark:text-emerald-300"
 																			}`}
 																			title={
 																				item.isSchemeDisabled
-																					? "Scheme is OFF: Selling at standard rate with 0 free pieces. Click to turn ON scheme."
-																					: "Scheme is ON. Click to turn OFF scheme (sell at standard rate with 0 free pieces)."
+																					? "Scheme is OFF (0 free pieces). Click to turn ON scheme."
+																					: "Scheme is ON. Click to turn OFF scheme."
 																			}
 																		>
 																			{item.isSchemeDisabled ? (
 																				<>
-																					<X className="size-2.5 text-rose-600 stroke-[3]" />
+																					<X className="size-2.5 text-rose-500 stroke-[3]" />
 																					<span>Scheme Off</span>
 																				</>
 																			) : (
 																				<>
 																					<Check className="size-2.5 text-emerald-600 stroke-[3]" />
-																					<span>Scheme On</span>
+																					<span>{schemeInfo.shortLabel || "Scheme On"}</span>
 																				</>
 																			)}
 																		</button>
-																	)}
 
-																	{/* Scheme Disabled Badge info */}
-																	{item.tradeScheme && item.isSchemeDisabled && (
-																		<Badge
-																			variant="secondary"
-																			className="text-[9.5px] py-0 px-1.5 font-medium text-muted-foreground bg-muted/60 border border-muted"
-																			title="This item is billed at normal rate without any scheme or free units"
-																		>
-																			Standard Rate • 0 Free
-																		</Badge>
-																	)}
-
-																	{/* Live Free Units Stepper / Override (e.g. 14+1 spot deal negotiated at counter) */}
-																	{!item.isSchemeDisabled && (item.tradeScheme || (item.freeQuantityOverride ?? 0) > 0) && !item.isSchemeActive && (
-																		<div className="inline-flex items-center gap-1 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/80 rounded px-1.5 py-0.5 shadow-2xs">
-																			<span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
-																				🎁 Free:
-																			</span>
+																		{/* Wholesale Net Scheme Button */}
+																		{!item.isSchemeDisabled && (
 																			<button
 																				type="button"
-																				onClick={() => updateItemFreeQty(item.id, Math.max(0, (schemeInfo.freeUnits || 0) - 1))}
-																				disabled={schemeInfo.freeUnits <= 0}
-																				className="size-4 flex items-center justify-center rounded bg-emerald-200/70 hover:bg-emerald-300 text-emerald-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer font-bold text-xs"
-																				title="Decrease free bonus pieces"
-																			>
-																				-
-																			</button>
-																			<input
-																				type="number"
-																				min={0}
-																				value={schemeInfo.freeUnits}
-																				onChange={(e) => {
-																					const val = parseInt(e.target.value, 10);
-																					updateItemFreeQty(item.id, isNaN(val) ? 0 : val);
-																				}}
-																				className="w-7 h-4 text-center font-mono font-black text-[11px] bg-white dark:bg-zinc-900 border border-emerald-400 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-emerald-950 dark:text-emerald-100"
-																				title="Custom Free Quantity: Edit to give custom deal (e.g. 1 free on 14 pcs)"
-																			/>
-																			<button
-																				type="button"
-																				onClick={() => updateItemFreeQty(item.id, (schemeInfo.freeUnits || 0) + 1)}
-																				className="size-4 flex items-center justify-center rounded bg-emerald-200/70 hover:bg-emerald-300 text-emerald-900 cursor-pointer font-bold text-xs"
-																				title="Increase free bonus pieces (e.g. give +1 free deal)"
-																			>
-																				+
-																			</button>
-																			{item.freeQuantityOverride !== undefined && item.freeQuantityOverride !== null && (
-																				<button
-																					type="button"
-																					onClick={() => updateItemFreeQty(item.id, null)}
-																					className="text-[9px] text-muted-foreground hover:text-foreground underline ml-0.5 cursor-pointer"
-																					title="Reset to default scheme formula"
-																				>
-																					Auto
-																				</button>
-																			)}
-																		</div>
-																	)}
-
-																	{/* Short Scheme Badge: e.g. "10 + 1 Free" or "Net Scheme" */}
-																	{!item.isSchemeDisabled && schemeInfo.hasScheme && (
-																		item.isSchemeActive ? (
-																			<Badge
-																				variant="outline"
-																				className="text-[10px] py-0 px-1.5 font-bold border-amber-500/50 bg-amber-500/15 text-amber-800 dark:text-amber-200 flex items-center gap-1 shadow-2xs"
-																				title="Net Scheme Active: Cash discount applied, 0 free items given"
-																			>
-																				<Zap className="size-2.5 fill-amber-500 text-amber-500" />
-																				Net Scheme (Rs. {schemeInfo.effectiveRate}/pc • 0 Free)
-																			</Badge>
-																		) : (
-																			<Badge
-																				variant="outline"
-																				className="text-[10px] py-0 px-1.5 font-bold border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 flex items-center gap-1 shadow-2xs"
-																				title={schemeInfo.title}
-																			>
-																				<Gift className="size-2.5 text-emerald-600" />
-																				{schemeInfo.shortLabel}
-																			</Badge>
-																		)
-																	)}
-
-																	{/* Free Bonus Earned Badge - e.g. "+2 Free (28 total)" (Only in Normal Scheme) */}
-																	{!item.isSchemeDisabled && !item.isSchemeActive && schemeInfo.hasScheme && schemeInfo.freeUnits > 0 && (
-																		<Badge
-																			className="text-[10px] py-0 px-1.5 font-black bg-emerald-600 text-white font-mono shadow-2xs flex items-center gap-0.5"
-																			title={`Total ${schemeInfo.totalDeliveredUnits} units delivered (${item.quantity} billed + ${schemeInfo.freeUnits} free)`}
-																		>
-																			+{schemeInfo.freeUnits} Free ({schemeInfo.totalDeliveredUnits} Total)
-																		</Badge>
-																	)}
-
-																	{/* Wholesale Net Scheme Button */}
-																	{!item.isSchemeDisabled && item.tradeScheme && (
-																		<button
-																			type="button"
-																			onClick={() => toggleNetScheme(item.id)}
-																			className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer flex items-center gap-1 ${
-																				item.isSchemeActive
-																					? "bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300 font-black shadow-2xs"
-																					: "bg-muted/40 hover:bg-muted text-muted-foreground border-border hover:border-amber-400"
-																			}`}
-																			title={
-																				item.isSchemeActive
-																					? "Currently Net Scheme (Cash Discount, 0 Free). Click to revert to Normal 10+1 Free."
-																					: "Convert to Net Scheme: Rates discounted according to Rate * 10 / 11, Free bonus set to 0."
-																			}
-																		>
-																			<Zap
-																				className={`size-2.5 ${
+																				onClick={() => toggleNetScheme(item.id)}
+																				className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer flex items-center gap-1 shrink-0 ${
 																					item.isSchemeActive
-																						? "fill-amber-500 text-amber-500"
-																						: ""
+																						? "bg-amber-500 text-white border-amber-600 shadow-2xs"
+																						: "bg-muted/40 hover:bg-muted text-muted-foreground border-border hover:border-amber-400"
 																				}`}
-																			/>
-																			{item.isSchemeActive ? "⚡ Net Scheme" : "Net Scheme"}
-																		</button>
-																	)}
-
-																	{isLowBranchStock && (
-																		<Badge
-																			variant="destructive"
-																			className="text-[9px] py-0 px-1 font-normal flex items-center gap-0.5"
-																			title={`Branch has ${item.branchStock} in stock`}
-																		>
-																			<AlertTriangle className="size-2.5" />
-																			Low Stock ({item.branchStock})
-																		</Badge>
-																	)}
-																</div>
+																				title={
+																					item.isSchemeActive
+																						? "Net Scheme Active (Cash Discount, 0 Free). Click for Normal Free pieces."
+																						: "Switch to Net Scheme (Cash Discount, 0 Free pieces)"
+																				}
+																			>
+																				<Zap className="size-2.5 fill-current" />
+																				<span>Net</span>
+																			</button>
+																		)}
+																	</div>
+																)}
 															</div>
 														</div>
 													</td>
 
 													{/* Price and Rate Edit */}
-													<td className="py-2.5 px-3 align-middle">
+													<td className="py-2.5 px-2.5 align-top whitespace-nowrap">
 														<div className="flex items-center gap-1">
 															<span className="text-[10px] text-muted-foreground">Rs.</span>
 															<input
@@ -1762,7 +1672,7 @@ export function CounterView() {
 																}`}
 															/>
 														</div>
-														<div className="flex flex-col mt-0.5">
+														<div className="flex flex-col mt-1">
 															<span className="text-[10px] text-muted-foreground whitespace-nowrap">
 																{item.isSchemeActive ? "⚡ Net Rate" : `${item.pricingTier} Rate`}
 															</span>
@@ -1778,7 +1688,7 @@ export function CounterView() {
 																}
 																if (effectiveRate < item.rate) {
 																	return (
-																		<span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-200 dark:border-emerald-800 mt-0.5 inline-block">
+																		<span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-200 dark:border-emerald-800 mt-0.5 inline-block w-fit">
 																			net ({effectiveRate})
 																		</span>
 																	);
@@ -1789,63 +1699,95 @@ export function CounterView() {
 													</td>
 
 													{/* Quantity +/- controls with DIRECT NUMERIC INPUT */}
-													<td className="py-2.5 px-3 text-center align-middle">
-														<div
-															className={`inline-flex items-center border rounded-lg overflow-hidden bg-background h-7 shadow-2xs transition-colors ${
-																!item.quantity || item.quantity <= 0
-																	? "border-rose-500 ring-2 ring-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20"
-																	: ""
-															}`}
-														>
-															<button
-																type="button"
-																onClick={() => updateQuantity(item.id, -1)}
-																className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-															>
-																<Minus className="size-3" />
-															</button>
-															<input
-																type="text"
-																inputMode="numeric"
-																pattern="[0-9]*"
-																value={item.quantity === 0 ? "" : item.quantity}
-																placeholder="0"
-																onChange={(e) => {
-																	const clean = e.target.value.replace(/[^0-9]/g, "");
-																	setDirectQuantity(item.id, clean === "" ? 0 : parseInt(clean, 10));
-																}}
-																className={`w-12 h-full text-center font-mono font-bold text-xs bg-transparent border-0 outline-none p-0 focus:bg-muted/20 ${
+													<td className="py-2.5 px-2.5 text-center align-top whitespace-nowrap">
+														<div className="flex flex-col items-center justify-center gap-1">
+															<div
+																className={`inline-flex items-center border rounded-lg overflow-hidden bg-background h-7 shadow-2xs transition-colors ${
 																	!item.quantity || item.quantity <= 0
-																		? "text-rose-600 font-extrabold placeholder:text-rose-400"
-																		: "text-foreground"
+																		? "border-rose-500 ring-2 ring-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20"
+																		: ""
 																}`}
-															/>
-															<button
-																type="button"
-																onClick={() => updateQuantity(item.id, 1)}
-																className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
 															>
-																<Plus className="size-3" />
-															</button>
+																<button
+																	type="button"
+																	onClick={() => updateQuantity(item.id, -1)}
+																	className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+																>
+																	<Minus className="size-3" />
+																</button>
+																<input
+																	type="text"
+																	inputMode="numeric"
+																	pattern="[0-9]*"
+																	value={item.quantity === 0 ? "" : item.quantity}
+																	placeholder="0"
+																	onChange={(e) => {
+																		const clean = e.target.value.replace(/[^0-9]/g, "");
+																		setDirectQuantity(item.id, clean === "" ? 0 : parseInt(clean, 10));
+																	}}
+																	className={`w-12 h-full text-center font-mono font-bold text-xs bg-transparent border-0 outline-none p-0 focus:bg-muted/20 ${
+																		!item.quantity || item.quantity <= 0
+																			? "text-rose-600 font-extrabold placeholder:text-rose-400"
+																			: "text-foreground"
+																	}`}
+																/>
+																<button
+																	type="button"
+																	onClick={() => updateQuantity(item.id, 1)}
+																	className="px-2 h-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+																>
+																	<Plus className="size-3" />
+																</button>
+															</div>
+
+															{/* Free Quantity Stepper or Unit indicator */}
+															{!item.quantity || item.quantity <= 0 ? (
+																<span className="text-[10px] text-rose-600 font-bold block animate-pulse">
+																	Enter Qty
+																</span>
+															) : !item.isSchemeDisabled && (item.tradeScheme || (item.freeQuantityOverride ?? 0) > 0) && !item.isSchemeActive ? (
+																<div className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded px-1.5 py-0.5 shadow-2xs">
+																	<span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+																		🎁 +
+																	</span>
+																	<input
+																		type="number"
+																		min={0}
+																		value={schemeInfo.freeUnits}
+																		onChange={(e) => {
+																			const val = parseInt(e.target.value, 10);
+																			updateItemFreeQty(item.id, isNaN(val) ? 0 : val);
+																		}}
+																		className="w-6 h-4 text-center font-mono font-black text-[11px] bg-white dark:bg-zinc-900 border border-emerald-400 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-emerald-950 dark:text-emerald-100"
+																		title="Free Bonus Pieces: Type any custom number for spot deals (e.g. 1 on 14 pcs)"
+																	/>
+																	<span className="text-[9.5px] font-bold text-emerald-700 dark:text-emerald-300">
+																		Free
+																	</span>
+																	{item.freeQuantityOverride !== undefined && item.freeQuantityOverride !== null && (
+																		<button
+																			type="button"
+																			onClick={() => updateItemFreeQty(item.id, null)}
+																			className="text-[9px] text-muted-foreground hover:text-foreground underline ml-0.5 cursor-pointer"
+																			title="Reset to default scheme formula"
+																		>
+																			auto
+																		</button>
+																	)}
+																</div>
+															) : (
+																<span className="text-[10px] text-muted-foreground">{item.unit || "Pcs"}</span>
+															)}
 														</div>
-														{!item.quantity || item.quantity <= 0 ? (
-															<span className="text-[10px] text-rose-600 font-bold block mt-0.5 animate-pulse">
-																Enter Qty
-															</span>
-														) : (
-															<span className="text-[10px] text-muted-foreground block mt-0.5">
-																{item.unit}
-															</span>
-														)}
 													</td>
 
 													{/* Line Total */}
-													<td className="py-2.5 px-3 text-right font-mono font-bold text-foreground align-middle">
+													<td className="py-2.5 px-3 text-right font-mono font-bold text-foreground align-top pt-3 whitespace-nowrap">
 														Rs. {lineTotal.toLocaleString()}
 													</td>
 
 													{/* Delete action */}
-													<td className="py-2.5 px-3 text-center align-middle">
+													<td className="py-2.5 px-1.5 text-center align-top pt-2.5">
 														<button
 															type="button"
 															onClick={() => removeItem(item.id)}
