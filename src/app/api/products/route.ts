@@ -21,9 +21,14 @@ export async function GET(req: NextRequest) {
     const conditions = [];
 
     if (search) {
-      conditions.push(
-        sql`(${products.name} ILIKE ${`%${search}%`} OR ${products.sku} ILIKE ${`%${search}%`} OR ${products.bikeModel} ILIKE ${`%${search}%`})`
-      );
+      const tokens = search.split(/\s+/).filter(Boolean);
+      if (tokens.length > 0) {
+        const tokenConditions = tokens.map(
+          (t) =>
+            sql`(${products.name} ILIKE ${`%${t}%`} OR ${products.sku} ILIKE ${`%${t}%`} OR ${products.bikeModel} ILIKE ${`%${t}%`} OR ${products.category} ILIKE ${`%${t}%`})`
+        );
+        conditions.push(and(...tokenConditions));
+      }
     }
 
     if (category && category !== 'all' && category !== 'All') {

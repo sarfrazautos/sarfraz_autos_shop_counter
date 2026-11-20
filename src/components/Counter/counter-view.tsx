@@ -333,7 +333,7 @@ export function CounterView() {
 		const timer = setTimeout(() => {
 			setDebouncedSearchQuery(searchQuery.trim());
 			setIsDebouncing(false);
-		}, 400);
+		}, 180);
 
 		return () => clearTimeout(timer);
 	}, [searchQuery]);
@@ -1652,58 +1652,67 @@ export function CounterView() {
 																	)}
 																</div>
 
-																{/* Below Heading Line 2: Scheme & Net Badges (Stacked below to prevent column overflow) */}
-																{item.tradeScheme && (
+																{/* Below Heading Line 2: Scheme & Net Badges (or Custom Spot Deal Badge) */}
+																{(item.tradeScheme || schemeInfo.freeUnits > 0) && (
 																	<div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-																		{/* Single Clean Interactive Scheme Pill */}
-																		<button
-																			type="button"
-																			onClick={() => toggleSchemeDisabled(item.id)}
-																			className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
-																				item.isSchemeDisabled
-																					? "bg-rose-50/80 border-rose-300 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
-																					: item.isSchemeActive
-																					? "bg-amber-500/15 border-amber-500/50 text-amber-800 dark:text-amber-200"
-																					: "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 text-emerald-800 dark:text-emerald-300"
-																			}`}
-																			title={
-																				item.isSchemeDisabled
-																					? "Scheme is OFF (0 free pieces). Click to turn ON scheme."
-																					: "Scheme is ON. Click to turn OFF scheme."
-																			}
-																		>
-																			{item.isSchemeDisabled ? (
-																				<>
-																					<X className="size-2.5 text-rose-500 stroke-[3]" />
-																					<span>Scheme Off</span>
-																				</>
-																			) : (
-																				<>
-																					<Check className="size-2.5 text-emerald-600 stroke-[3]" />
-																					<span>{schemeInfo.shortLabel || "Scheme On"}</span>
-																				</>
-																			)}
-																		</button>
+																		{item.tradeScheme ? (
+																			<>
+																				{/* Single Clean Interactive Scheme Pill */}
+																				<button
+																					type="button"
+																					onClick={() => toggleSchemeDisabled(item.id)}
+																					className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+																						item.isSchemeDisabled
+																							? "bg-rose-50/80 border-rose-300 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300"
+																							: item.isSchemeActive
+																							? "bg-amber-500/15 border-amber-500/50 text-amber-800 dark:text-amber-200"
+																							: "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/40 text-emerald-800 dark:text-emerald-300"
+																					}`}
+																					title={
+																						item.isSchemeDisabled
+																							? "Scheme is OFF (0 free pieces). Click to turn ON scheme."
+																							: "Scheme is ON. Click to turn OFF scheme."
+																					}
+																				>
+																					{item.isSchemeDisabled ? (
+																						<>
+																							<X className="size-2.5 text-rose-500 stroke-[3]" />
+																							<span>Scheme Off</span>
+																						</>
+																					) : (
+																						<>
+																							<Check className="size-2.5 text-emerald-600 stroke-[3]" />
+																							<span>{schemeInfo.shortLabel || "Scheme On"}</span>
+																						</>
+																					)}
+																				</button>
 
-																		{/* Wholesale Net Scheme Button */}
-																		{!item.isSchemeDisabled && (
-																			<button
-																				type="button"
-																				onClick={() => toggleNetScheme(item.id)}
-																				className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer flex items-center gap-1 shrink-0 ${
-																					item.isSchemeActive
-																						? "bg-amber-500 text-white border-amber-600 shadow-2xs"
-																						: "bg-muted/40 hover:bg-muted text-muted-foreground border-border hover:border-amber-400"
-																				}`}
-																				title={
-																					item.isSchemeActive
-																						? "Net Scheme Active (Cash Discount, 0 Free). Click for Normal Free pieces."
-																						: "Switch to Net Scheme (Cash Discount, 0 Free pieces)"
-																				}
-																			>
-																				<Zap className="size-2.5 fill-current" />
-																				<span>Net</span>
-																			</button>
+																				{/* Wholesale Net Scheme Button */}
+																				{!item.isSchemeDisabled && (
+																					<button
+																						type="button"
+																						onClick={() => toggleNetScheme(item.id)}
+																						className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer flex items-center gap-1 shrink-0 ${
+																							item.isSchemeActive
+																								? "bg-amber-500 text-white border-amber-600 shadow-2xs"
+																								: "bg-muted/40 hover:bg-muted text-muted-foreground border-border hover:border-amber-400"
+																						}`}
+																						title={
+																							item.isSchemeActive
+																								? "Net Scheme Active (Cash Discount, 0 Free). Click for Normal Free pieces."
+																								: "Switch to Net Scheme (Cash Discount, 0 Free pieces)"
+																						}
+																					>
+																						<Zap className="size-2.5 fill-current" />
+																						<span>Net</span>
+																					</button>
+																				)}
+																			</>
+																		) : (
+																			<span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/10 border-emerald-500/40 text-emerald-800 dark:text-emerald-300 flex items-center gap-1 shrink-0">
+																				<Gift className="size-2.5 text-emerald-600" />
+																				<span>Spot Deal: {item.quantity} + {schemeInfo.freeUnits} Free</span>
+																			</span>
 																		)}
 																	</div>
 																)}
@@ -1801,9 +1810,21 @@ export function CounterView() {
 																<span className="text-[10px] text-rose-600 font-bold block animate-pulse">
 																	Enter Qty
 																</span>
-															) : !item.isSchemeDisabled && (item.tradeScheme || (item.freeQuantityOverride ?? 0) > 0) && !item.isSchemeActive ? (
-																<div className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded px-1.5 py-0.5 shadow-2xs">
-																	<span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+															) : !item.isSchemeDisabled && !item.isSchemeActive ? (
+																<div
+																	className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 shadow-2xs border ${
+																		schemeInfo.freeUnits > 0
+																			? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700/60"
+																			: "bg-muted/40 hover:bg-muted/70 border-border text-muted-foreground"
+																	}`}
+																>
+																	<span
+																		className={`text-[10px] font-bold ${
+																			schemeInfo.freeUnits > 0
+																				? "text-emerald-800 dark:text-emerald-300"
+																				: "text-muted-foreground"
+																		}`}
+																	>
 																		🎁 +
 																	</span>
 																	<input
@@ -1812,12 +1833,22 @@ export function CounterView() {
 																		value={schemeInfo.freeUnits}
 																		onChange={(e) => {
 																			const val = parseInt(e.target.value, 10);
-																			updateItemFreeQty(item.id, isNaN(val) ? 0 : val);
+																			updateItemFreeQty(item.id, isNaN(val) ? 0 : Math.max(0, val));
 																		}}
-																		className="w-6 h-4 text-center font-mono font-black text-[11px] bg-white dark:bg-zinc-900 border border-emerald-400 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-emerald-950 dark:text-emerald-100"
-																		title="Free Bonus Pieces: Type any custom number for spot deals (e.g. 1 on 14 pcs)"
+																		className={`w-7 h-4.5 text-center font-mono font-black text-[11px] bg-white dark:bg-zinc-900 border rounded focus:outline-none focus:ring-1 ${
+																			schemeInfo.freeUnits > 0
+																				? "border-emerald-400 focus:ring-emerald-500 text-emerald-950 dark:text-emerald-100"
+																				: "border-border focus:ring-primary text-foreground"
+																		}`}
+																		title="Free Bonus Pieces: Type any custom number for spot deals (e.g. 1 on 49 pcs)"
 																	/>
-																	<span className="text-[9.5px] font-bold text-emerald-700 dark:text-emerald-300">
+																	<span
+																		className={`text-[9.5px] font-bold ${
+																			schemeInfo.freeUnits > 0
+																				? "text-emerald-700 dark:text-emerald-300"
+																				: "text-muted-foreground"
+																		}`}
+																	>
 																		Free
 																	</span>
 																	{item.freeQuantityOverride !== undefined && item.freeQuantityOverride !== null && (
@@ -1825,9 +1856,9 @@ export function CounterView() {
 																			type="button"
 																			onClick={() => updateItemFreeQty(item.id, null)}
 																			className="text-[9px] text-muted-foreground hover:text-foreground underline ml-0.5 cursor-pointer"
-																			title="Reset to default scheme formula"
+																			title="Reset"
 																		>
-																			auto
+																			✕
 																		</button>
 																	)}
 																</div>
