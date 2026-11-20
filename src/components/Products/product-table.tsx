@@ -255,11 +255,11 @@ export function ProductTable({
 											</span>
 										</TableCell>
 
-										{/* Total Stock */}
+										{/* Total Stock with Quick Add button */}
 										<TableCell className="h-16 px-3 text-center">
-											<div className="flex flex-col items-center">
+											<div className="flex items-center justify-center gap-1.5">
 												<span
-													className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded font-mono font-bold text-xs ${
+													className={`inline-flex items-center justify-center px-2 py-0.5 rounded font-mono font-bold text-xs ${
 														product.totalStock === 0
 															? "bg-rose-500/10 text-rose-600"
 															: product.totalStock <= product.lowStockThreshold
@@ -269,6 +269,16 @@ export function ProductTable({
 												>
 													{product.totalStock}
 												</span>
+												{onAddStock && (
+													<button
+														type="button"
+														onClick={() => onAddStock(product)}
+														className="size-5 rounded flex items-center justify-center bg-emerald-500/10 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 transition-colors cursor-pointer"
+														title="Quick Add Stock / Restock"
+													>
+														<Plus className="size-3 stroke-[2.5]" />
+													</button>
+												)}
 											</div>
 										</TableCell>
 
@@ -309,7 +319,27 @@ export function ProductTable({
 										<TableCell className="h-16 px-4 text-right">
 											<TooltipProvider>
 												<div className="flex items-center justify-end gap-1.5">
-													{/* 1. View Icon */}
+													{/* 1. Restock / Add Stock Icon */}
+													{onAddStock && (
+														<Tooltip>
+															<TooltipTrigger
+																render={
+																	<Button
+																		aria-label="Restock / Add Quantity"
+																		size="icon"
+																		variant="outline"
+																		className="size-8 rounded-full text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-950/40 cursor-pointer"
+																		onClick={() => onAddStock(product)}
+																	/>
+																}
+															>
+																<Plus className="size-3.5 stroke-[2.5]" />
+															</TooltipTrigger>
+															<TooltipContent className="text-xs">Add Stock / Restock</TooltipContent>
+														</Tooltip>
+													)}
+
+													{/* 2. View Icon */}
 													<Tooltip>
 														<TooltipTrigger
 															render={
