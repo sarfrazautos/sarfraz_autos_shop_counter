@@ -107,11 +107,11 @@ export function calculateNetRate(
 
 export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculation {
 	const scheme = item.tradeScheme;
-	if (!scheme || scheme.status !== "Active" || item.isSchemeDisabled) {
+	if (item.isSchemeDisabled) {
 		return {
 			hasScheme: false,
-			title: item.isSchemeDisabled ? "Scheme Disabled" : "",
-			shortLabel: item.isSchemeDisabled ? "Scheme Off" : "",
+			title: "Scheme Disabled",
+			shortLabel: "Scheme Off",
 			schemeType: "none",
 			buyQuantity: 0,
 			freeQuantityPerTier: 0,
@@ -125,6 +125,46 @@ export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculatio
 	}
 
 	const qty = item.quantity || 0;
+	const isCustomOverride = item.freeQuantityOverride !== undefined && item.freeQuantityOverride !== null;
+
+	// Spot Custom Deal on non-scheme item
+	if (!scheme || scheme.status !== "Active") {
+		if (isCustomOverride && item.freeQuantityOverride! > 0) {
+			const freeUnits = item.freeQuantityOverride!;
+			const totalDelivered = qty + freeUnits;
+			const lineSubtotal = item.rate * qty;
+			const effectiveRate = totalDelivered > 0 ? Math.round(lineSubtotal / totalDelivered) : item.rate;
+			return {
+				hasScheme: true,
+				title: "Custom Spot Deal",
+				shortLabel: `${qty} + ${freeUnits} Free`,
+				schemeType: "buy_x_get_y",
+				buyQuantity: qty,
+				freeQuantityPerTier: freeUnits,
+				freeUnits,
+				nextFreeAt: 0,
+				isEligible: true,
+				effectiveRate,
+				savingsAmount: freeUnits * item.rate,
+				totalDeliveredUnits: totalDelivered,
+			};
+		}
+		return {
+			hasScheme: false,
+			title: "",
+			shortLabel: "",
+			schemeType: "none",
+			buyQuantity: 0,
+			freeQuantityPerTier: 0,
+			freeUnits: 0,
+			nextFreeAt: 0,
+			isEligible: false,
+			effectiveRate: item.rate,
+			savingsAmount: 0,
+			totalDeliveredUnits: item.quantity,
+		};
+	}
+
 	const buyQty = scheme.buyQuantity > 0 ? scheme.buyQuantity : 10;
 	const freePerTier = scheme.freeQuantity > 0 ? scheme.freeQuantity : 1;
 
@@ -151,20 +191,22 @@ export function calculateItemScheme(item: CounterCartItem): ItemSchemeCalculatio
 		};
 	}
 
-	// 2. NORMAL SCHEME MODE (Physical Free Bonus Units Delivered e.g. 10 + 1 Free)
+	// 2. NORMAL SCHEME MODE (Physical Free Bonus Units Delivered e.g. 10 + 1 Free or Spot Custom Override)
 	if (scheme.schemeType === "buy_x_get_y" || !scheme.schemeType || scheme.schemeType === "flat_discount") {
-		const freeUnits = Math.floor(qty / buyQty) * freePerTier;
+		const freeUnits = isCustomOverride
+			? Math.max(0, item.freeQuantityOverride!)
+			: Math.floor(qty / buyQty) * freePerTier;
 		const remainder = qty % buyQty;
-		const nextFreeAt = remainder === 0 ? buyQty : buyQty - remainder;
+		const nextFreeAt = isCustomOverride ? 0 : (remainder === 0 ? buyQty : buyQty - remainder);
 		const totalDelivered = qty + freeUnits;
 		const lineSubtotal = item.rate * qty;
 		const effectiveRate = totalDelivered > 0 ? Math.round(lineSubtotal / totalDelivered) : item.rate;
 		const savingsAmount = freeUnits * item.rate;
-		const shortLabel = `${buyQty} + ${freePerTier} Free`;
+		const shortLabel = isCustomOverride ? `${qty} + ${freeUnits} Free` : `${buyQty} + ${freePerTier} Free`;
 
 		return {
 			hasScheme: true,
-			title: scheme.title,
+			title: isCustomOverride ? `${scheme.title} (Deal: +${freeUnits} Free)` : scheme.title,
 			shortLabel,
 			schemeType: "buy_x_get_y",
 			buyQuantity: buyQty,
@@ -326,7 +368,7 @@ export function CounterView() {
 	const isSearchLoading = searchQuery.trim().length > 0 && (isDebouncing || isSearchingApi || isFetchingApi);
 
 	// Financials & Register
-	const [discountMode, setDiscountMode] = useState<"fixed" | "percent">("fixed");
+	const [discountMode, setDiscountMode] = useState<"fixed" | "percent">("percent");
 	const [discountInput, setDiscountInput] = useState<string>("0");
 	const [shippingOrFitting, setShippingOrFitting] = useState<number>(0);
 	const [cashReceived, setCashReceived] = useState<number>(0);
@@ -496,6 +538,24 @@ export function CounterView() {
 		showFlashNotice("Updated Scheme status for item");
 	};
 
+	// 1-Click Update Free Quantity Override (Spot negotiation, e.g. 14+1 deal)
+	const updateItemFreeQty = (id: string, freeQty: number | null) => {
+		setCart((prev) =>
+			prev.map((item) => {
+				if (item.id === id) {
+					const val = freeQty === null || isNaN(freeQty) ? null : Math.max(0, freeQty);
+					return {
+						...item,
+						freeQuantityOverride: val,
+						isSchemeDisabled: false,
+					};
+				}
+				return item;
+			})
+		);
+		showFlashNotice("Updated Free bonus units for item");
+	};
+
 	// Master Net Scheme controls for entire cart
 	const [isNetSchemeModalOpen, setIsNetSchemeModalOpen] = useState(false);
 
@@ -568,7 +628,7 @@ export function CounterView() {
 		setSelectedCategory("All");
 		setSelectedBikeModel("All Models");
 		setSelectedPricingTier("Wholesale");
-		setDiscountMode("fixed");
+		setDiscountMode("percent");
 		setDiscountInput("0");
 		setShippingOrFitting(0);
 		setCashReceived(0);
@@ -598,7 +658,7 @@ export function CounterView() {
 		if (cart.length === 0) return;
 		if (confirm("Clear current counter cart?")) {
 			setCart([]);
-			setDiscountMode("fixed");
+			setDiscountMode("percent");
 			setDiscountInput("0");
 			setShippingOrFitting(0);
 			setCashReceived(0);
@@ -1563,6 +1623,53 @@ export function CounterView() {
 																		</Badge>
 																	)}
 
+																	{/* Live Free Units Stepper / Override (e.g. 14+1 spot deal negotiated at counter) */}
+																	{!item.isSchemeDisabled && (item.tradeScheme || (item.freeQuantityOverride ?? 0) > 0) && !item.isSchemeActive && (
+																		<div className="inline-flex items-center gap-1 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/80 rounded px-1.5 py-0.5 shadow-2xs">
+																			<span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+																				🎁 Free:
+																			</span>
+																			<button
+																				type="button"
+																				onClick={() => updateItemFreeQty(item.id, Math.max(0, (schemeInfo.freeUnits || 0) - 1))}
+																				disabled={schemeInfo.freeUnits <= 0}
+																				className="size-4 flex items-center justify-center rounded bg-emerald-200/70 hover:bg-emerald-300 text-emerald-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer font-bold text-xs"
+																				title="Decrease free bonus pieces"
+																			>
+																				-
+																			</button>
+																			<input
+																				type="number"
+																				min={0}
+																				value={schemeInfo.freeUnits}
+																				onChange={(e) => {
+																					const val = parseInt(e.target.value, 10);
+																					updateItemFreeQty(item.id, isNaN(val) ? 0 : val);
+																				}}
+																				className="w-7 h-4 text-center font-mono font-black text-[11px] bg-white dark:bg-zinc-900 border border-emerald-400 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-emerald-950 dark:text-emerald-100"
+																				title="Custom Free Quantity: Edit to give custom deal (e.g. 1 free on 14 pcs)"
+																			/>
+																			<button
+																				type="button"
+																				onClick={() => updateItemFreeQty(item.id, (schemeInfo.freeUnits || 0) + 1)}
+																				className="size-4 flex items-center justify-center rounded bg-emerald-200/70 hover:bg-emerald-300 text-emerald-900 cursor-pointer font-bold text-xs"
+																				title="Increase free bonus pieces (e.g. give +1 free deal)"
+																			>
+																				+
+																			</button>
+																			{item.freeQuantityOverride !== undefined && item.freeQuantityOverride !== null && (
+																				<button
+																					type="button"
+																					onClick={() => updateItemFreeQty(item.id, null)}
+																					className="text-[9px] text-muted-foreground hover:text-foreground underline ml-0.5 cursor-pointer"
+																					title="Reset to default scheme formula"
+																				>
+																					Auto
+																				</button>
+																			)}
+																		</div>
+																	)}
+
 																	{/* Short Scheme Badge: e.g. "10 + 1 Free" or "Net Scheme" */}
 																	{!item.isSchemeDisabled && schemeInfo.hasScheme && (
 																		item.isSchemeActive ? (
@@ -1655,9 +1762,30 @@ export function CounterView() {
 																}`}
 															/>
 														</div>
-														<span className="text-[10px] text-muted-foreground block mt-0.5 whitespace-nowrap">
-															{item.isSchemeActive ? "⚡ Net Rate" : `${item.pricingTier} Rate`}
-														</span>
+														<div className="flex flex-col mt-0.5">
+															<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+																{item.isSchemeActive ? "⚡ Net Rate" : `${item.pricingTier} Rate`}
+															</span>
+															{/* Net Effective Rate after Counter Discount or Scheme */}
+															{(() => {
+																const discountRatio = subtotal > 0 && discountValue > 0 ? (discountValue / subtotal) : 0;
+																let effectiveRate = item.rate;
+																if (schemeInfo.hasScheme && schemeInfo.effectiveRate < item.rate) {
+																	effectiveRate = schemeInfo.effectiveRate;
+																}
+																if (discountRatio > 0) {
+																	effectiveRate = Math.round(effectiveRate * (1 - discountRatio) * 10) / 10;
+																}
+																if (effectiveRate < item.rate) {
+																	return (
+																		<span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-200 dark:border-emerald-800 mt-0.5 inline-block">
+																			net ({effectiveRate})
+																		</span>
+																	);
+																}
+																return null;
+															})()}
+														</div>
 													</td>
 
 													{/* Quantity +/- controls with DIRECT NUMERIC INPUT */}

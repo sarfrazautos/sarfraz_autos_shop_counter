@@ -29,12 +29,17 @@ export interface FormattedBillRow {
 	qty: number;
 	name: string;
 	subLabel?: string;
+	originalRate?: number;
+	discountedRate?: number;
 	rateDisplay: string;
 	totalDisplay: string;
 	isFree: boolean;
 }
 
-export function expandBillRows(items: OrderItem[]): {
+export function expandBillRows(
+	items: OrderItem[],
+	discountRatio: number = 0
+): {
 	rows: FormattedBillRow[];
 	totalDeliveredPieces: number;
 	totalFreePieces: number;
@@ -58,14 +63,21 @@ export function expandBillRows(items: OrderItem[]): {
 			? it.subLabel.replace(/\[🎁\s*\+\d+\s*Free[^\]]*\]/gi, "").trim()
 			: "";
 
-		// Rate display: show original company list rate + (discounted net rate) if scheme applied
-		let rateStr = it.rate.toLocaleString();
-		if (
-			it.originalRate &&
-			it.discountedRate &&
-			it.originalRate !== it.discountedRate
-		) {
-			rateStr = `${it.originalRate.toLocaleString()} (${it.discountedRate.toLocaleString()})`;
+		const baseRate = it.originalRate || it.rate;
+		let effectiveRate = it.discountedRate && it.discountedRate > 0 ? it.discountedRate : it.rate;
+		if (freeUnits > 0 && it.quantity > 0) {
+			effectiveRate = Math.round((it.rate * it.quantity) / (it.quantity + freeUnits));
+		}
+		if (discountRatio > 0) {
+			effectiveRate = Math.round(effectiveRate * (1 - discountRatio) * 10) / 10;
+		}
+
+		let rateStr = baseRate.toLocaleString();
+		let netRateForDisplay: number | undefined = undefined;
+
+		if (effectiveRate < baseRate) {
+			netRateForDisplay = effectiveRate;
+			rateStr = `${baseRate.toLocaleString()} (${effectiveRate.toLocaleString()})`;
 		}
 
 		// 1. Purchased item line
@@ -73,6 +85,8 @@ export function expandBillRows(items: OrderItem[]): {
 			qty: it.quantity,
 			name: it.name,
 			subLabel: cleanSubLabel,
+			originalRate: baseRate,
+			discountedRate: netRateForDisplay,
 			rateDisplay: rateStr,
 			totalDisplay: it.total.toLocaleString(),
 			isFree: false,
@@ -101,7 +115,6 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 
 	if (!order) return null;
 
-	const { rows: billRows, totalDeliveredPieces } = expandBillRows(order.items);
 	const discountAmount =
 		order.discountAmount ??
 		Math.max(
@@ -114,6 +127,8 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 			: discountAmount > 0 && order.totalAmount <= order.netBill
 			? order.netBill + discountAmount
 			: order.totalAmount;
+	const discountRatio = grossSubtotal > 0 && discountAmount > 0 ? (discountAmount / grossSubtotal) : 0;
+	const { rows: billRows, totalDeliveredPieces } = expandBillRows(order.items, discountRatio);
 	const openingBal = order.openingBalance ?? 0;
 
 	// Translation dictionaries
@@ -730,7 +745,22 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 											{row.totalDisplay}
 										</td>
 										<td className="border border-black p-1 text-center font-mono text-[11.5px] font-bold">
-											{row.rateDisplay}
+											{row.isFree ? (
+												row.rateDisplay
+											) : row.discountedRate && row.discountedRate < (row.originalRate || 0) ? (
+												<div className="flex flex-col items-center justify-center leading-tight">
+													<span className="text-[12.5px] font-black text-black">
+														{row.originalRate}
+													</span>
+													<span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-1 py-0.5 rounded border border-emerald-300">
+														({row.discountedRate})
+													</span>
+												</div>
+											) : (
+												<span className="text-[12.5px] font-black text-black">
+													{row.rateDisplay}
+												</span>
+											)}
 										</td>
 										<td className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"}`}>
 											<div className="font-black text-[13px] leading-tight text-black">{row.name}</div>
