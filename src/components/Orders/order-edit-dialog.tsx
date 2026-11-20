@@ -323,7 +323,7 @@ export function OrderEditDialog({
 
 	// Global Clipboard Paste listener (Ctrl+V) from WhatsApp Web
 	useEffect(() => {
-		if (!isOpen) return;
+		if (!isOpen || paymentMethod === "Cash on Counter") return;
 
 		const handlePaste = (e: ClipboardEvent) => {
 			const clipboardItems = e.clipboardData?.items;
@@ -486,10 +486,10 @@ export function OrderEditDialog({
 							<div className="rounded-xl border bg-card p-3.5 shadow-xs space-y-1.5">
 								<label className="text-xs font-semibold text-muted-foreground">Pricing Tier:</label>
 								<Select value={orderType} onValueChange={(val) => setOrderType(val as OrderType)}>
-									<SelectTrigger className="h-8 text-xs font-bold">
+									<SelectTrigger className="h-8 text-xs font-bold w-full">
 										<SelectValue />
 									</SelectTrigger>
-									<SelectContent>
+									<SelectContent className="min-w-[240px]">
 										<SelectItem value="Wholesale">Wholesale Dealer Rate</SelectItem>
 										<SelectItem value="Retail">Retail Walk-in Rate</SelectItem>
 									</SelectContent>
@@ -499,10 +499,10 @@ export function OrderEditDialog({
 							<div className="rounded-xl border bg-card p-3.5 shadow-xs space-y-1.5">
 								<label className="text-xs font-semibold text-muted-foreground">Order Status:</label>
 								<Select value={orderStatus} onValueChange={(val) => setOrderStatus(val as OrderStatus)}>
-									<SelectTrigger className="h-8 text-xs font-bold">
+									<SelectTrigger className="h-8 text-xs font-bold w-full">
 										<SelectValue />
 									</SelectTrigger>
-									<SelectContent>
+									<SelectContent className="min-w-[200px]">
 										<SelectItem value="Completed">Completed</SelectItem>
 										<SelectItem value="In-Progress">In-Progress</SelectItem>
 										<SelectItem value="Pending">Pending</SelectItem>
@@ -514,49 +514,88 @@ export function OrderEditDialog({
 
 						{/* 3. ORDER ITEMS & PRODUCT SEARCH */}
 						<div className="rounded-xl border bg-card p-4 sm:p-5 shadow-xs space-y-3.5">
-							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-								<h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+								<h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 shrink-0">
 									<Package className="size-4 text-primary" />
 									Order Spare Parts ({items.length} lines)
 								</h4>
 
 								{/* Quick Search & Add Missing Part */}
-								<div className="relative w-full sm:w-72">
-									<Search className="size-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+								<div className="relative w-full sm:w-[420px] md:w-[500px] lg:w-[560px]">
+									<Search className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
 									<Input
 										type="text"
 										value={productSearchQuery}
 										onChange={(e) => setProductSearchQuery(e.target.value)}
-										placeholder="Search & add missing part..."
-										className="h-7.5 pl-8 text-xs bg-muted/40"
+										onFocus={() => {
+											if (searchResults.length > 0) setIsSearchOpen(true);
+										}}
+										placeholder="Search parts by name, model (CD70, CG125), or SKU..."
+										className="h-8.5 pl-9 pr-8 text-xs bg-muted/40 w-full rounded-lg"
 									/>
 									{isSearchingProducts && (
-										<Loader2 className="size-3 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin" />
+										<Loader2 className="size-3.5 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />
+									)}
+									{productSearchQuery && !isSearchingProducts && (
+										<button
+											type="button"
+											onClick={() => {
+												setProductSearchQuery("");
+												setIsSearchOpen(false);
+											}}
+											className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+										>
+											<X className="size-3.5" />
+										</button>
 									)}
 
-									{/* Search Results Dropdown */}
+									{/* Search Results Dropdown with Full Product Details */}
 									{isSearchOpen && searchResults.length > 0 && (
-										<div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover border rounded-xl shadow-lg p-1.5 space-y-1 max-h-56 overflow-y-auto">
+										<div className="absolute right-0 top-full mt-1.5 z-50 bg-popover border rounded-xl shadow-2xl p-2 space-y-1 max-h-72 overflow-y-auto w-full min-w-[340px] sm:min-w-[480px] md:min-w-[560px]">
+											<div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground border-b flex justify-between items-center">
+												<span>Found {searchResults.length} matching products</span>
+												<span className="text-[10px] text-muted-foreground">Click item to add</span>
+											</div>
 											{searchResults.map((prod) => (
 												<div
 													key={prod.id}
 													onClick={() => handleAddProduct(prod)}
-													className="p-1.5 rounded-lg hover:bg-muted cursor-pointer flex items-center justify-between text-xs transition-colors"
+													className="p-2 rounded-lg hover:bg-muted/80 cursor-pointer flex items-center justify-between text-xs transition-colors border border-transparent hover:border-border gap-3"
 												>
-													<div className="min-w-0 flex-1 pr-2">
-														<span className="font-semibold block truncate text-foreground">
-															{prod.name}
-														</span>
-														<span className="text-[10px] text-muted-foreground">
-															{prod.bikeModel} • Stock: {prod.totalStock}
-														</span>
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2 flex-wrap">
+															<span className="font-semibold text-foreground text-xs">
+																{prod.name}
+															</span>
+															{prod.sku && (
+																<span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border">
+																	{prod.sku}
+																</span>
+															)}
+														</div>
+														<div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground flex-wrap">
+															<span className="font-medium text-primary">🏍️ {prod.bikeModel || "Universal"}</span>
+															<span>•</span>
+															<span>📦 {prod.category}</span>
+															<span>•</span>
+															<span className={prod.totalStock > 0 ? "text-emerald-600 font-semibold" : "text-rose-500 font-semibold"}>
+																Stock: {prod.totalStock} {prod.unit || "Pcs"}
+															</span>
+														</div>
 													</div>
-													<div className="flex items-center gap-1.5 shrink-0">
-														<span className="font-mono font-bold text-xs text-foreground">
-															Rs. {(prod.price || 0).toLocaleString()}
-														</span>
-														<Button size="xs" variant="outline" className="h-6 px-1.5 text-[10px] gap-0.5">
-															<Plus className="size-3" /> Add
+													<div className="flex items-center gap-2 shrink-0">
+														<div className="text-right">
+															<span className="font-mono font-bold text-xs text-foreground block">
+																Rs. {(prod.price || 0).toLocaleString()}
+															</span>
+															{prod.retailPrice && prod.retailPrice !== prod.price && (
+																<span className="text-[10px] text-muted-foreground block line-through">
+																	Rs. {prod.retailPrice.toLocaleString()}
+																</span>
+															)}
+														</div>
+														<Button size="xs" variant="default" className="h-7 px-2.5 text-[11px] gap-1 font-semibold cursor-pointer">
+															<Plus className="size-3.5" /> Add
 														</Button>
 													</div>
 												</div>
@@ -744,10 +783,10 @@ export function OrderEditDialog({
 												}
 											}}
 										>
-											<SelectTrigger className="h-8 text-xs font-bold">
+											<SelectTrigger className="h-9 text-xs font-bold w-full">
 												<SelectValue />
 											</SelectTrigger>
-											<SelectContent>
+											<SelectContent className="min-w-[280px] sm:min-w-[340px]" align="start">
 												<SelectItem value="Cash on Counter">Cash on Counter</SelectItem>
 												<SelectItem value="Online Transfer">Online Transfer (Bank / Wallet)</SelectItem>
 												<SelectItem value="Split (Cash + Online)">Split (Cash + Online)</SelectItem>
@@ -848,101 +887,103 @@ export function OrderEditDialog({
 									</div>
 								</div>
 
-								{/* WHATSAPP PAYMENT SLIP ATTACHMENT BOX IN EDIT DIALOG */}
-								<div className="pt-2 border-t">
-									<input
-										type="file"
-										ref={fileInputRef}
-										accept="image/*"
-										className="hidden"
-										onChange={(e) => {
-											const file = e.target.files?.[0];
-											if (file) handleUploadSlipFile(file);
-											e.target.value = "";
-										}}
-									/>
+								{/* WHATSAPP PAYMENT SLIP ATTACHMENT BOX IN EDIT DIALOG (Hidden for Cash on Counter) */}
+								{paymentMethod !== "Cash on Counter" && (
+									<div className="pt-2 border-t">
+										<input
+											type="file"
+											ref={fileInputRef}
+											accept="image/*"
+											className="hidden"
+											onChange={(e) => {
+												const file = e.target.files?.[0];
+												if (file) handleUploadSlipFile(file);
+												e.target.value = "";
+											}}
+										/>
 
-									{paymentSlipUrl ? (
-										<div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 flex items-center justify-between gap-3 shadow-2xs">
-											<div className="flex items-center gap-2.5 overflow-hidden">
-												<div
-													onClick={() => setPreviewSlipModalOpen(true)}
-													className="relative size-12 rounded-lg border border-emerald-500/30 overflow-hidden shrink-0 bg-muted cursor-pointer group"
-													title="Click to enlarge slip"
-												>
-													<img
-														src={paymentSlipUrl}
-														alt="WhatsApp Payment Slip"
-														className="size-full object-cover group-hover:scale-105 transition-transform"
-													/>
-													<div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-														<Eye className="size-3.5 text-white" />
+										{paymentSlipUrl ? (
+											<div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 flex items-center justify-between gap-3 shadow-2xs">
+												<div className="flex items-center gap-2.5 overflow-hidden">
+													<div
+														onClick={() => setPreviewSlipModalOpen(true)}
+														className="relative size-12 rounded-lg border border-emerald-500/30 overflow-hidden shrink-0 bg-muted cursor-pointer group"
+														title="Click to enlarge slip"
+													>
+														<img
+															src={paymentSlipUrl}
+															alt="WhatsApp Payment Slip"
+															className="size-full object-cover group-hover:scale-105 transition-transform"
+														/>
+														<div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+															<Eye className="size-3.5 text-white" />
+														</div>
 													</div>
-												</div>
-												<div className="min-w-0">
-													<div className="flex items-center gap-1.5">
-														<Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0 h-4 font-bold">
-															Verified Slip
-														</Badge>
-														<span className="text-xs font-bold text-foreground truncate">
-															WhatsApp Payment Proof Attached
+													<div className="min-w-0">
+														<div className="flex items-center gap-1.5">
+															<Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0 h-4 font-bold">
+																Verified Slip
+															</Badge>
+															<span className="text-xs font-bold text-foreground truncate">
+																WhatsApp Payment Proof Attached
+															</span>
+														</div>
+														<span className="text-[10px] text-muted-foreground block truncate">
+															Saved in database • Click to view full screenshot
 														</span>
 													</div>
-													<span className="text-[10px] text-muted-foreground block truncate">
-														Saved in database • Click to view full screenshot
-													</span>
+												</div>
+												<div className="flex items-center gap-1 shrink-0">
+													<Button
+														type="button"
+														size="icon"
+														variant="ghost"
+														onClick={() => setPreviewSlipModalOpen(true)}
+														className="size-7 text-muted-foreground hover:text-foreground cursor-pointer"
+														title="Enlarge Slip"
+													>
+														<Eye className="size-3.5" />
+													</Button>
+													<Button
+														type="button"
+														size="icon"
+														variant="ghost"
+														onClick={() => setPaymentSlipUrl(null)}
+														className="size-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+														title="Remove Slip"
+													>
+														<Trash2 className="size-3.5" />
+													</Button>
 												</div>
 											</div>
-											<div className="flex items-center gap-1 shrink-0">
-												<Button
-													type="button"
-													size="icon"
-													variant="ghost"
-													onClick={() => setPreviewSlipModalOpen(true)}
-													className="size-7 text-muted-foreground hover:text-foreground cursor-pointer"
-													title="Enlarge Slip"
-												>
-													<Eye className="size-3.5" />
-												</Button>
-												<Button
-													type="button"
-													size="icon"
-													variant="ghost"
-													onClick={() => setPaymentSlipUrl(null)}
-													className="size-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-													title="Remove Slip"
-												>
-													<Trash2 className="size-3.5" />
-												</Button>
-											</div>
-										</div>
-									) : (
-										<div
-											onClick={() => fileInputRef.current?.click()}
-											className="border-2 border-dashed border-sky-500/40 hover:border-sky-500/70 bg-sky-500/5 hover:bg-sky-500/10 rounded-xl p-3 text-center cursor-pointer transition-colors"
-										>
-											{isUploadingSlip ? (
-												<div className="flex items-center justify-center gap-2 text-xs text-sky-600">
-													<Loader2 className="size-4 animate-spin" />
-													<span>Uploading slip screenshot...</span>
-												</div>
-											) : (
-												<div className="space-y-1">
-													<div className="flex items-center justify-center gap-1.5 text-sky-700 dark:text-sky-300 font-bold text-xs">
-														<Plus className="size-3.5 text-sky-600" />
-														<span>Attach / Upload WhatsApp Payment Slip</span>
-														<span className="text-[10px] font-mono font-bold text-sky-600 bg-sky-500/20 px-1.5 py-0.5 rounded border border-sky-500/30">
-															Ctrl + V
-														</span>
+										) : (
+											<div
+												onClick={() => fileInputRef.current?.click()}
+												className="border-2 border-dashed border-sky-500/40 hover:border-sky-500/70 bg-sky-500/5 hover:bg-sky-500/10 rounded-xl p-3 text-center cursor-pointer transition-colors"
+											>
+												{isUploadingSlip ? (
+													<div className="flex items-center justify-center gap-2 text-xs text-sky-600">
+														<Loader2 className="size-4 animate-spin" />
+														<span>Uploading slip screenshot...</span>
 													</div>
-													<p className="text-[10px] text-muted-foreground">
-														Click to browse or press <strong>Ctrl+V</strong> to paste copied screenshot from WhatsApp
-													</p>
-												</div>
-											)}
-										</div>
-									)}
-								</div>
+												) : (
+													<div className="space-y-1">
+														<div className="flex items-center justify-center gap-1.5 text-sky-700 dark:text-sky-300 font-bold text-xs">
+															<Plus className="size-3.5 text-sky-600" />
+															<span>Attach / Upload WhatsApp Payment Slip</span>
+															<span className="text-[10px] font-mono font-bold text-sky-600 bg-sky-500/20 px-1.5 py-0.5 rounded border border-sky-500/30">
+																Ctrl + V
+															</span>
+														</div>
+														<p className="text-[10px] text-muted-foreground">
+															Click to browse or press <strong>Ctrl+V</strong> to paste copied screenshot from WhatsApp
+														</p>
+													</div>
+												)}
+											</div>
+										)}
+									</div>
+								)}
 							</div>
 						</div>
 
