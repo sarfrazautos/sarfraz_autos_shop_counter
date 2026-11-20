@@ -1,4 +1,5 @@
 import type { ProductItem } from '@/components/Products/types';
+export type { ProductItem };
 
 export interface ProductsResponse {
   success: boolean;

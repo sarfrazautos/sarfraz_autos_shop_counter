@@ -155,6 +155,9 @@ export async function PATCH(
     if (body.changeReturned !== undefined) updatePayload.changeReturned = String(body.changeReturned);
     if (body.netBalanceAdded !== undefined) updatePayload.netBalanceAdded = String(body.netBalanceAdded);
     if (body.remarks !== undefined) updatePayload.remarks = body.remarks;
+    if (body.paymentProofUrl !== undefined) updatePayload.paymentProofUrl = body.paymentProofUrl || null;
+    if (body.bankAccountId !== undefined) updatePayload.bankAccountId = body.bankAccountId || null;
+    if (body.bankAccountName !== undefined) updatePayload.bankAccountName = body.bankAccountName || null;
 
     if (Object.keys(updatePayload).length > 0) {
       await db
@@ -165,11 +168,24 @@ export async function PATCH(
 
     // If items were updated
     if (Array.isArray(body.items) && body.items.length > 0) {
-      for (const item of body.items) {
-        if (item.id) {
-          const qty = Number(item.quantity) || 1;
-          const rate = Number(item.rate ?? item.unitRate) || 0;
-          const lineTotal = qty * rate;
+      const existingItemIds = new Set(existing.items.map((i) => i.id));
+      const submittedItemIds = new Set(body.items.filter((i: any) => i.id).map((i: any) => i.id));
+
+      // 1. Delete removed items
+      for (const oldItem of existing.items) {
+        if (!submittedItemIds.has(oldItem.id)) {
+          await db.delete(orderItems).where(eq(orderItems.id, oldItem.id));
+        }
+      }
+
+      // 2. Update existing or insert newly added items
+      for (let idx = 0; idx < body.items.length; idx++) {
+        const item = body.items[idx];
+        const qty = Number(item.quantity) || 1;
+        const rate = Number(item.rate ?? item.unitRate) || 0;
+        const lineTotal = qty * rate;
+
+        if (item.id && existingItemIds.has(item.id)) {
           await db
             .update(orderItems)
             .set({
@@ -179,6 +195,23 @@ export async function PATCH(
               productName: item.name || undefined,
             })
             .where(eq(orderItems.id, item.id));
+        } else {
+          // Newly added item
+          const newItemId = `OI-${existing.id}-${Date.now().toString().slice(-4)}-${idx + 1}`;
+          await db.insert(orderItems).values({
+            id: newItemId,
+            orderId: existing.id,
+            productId: item.productId || 'PRD-CUSTOM',
+            productName: item.name || 'Custom Spare Part',
+            sku: item.sku || 'SKU-CUSTOM',
+            bikeModel: item.bikeModel || 'Universal',
+            category: item.category || 'Spare Parts',
+            unitRate: String(rate),
+            pricingTier: existing.orderType || 'Wholesale',
+            isSchemeApplied: false,
+            quantity: qty,
+            lineTotal: String(lineTotal),
+          });
         }
       }
     }
