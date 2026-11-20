@@ -14,6 +14,7 @@ import {
 	MessageCircle,
 	CheckCircle,
 	Languages,
+	Scissors,
 } from "lucide-react";
 import type { OrderRecord, OrderItem } from "./types";
 
@@ -108,10 +109,36 @@ export function expandBillRows(
 	return { rows, totalDeliveredPieces, totalFreePieces };
 }
 
+/**
+ * Intelligent pagination for thermal receipt paper rolls.
+ * When an invoice has many items, it splits items into manageable chunks
+ * (Page 1 has header info, so ~10 items; subsequent continuation slips ~12 items).
+ * The printer's auto-cutter triggers between slips, matching legacy counter POS.
+ */
+export function chunkBillRows(
+	rows: FormattedBillRow[],
+	isSplitEnabled: boolean,
+	firstLimit = 10,
+	otherLimit = 12
+): FormattedBillRow[][] {
+	if (!isSplitEnabled || rows.length <= firstLimit + 2) {
+		return [rows];
+	}
+	const pages: FormattedBillRow[][] = [];
+	pages.push(rows.slice(0, firstLimit));
+	let offset = firstLimit;
+	while (offset < rows.length) {
+		pages.push(rows.slice(offset, offset + otherLimit));
+		offset += otherLimit;
+	}
+	return pages;
+}
+
 export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 	const printAreaRef = useRef<HTMLDivElement>(null);
 	const [whatsappSent, setWhatsappSent] = useState(false);
 	const [language, setLanguage] = useState<InvoiceLanguage>("ur"); // Default to Urdu for local market
+	const [splitMode, setSplitMode] = useState<"auto" | "single">("auto"); // Auto-split long receipts with cutter
 
 	if (!order) return null;
 
@@ -131,13 +158,38 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 	const { rows: billRows, totalDeliveredPieces } = expandBillRows(order.items, discountRatio);
 	const openingBal = order.openingBalance ?? 0;
 
+	// Calculate pagination pages
+	const pages = chunkBillRows(billRows, splitMode === "auto", 10, 12);
+	const totalPages = pages.length;
+
+	const getPageLabel = (pIdx: number) => {
+		if (totalPages <= 1) {
+			return language === "ur" ? "صفحہ 1 از 1" : "Page 1 of 1";
+		}
+		return language === "ur"
+			? `صفحہ ${pIdx + 1} از ${totalPages}`
+			: `Page ${pIdx + 1} of ${totalPages}`;
+	};
+
+	const getContinuationLabel = (pIdx: number) => {
+		return language === "ur"
+			? `✂️ (جاری ہے صفحہ ${pIdx + 2} پر — پرنٹر یہاں سے کٹ کرے گا)`
+			: `✂️ (Continued on Page ${pIdx + 2} of ${totalPages} — Auto-Cut)`;
+	};
+
+	const getContinuationHeader = (pIdx: number) => {
+		return language === "ur"
+			? `(بقایا پرچہ — صفحہ ${pIdx + 1} از ${totalPages})`
+			: `(Continuation Slip — Page ${pIdx + 1} of ${totalPages})`;
+	};
+
 	// Translation dictionaries
 	const t = {
 		en: {
 			shopName: "SARFRAZ AUTOS (SHAHMIR)",
 			address: "SHOP #23 TAJ MEHAL QASIM AUTO MKT, SADDAR",
 			cityPhone: "KARACHI, 03331285556, 03332624410",
-			pageText: "Page 1 of 1",
+			pageText: getPageLabel(0),
 			customerLabel: "CUSTOMER / PARTY",
 			invNo: "Inv #",
 			date: "Dated",
@@ -166,7 +218,7 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 			shopName: "سرفراز آٹوز (شہمیر)",
 			address: "دکان نمبر 23، تاج محل قاسم آٹو مارکیٹ، صدر",
 			cityPhone: "کراچی، 03331285556، 03332624410",
-			pageText: "صفحہ 1 از 1",
+			pageText: getPageLabel(0),
 			customerLabel: "گاہک / پارٹی کا نام",
 			invNo: "بل نمبر",
 			date: "تاریخ",
@@ -240,12 +292,26 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
       width: 72mm;
       max-width: 74mm;
       margin: 0 auto;
-      padding: 1.5mm 2mm 3mm 2mm;
+      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans Arabic", Tahoma, Arial, sans-serif;
       font-size: 12px;
       line-height: 1.25;
       color: #000;
       background: #fff;
+    }
+    .receipt-page {
+      width: 72mm;
+      max-width: 74mm;
+      margin: 0 auto;
+      padding: 1.5mm 2mm 3.5mm 2mm;
+      page-break-after: always;
+      break-after: page;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .receipt-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
     }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
@@ -340,148 +406,188 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="text-center">
-    <div class="header-title">${t.shopName}</div>
-    <div class="header-sub">${t.address}</div>
-    <div class="header-sub">${t.cityPhone}</div>
-    <div style="font-size: 9px; font-weight: bold; text-align: right; margin-top: 1px; color: #111;">${t.pageText}</div>
-  </div>
-
-  <!-- Customer Party Name (Centered & Underlined) -->
-  <div class="customer-line">
-    ${order.customerName}
-  </div>
-
-  <!-- Meta Info -->
-  <div class="meta-box">
-    <div class="row">
-      <span><strong>${t.invNo}</strong> ${order.invoiceNumber}</span>
-      <span><strong>${t.date}</strong> ${order.date}</span>
+${pages
+	.map(
+		(pageRows, pIdx) => `
+  <div class="receipt-page">
+    ${
+			pIdx === 0
+				? `
+    <!-- Header Page 1 -->
+    <div class="text-center">
+      <div class="header-title">${t.shopName}</div>
+      <div class="header-sub">${t.address}</div>
+      <div class="header-sub">${t.cityPhone}</div>
+      <div style="font-size: 9.5px; font-weight: bold; text-align: right; margin-top: 1px; color: #111;">
+        ${getPageLabel(pIdx)}
+      </div>
     </div>
-    ${order.remarks ? `<div class="row" style="font-size: 9.5px; font-weight: 600;"><span><strong>${t.remarks}</strong> ${order.remarks}</span></div>` : ""}
-    <div class="row">
-      <span><strong>${t.godown}</strong> <u>${translateGodown(order.godown)}</u></span>
-    </div>
-    <div class="row" style="border-bottom: 1.5px solid #000; padding-bottom: 2px; margin-top: 1px;">
-      <span style="font-size: 10px; font-weight: bold;">${order.dateTimeFull} ${t.ownerLabel}</span>
-      <span style="font-size: 10.5px; font-weight: 900;">${translatePayment(order.paymentMethod)}${order.paymentProofUrl ? (isUrdu ? " (سلپ)" : " (Slip)") : ""}</span>
-    </div>
-  </div>
 
-  <!-- Boxed Items Table (Matching old legacy receipt) -->
-  <table class="receipt-grid">
-    <thead>
-      <tr>
-        <th style="width: 22%; text-align: right;">${t.tableTotal}</th>
-        <th style="width: 18%; text-align: center;">${t.tableRate}</th>
-        <th style="width: 48%; text-align: ${isUrdu ? "right" : "left"};">${t.tableItem}</th>
-        <th style="width: 12%; text-align: center;">${t.tableQty}</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${billRows
-				.map(
-					(row) => `
-        <tr style="${row.isFree ? "background-color: #fafafa; font-weight: bold;" : ""}">
-          <td style="text-align: right; font-family: 'Courier New', Courier, monospace; font-weight: 900; font-size: 13px;">
-            ${row.totalDisplay}
-          </td>
-          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 11.5px; font-weight: 800;">
-            ${row.rateDisplay}
-          </td>
-          <td style="text-align: ${isUrdu ? "right" : "left"};">
-            <div style="font-weight: 900; font-size: 13px; line-height: 1.2; color: #000;">${row.name}</div>
-          </td>
-          <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-weight: 900; font-size: 14px;">
-            ${row.qty}
-          </td>
+    <!-- Customer Party Name (Centered & Underlined) -->
+    <div class="customer-line">
+      ${order.customerName}
+    </div>
+
+    <!-- Meta Info -->
+    <div class="meta-box">
+      <div class="row">
+        <span><strong>${t.invNo}</strong> ${order.invoiceNumber}</span>
+        <span><strong>${t.date}</strong> ${order.date}</span>
+      </div>
+      ${order.remarks ? `<div class="row" style="font-size: 9.5px; font-weight: 600;"><span><strong>${t.remarks}</strong> ${order.remarks}</span></div>` : ""}
+      <div class="row">
+        <span><strong>${t.godown}</strong> <u>${translateGodown(order.godown)}</u></span>
+      </div>
+      <div class="row" style="border-bottom: 1.5px solid #000; padding-bottom: 2px; margin-top: 1px;">
+        <span style="font-size: 10px; font-weight: bold;">${order.dateTimeFull} ${t.ownerLabel}</span>
+        <span style="font-size: 10.5px; font-weight: 900;">${translatePayment(order.paymentMethod)}${order.paymentProofUrl ? (isUrdu ? " (سلپ)" : " (Slip)") : ""}</span>
+      </div>
+    </div>
+    `
+				: `
+    <!-- Continuation Header for Page ${pIdx + 1} -->
+    <div class="text-center" style="border-bottom: 1.5px solid #000; padding-bottom: 3px; margin-bottom: 3px;">
+      <div class="header-title" style="font-size: 14px;">${t.shopName}</div>
+      <div class="row" style="font-size: 10.5px; font-weight: bold;">
+        <span><strong>${t.invNo}</strong> ${order.invoiceNumber}</span>
+        <span style="font-size: 11.5px; text-decoration: underline;">${order.customerName}</span>
+        <span>${getPageLabel(pIdx)}</span>
+      </div>
+      <div style="font-size: 9.5px; color: #333; font-weight: bold; text-align: center; margin-top: 1px;">
+        ${getContinuationHeader(pIdx)}
+      </div>
+    </div>
+    `
+		}
+
+    <!-- Boxed Items Table for this page -->
+    <table class="receipt-grid">
+      <thead>
+        <tr>
+          <th style="width: 22%; text-align: right;">${t.tableTotal}</th>
+          <th style="width: 18%; text-align: center;">${t.tableRate}</th>
+          <th style="width: 48%; text-align: ${isUrdu ? "right" : "left"};">${t.tableItem}</th>
+          <th style="width: 12%; text-align: center;">${t.tableQty}</th>
         </tr>
-      `
-				)
-				.join("")}
-    </tbody>
-  </table>
-
-  <!-- Boxed Bottom Summary (Exact Match to Old Receipt) -->
-  <table class="summary-grid">
-    <tr>
-      <td style="width: 22%; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
-        ${grossSubtotal.toLocaleString()}
-      </td>
-      <td style="text-align: center; font-weight: 900; font-size: 12px;">
-        ${t.itemsCount}: ${billRows.length}
-      </td>
-      <td style="width: 12%; text-align: center; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px;">
-        ${totalDeliveredPieces}
-      </td>
-    </tr>
-
-    ${
-			discountAmount > 0
-				? `
-    <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 12.5px;">
-        -${discountAmount.toLocaleString()}
-      </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 11.5px; font-weight: 900;">
-        ${t.discLabel} ${grossSubtotal > 0 ? `(${Math.round((discountAmount / grossSubtotal) * 100)}%)` : ""}
-      </td>
-    </tr>
-    `
-				: ""
-		}
-
-    <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px;">
-        ${order.netBill.toLocaleString()}
-      </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 13.5px;">
-        <strong>${t.netLabel}</strong>
-      </td>
-    </tr>
-
-    <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
-        ${order.cashReceived.toLocaleString()}
-      </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 12px; font-weight: 800;">
-        <strong>${t.cashLabel}</strong>
-      </td>
-    </tr>
+      </thead>
+      <tbody>
+        ${pageRows
+					.map(
+						(row) => `
+          <tr style="${row.isFree ? "background-color: #fafafa; font-weight: bold;" : ""}">
+            <td style="text-align: right; font-family: 'Courier New', Courier, monospace; font-weight: 900; font-size: 13px;">
+              ${row.totalDisplay}
+            </td>
+            <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-size: 11.5px; font-weight: 800;">
+              ${row.rateDisplay}
+            </td>
+            <td style="text-align: ${isUrdu ? "right" : "left"};">
+              <div style="font-weight: 900; font-size: 13px; line-height: 1.2; color: #000;">${row.name}</div>
+            </td>
+            <td style="text-align: center; font-family: 'Courier New', Courier, monospace; font-weight: 900; font-size: 14px;">
+              ${row.qty}
+            </td>
+          </tr>
+        `
+					)
+					.join("")}
+      </tbody>
+    </table>
 
     ${
-			openingBal !== 0
+			pIdx < totalPages - 1
 				? `
-    <tr>
-      <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
-        ${openingBal.toLocaleString()}
-      </td>
-      <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 12px; font-weight: 800;">
-        <strong>${t.openingLabel}</strong>
-      </td>
-    </tr>
-    `
-				: ""
-		}
-
-    <tr style="background: #f2f2f2;">
-      <td style="border: 2px solid #000; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 15px;">
-        ${order.finalBalance.toLocaleString()}
-      </td>
-      <td colspan="2" style="border: 2px solid #000; text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 14px;">
-        <strong>${t.finalLabel}</strong>
-      </td>
-    </tr>
-  </table>
-
-  <!-- Urdu Policy Footer -->
-  <div class="terms-box">
-    <div>${t.termsNote1} ${t.termsNote2}</div>
-    <div style="margin-top: 2px; font-weight: normal; font-size: 9px; color: #444;">
-      ${t.warrantyNotice} • ${t.thankYou}
+    <!-- Mid-Slip Auto-Cut Notice -->
+    <div style="text-align: center; font-size: 10px; font-weight: 900; border: 1.5px dashed #000; padding: 4px 2px; margin-top: 6px; background: #fafafa;">
+      ${getContinuationLabel(pIdx)}
     </div>
+    `
+				: `
+    <!-- Boxed Bottom Summary (Only on Final Slip) -->
+    <table class="summary-grid">
+      <tr>
+        <td style="width: 22%; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
+          ${grossSubtotal.toLocaleString()}
+        </td>
+        <td style="text-align: center; font-weight: 900; font-size: 12px;">
+          ${t.itemsCount}: ${billRows.length}
+        </td>
+        <td style="width: 12%; text-align: center; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px;">
+          ${totalDeliveredPieces}
+        </td>
+      </tr>
+
+      ${
+				discountAmount > 0
+					? `
+      <tr>
+        <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 12.5px;">
+          -${discountAmount.toLocaleString()}
+        </td>
+        <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 11.5px; font-weight: 900;">
+          ${t.discLabel} ${grossSubtotal > 0 ? `(${Math.round((discountAmount / grossSubtotal) * 100)}%)` : ""}
+        </td>
+      </tr>
+      `
+					: ""
+			}
+
+      <tr>
+        <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 14px;">
+          ${order.netBill.toLocaleString()}
+        </td>
+        <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 13.5px;">
+          <strong>${t.netLabel}</strong>
+        </td>
+      </tr>
+
+      <tr>
+        <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
+          ${order.cashReceived.toLocaleString()}
+        </td>
+        <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 12px; font-weight: 800;">
+          <strong>${t.cashLabel}</strong>
+        </td>
+      </tr>
+
+      ${
+				openingBal !== 0
+					? `
+      <tr>
+        <td style="text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 13px;">
+          ${openingBal.toLocaleString()}
+        </td>
+        <td colspan="2" style="text-align: ${isUrdu ? "right" : "left"}; font-size: 12px; font-weight: 800;">
+          <strong>${t.openingLabel}</strong>
+        </td>
+      </tr>
+      `
+					: ""
+			}
+
+      <tr style="background: #f2f2f2;">
+        <td style="border: 2px solid #000; text-align: right; font-family: 'Courier New', monospace; font-weight: 900; font-size: 15px;">
+          ${order.finalBalance.toLocaleString()}
+        </td>
+        <td colspan="2" style="border: 2px solid #000; text-align: ${isUrdu ? "right" : "left"}; font-weight: 900; font-size: 14px;">
+          <strong>${t.finalLabel}</strong>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Urdu Policy Footer -->
+    <div class="terms-box">
+      <div>${t.termsNote1} ${t.termsNote2}</div>
+      <div style="margin-top: 2px; font-weight: normal; font-size: 9px; color: #444;">
+        ${t.warrantyNotice} • ${t.thankYou}
+      </div>
+    </div>
+    `
+		}
   </div>
+`
+	)
+	.join("")}
 </body>
 </html>
 		`;
@@ -634,224 +740,308 @@ export function InvoiceSheet({ order, isOpen, onClose }: InvoiceSheetProps) {
 						</div>
 					</div>
 
-					{/* Row 2: Print Language Switcher */}
-					<div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40">
-						<span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-							<Languages className="size-3.5 text-primary" />
-							Print Language:
-						</span>
+					{/* Row 2: Print Language & Split Mode Switchers */}
+					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 border-t border-border/40">
+						<div className="flex items-center gap-1.5">
+							<span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+								<Languages className="size-3.5 text-primary" />
+								Language:
+							</span>
+							<div className="inline-flex rounded-lg border bg-muted/50 p-0.5">
+								<button
+									type="button"
+									onClick={() => setLanguage("en")}
+									className={`px-2.5 py-0.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+										language === "en"
+											? "bg-background text-foreground shadow-2xs font-bold"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									English
+								</button>
+								<button
+									type="button"
+									onClick={() => setLanguage("ur")}
+									className={`px-2.5 py-0.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+										language === "ur"
+											? "bg-background text-primary shadow-2xs font-bold"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									🇵🇰 اردو
+								</button>
+							</div>
+						</div>
 
-						<div className="inline-flex rounded-lg border bg-muted/50 p-0.5">
-							<button
-								type="button"
-								onClick={() => setLanguage("en")}
-								className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-									language === "en"
-										? "bg-background text-foreground shadow-2xs font-bold"
-										: "text-muted-foreground hover:text-foreground"
-								}`}
-							>
-								English
-							</button>
-							<button
-								type="button"
-								onClick={() => setLanguage("ur")}
-								className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
-									language === "ur"
-										? "bg-background text-primary shadow-2xs font-bold"
-										: "text-muted-foreground hover:text-foreground"
-								}`}
-							>
-								🇵🇰 اردو (Urdu)
-							</button>
+						<div className="flex items-center gap-1.5">
+							<span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+								<Scissors className="size-3.5 text-primary" />
+								Slip Cut:
+							</span>
+							<div className="inline-flex rounded-lg border bg-muted/50 p-0.5">
+								<button
+									type="button"
+									onClick={() => setSplitMode("auto")}
+									title="Automatically split into manageable slips with printer auto-cut"
+									className={`px-2.5 py-0.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+										splitMode === "auto"
+											? "bg-background text-foreground shadow-2xs font-bold"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									<span>Auto-Cut Split</span>
+									{totalPages > 1 && (
+										<span className="text-[9px] bg-primary/10 text-primary px-1 rounded font-mono font-bold">
+											{totalPages} Slips
+										</span>
+									)}
+								</button>
+								<button
+									type="button"
+									onClick={() => setSplitMode("single")}
+									title="Print as a single continuous long paper roll"
+									className={`px-2.5 py-0.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+										splitMode === "single"
+											? "bg-background text-foreground shadow-2xs font-bold"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Single Strip
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
 
 				{/* Scrollable Receipt Body (On-screen preview matching legacy box receipt) */}
-				<div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-muted/15 flex justify-center print:p-0 print:m-0 print:bg-white">
-					{/* 80mm Optimized Thermal Slip Container */}
-					<div
-						ref={printAreaRef}
-						dir={language === "ur" ? "rtl" : "ltr"}
-						className="w-full max-w-[340px] bg-white text-black p-3.5 sm:p-4 rounded-lg shadow-sm border border-neutral-300 font-sans text-xs leading-snug print:w-full print:max-w-none print:m-0 print:p-2 print:border-none print:shadow-none"
-						style={{ height: "fit-content" }}
-					>
-						{/* Company Header */}
-						<div className="text-center space-y-0.5 pb-1">
-							<Image
-								src="/logo.png"
-								alt="Sarfraz Autos Logo"
-								width={36}
-								height={36}
-								className="mx-auto mb-1 object-contain"
-							/>
-							<h1 className="font-black text-base tracking-wide text-black uppercase">
-								{t.shopName}
-							</h1>
-							<p className="text-[10.5px] font-bold text-neutral-800 leading-tight">
-								{t.address}
-							</p>
-							<p className="text-[10.5px] font-bold text-neutral-700">
-								{t.cityPhone}
-							</p>
-							<div className="flex items-center justify-end text-[9px] text-neutral-600 pt-0.5">
-								<span>{t.pageText}</span>
-							</div>
-						</div>
+				<div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-muted/15 flex flex-col items-center print:p-0 print:m-0 print:bg-white">
+					<div ref={printAreaRef} className="w-full max-w-[340px] flex flex-col items-center">
+						{pages.map((pageRows, pIdx) => (
+							<div key={pIdx} className="w-full">
+								{pIdx > 0 && (
+									<div className="my-3 py-1.5 border-y-2 border-dashed border-neutral-400 bg-neutral-100/90 rounded text-center text-[10.5px] font-bold text-neutral-700 flex items-center justify-center gap-1.5 select-none shadow-2xs">
+										<Scissors className="size-3 text-neutral-600" />
+										<span>
+											{language === "ur"
+												? `پرنٹر یہاں سے کٹ کرے گا (اگلا پرچہ نیچے ہے)`
+												: `Printer Cuts Here (Next Slip Starts Below)`}
+										</span>
+										<Scissors className="size-3 text-neutral-600" />
+									</div>
+								)}
 
-						{/* Customer Party Name (Underlined Header as shown in video) */}
-						<div className="text-center py-1 my-1 border-t border-black">
-							<p className="font-black text-sm uppercase tracking-wide underline">
-								{order.customerName}
-							</p>
-						</div>
+								{/* 80mm Optimized Thermal Slip Container */}
+								<div
+									dir={language === "ur" ? "rtl" : "ltr"}
+									className="w-full bg-white text-black p-3.5 sm:p-4 rounded-lg shadow-sm border border-neutral-300 font-sans text-xs leading-snug print:w-full print:max-w-none print:m-0 print:p-2 print:border-none print:shadow-none"
+									style={{ height: "fit-content" }}
+								>
+									{pIdx === 0 ? (
+										<>
+											{/* Company Header */}
+											<div className="text-center space-y-0.5 pb-1">
+												<Image
+													src="/logo.png"
+													alt="Sarfraz Autos Logo"
+													width={36}
+													height={36}
+													className="mx-auto mb-1 object-contain"
+												/>
+												<h1 className="font-black text-base tracking-wide text-black uppercase">
+													{t.shopName}
+												</h1>
+												<p className="text-[10.5px] font-bold text-neutral-800 leading-tight">
+													{t.address}
+												</p>
+												<p className="text-[10.5px] font-bold text-neutral-700">
+													{t.cityPhone}
+												</p>
+												<div className="flex items-center justify-end text-[9px] text-neutral-600 pt-0.5 font-bold">
+													<span>{getPageLabel(pIdx)}</span>
+												</div>
+											</div>
 
-						{/* Invoice Meta Rows */}
-						<div className="border-t border-black pt-1 space-y-0.5 text-[11px]">
-							<div className="flex justify-between items-baseline">
-								<span><strong>{t.invNo}</strong> <span className="font-mono">{order.invoiceNumber}</span></span>
-								<span><strong>{t.date}</strong> {order.date}</span>
-							</div>
-							<div className="flex justify-between items-baseline text-neutral-900">
-								<span><strong>{t.godown}</strong> <u>{translateGodown(order.godown)}</u></span>
-							</div>
-							<div className="flex justify-between items-baseline border-b-2 border-black pb-1 pt-0.5 font-semibold text-[9.5px]">
-								<span>{order.dateTimeFull} {t.ownerLabel}</span>
-								<span className="font-bold">
-									{translatePayment(order.paymentMethod)}
-									{order.paymentProofUrl ? (language === "ur" ? " (سلپ منسلک)" : " (Slip Attached)") : ""}
-								</span>
-							</div>
-						</div>
+											{/* Customer Party Name */}
+											<div className="text-center py-1 my-1 border-t border-black">
+												<p className="font-black text-sm uppercase tracking-wide underline">
+													{order.customerName}
+												</p>
+											</div>
 
-						{/* Boxed Grid Table for Items */}
-						<table className="w-full border-collapse border border-black mt-2 text-xs">
-							<thead>
-								<tr className="bg-neutral-100 font-bold border-b border-black text-[11.5px]">
-									<th className="border border-black p-1 text-right w-[22%]">{t.tableTotal}</th>
-									<th className="border border-black p-1 text-center w-[18%]">{t.tableRate}</th>
-									<th className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} w-[48%]`}>{t.tableItem}</th>
-									<th className="border border-black p-1 text-center w-[12%]">{t.tableQty}</th>
-								</tr>
-							</thead>
-							<tbody>
-								{billRows.map((row, idx) => (
-									<tr
-										key={idx}
-										className={row.isFree ? "bg-neutral-50 font-bold" : ""}
-									>
-										<td className="border border-black p-1 text-right font-mono font-bold text-[13px]">
-											{row.totalDisplay}
-										</td>
-										<td className="border border-black p-1 text-center font-mono text-[11.5px] font-bold">
-											{row.isFree ? (
-												row.rateDisplay
-											) : row.discountedRate && row.discountedRate < (row.originalRate || 0) ? (
-												<div className="flex flex-col items-center justify-center leading-tight">
-													<span className="text-[12.5px] font-black text-black">
-														{row.originalRate}
-													</span>
-													<span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-1 py-0.5 rounded border border-emerald-300">
-														({row.discountedRate})
+											{/* Invoice Meta Rows */}
+											<div className="border-t border-black pt-1 space-y-0.5 text-[11px]">
+												<div className="flex justify-between items-baseline">
+													<span><strong>{t.invNo}</strong> <span className="font-mono">{order.invoiceNumber}</span></span>
+													<span><strong>{t.date}</strong> {order.date}</span>
+												</div>
+												<div className="flex justify-between items-baseline text-neutral-900">
+													<span><strong>{t.godown}</strong> <u>${translateGodown(order.godown)}</u></span>
+												</div>
+												<div className="flex justify-between items-baseline border-b-2 border-black pb-1 pt-0.5 font-semibold text-[9.5px]">
+													<span>{order.dateTimeFull} {t.ownerLabel}</span>
+													<span className="font-bold">
+														{translatePayment(order.paymentMethod)}
+														{order.paymentProofUrl ? (language === "ur" ? " (سلپ منسلک)" : " (Slip Attached)") : ""}
 													</span>
 												</div>
-											) : (
-												<span className="text-[12.5px] font-black text-black">
-													{row.rateDisplay}
-												</span>
-											)}
-										</td>
-										<td className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"}`}>
-											<div className="font-black text-[13px] leading-tight text-black">{row.name}</div>
-										</td>
-										<td className="border border-black p-1 text-center font-mono font-black text-sm">
-											{row.qty}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+											</div>
+										</>
+									) : (
+										/* Continuation Slip Header */
+										<div className="text-center pb-1.5 mb-1.5 border-b-2 border-black space-y-0.5">
+											<div className="font-black text-sm uppercase text-black">
+												{t.shopName}
+											</div>
+											<div className="flex justify-between items-baseline text-[10.5px] font-bold">
+												<span><strong>{t.invNo}</strong> <span className="font-mono">{order.invoiceNumber}</span></span>
+												<span className="underline">{order.customerName}</span>
+												<span>{getPageLabel(pIdx)}</span>
+											</div>
+											<div className="text-[9.5px] font-bold text-neutral-700 text-center pt-0.5">
+												{getContinuationHeader(pIdx)}
+											</div>
+										</div>
+									)}
 
-						{/* Boxed Bottom Summary Section */}
-						<table className="w-full border-collapse border-2 border-t-0 border-black text-xs">
-							<tbody>
-								{/* Total Amount & Total Quantity */}
-								<tr className="border-b border-black font-bold">
-									<td className="border border-black p-1 text-right font-mono w-[22%] font-black text-[13px]">
-										{grossSubtotal.toLocaleString()}
-									</td>
-									<td className="border border-black p-1 text-center font-bold text-xs">
-										{t.itemsCount}: {billRows.length}
-									</td>
-									<td className="border border-black p-1 text-center font-mono w-[12%] font-black text-sm">
-										{totalDeliveredPieces}
-									</td>
-								</tr>
+									{/* Boxed Grid Table for Items */}
+									<table className="w-full border-collapse border border-black mt-2 text-xs">
+										<thead>
+											<tr className="bg-neutral-100 font-bold border-b border-black text-[11.5px]">
+												<th className="border border-black p-1 text-right w-[22%]">{t.tableTotal}</th>
+												<th className="border border-black p-1 text-center w-[18%]">{t.tableRate}</th>
+												<th className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} w-[48%]`}>{t.tableItem}</th>
+												<th className="border border-black p-1 text-center w-[12%]">{t.tableQty}</th>
+											</tr>
+										</thead>
+										<tbody>
+											{pageRows.map((row, idx) => (
+												<tr
+													key={idx}
+													className={row.isFree ? "bg-neutral-50 font-bold" : ""}
+												>
+													<td className="border border-black p-1 text-right font-mono font-bold text-[13px]">
+														{row.totalDisplay}
+													</td>
+													<td className="border border-black p-1 text-center font-mono text-[11.5px] font-bold">
+														{row.isFree ? (
+															row.rateDisplay
+														) : row.discountedRate && row.discountedRate < (row.originalRate || 0) ? (
+															<div className="flex flex-col items-center justify-center leading-tight">
+																<span className="text-[12.5px] font-black text-black">
+																	{row.originalRate}
+																</span>
+																<span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100/90 px-1 py-0.5 rounded border border-emerald-300">
+																	({row.discountedRate})
+																</span>
+															</div>
+														) : (
+															<span className="text-[12.5px] font-black text-black">
+																{row.rateDisplay}
+															</span>
+														)}
+													</td>
+													<td className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"}`}>
+														<div className="font-black text-[13px] leading-tight text-black">{row.name}</div>
+													</td>
+													<td className="border border-black p-1 text-center font-mono font-black text-sm">
+														{row.qty}
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
 
-								{/* Discount if present */}
-								{discountAmount > 0 && (
-									<tr className="border-b border-black">
-										<td className="border border-black p-1 text-right font-mono font-bold text-xs">
-											-{discountAmount.toLocaleString()}
-										</td>
-										<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10.5px] font-bold`}>
-											<strong>{t.discLabel}</strong> {grossSubtotal > 0 ? `(${Math.round((discountAmount / grossSubtotal) * 100)}%)` : ""}
-										</td>
-									</tr>
-								)}
+									{/* If NOT the final page: show continuation footer bar */}
+									{pIdx < totalPages - 1 ? (
+										<div className="mt-2.5 pt-1.5 border-t border-dashed border-black text-center font-black text-[10px] text-neutral-800">
+											{getContinuationLabel(pIdx)}
+										</div>
+									) : (
+										<>
+											{/* Boxed Bottom Summary Section */}
+											<table className="w-full border-collapse border-2 border-t-0 border-black text-xs">
+												<tbody>
+													{/* Total Amount & Total Quantity */}
+													<tr className="border-b border-black font-bold">
+														<td className="border border-black p-1 text-right font-mono w-[22%] font-black text-[13px]">
+															{grossSubtotal.toLocaleString()}
+														</td>
+														<td className="border border-black p-1 text-center font-bold text-xs">
+															{t.itemsCount}: {billRows.length}
+														</td>
+														<td className="border border-black p-1 text-center font-mono w-[12%] font-black text-sm">
+															{totalDeliveredPieces}
+														</td>
+													</tr>
 
-								{/* Net Bill */}
-								<tr className="border-b border-black font-bold">
-									<td className="border border-black p-1 text-right font-mono text-sm font-black">
-										{order.netBill.toLocaleString()}
-									</td>
-									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} font-black text-[13px]`}>
-										<strong>{t.netLabel}</strong>
-									</td>
-								</tr>
+													{/* Discount if present */}
+													{discountAmount > 0 && (
+														<tr className="border-b border-black">
+															<td className="border border-black p-1 text-right font-mono font-bold text-xs">
+																-{discountAmount.toLocaleString()}
+															</td>
+															<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10.5px] font-bold`}>
+																<strong>{t.discLabel}</strong> {grossSubtotal > 0 ? `(${Math.round((discountAmount / grossSubtotal) * 100)}%)` : ""}
+															</td>
+														</tr>
+													)}
 
-								{/* Cash Received */}
-								<tr className="border-b border-black">
-									<td className="border border-black p-1 text-right font-mono font-bold text-xs">
-										{order.cashReceived.toLocaleString()}
-									</td>
-									<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[11px] font-bold`}>
-										<strong>{t.cashLabel}</strong>
-									</td>
-								</tr>
+													{/* Net Bill */}
+													<tr className="border-b border-black font-bold">
+														<td className="border border-black p-1 text-right font-mono text-sm font-black">
+															{order.netBill.toLocaleString()}
+														</td>
+														<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} font-black text-[13px]`}>
+															<strong>{t.netLabel}</strong>
+														</td>
+													</tr>
 
-								{/* Opening Balance if applicable */}
-								{openingBal !== 0 && (
-									<tr className="border-b border-black">
-										<td className="border border-black p-1 text-right font-mono font-bold">
-											{openingBal.toLocaleString()}
-										</td>
-										<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10px]`}>
-											<strong>{t.openingLabel}</strong>
-										</td>
-									</tr>
-								)}
+													{/* Cash Received */}
+													<tr className="border-b border-black">
+														<td className="border border-black p-1 text-right font-mono font-bold text-xs">
+															{order.cashReceived.toLocaleString()}
+														</td>
+														<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[11px] font-bold`}>
+															<strong>{t.cashLabel}</strong>
+														</td>
+													</tr>
 
-								{/* Highlighted Final Balance Box (Double thick border as in video) */}
-								<tr className="bg-neutral-100 border-t-2 border-black">
-									<td className="border-2 border-black p-1.5 text-right font-mono font-black text-[15px]">
-										{order.finalBalance.toLocaleString()}
-									</td>
-									<td colSpan={2} className={`border-2 border-black p-1.5 ${language === "ur" ? "text-right" : "text-left"} font-black text-[13.5px]`}>
-										<strong>{t.finalLabel}</strong>
-									</td>
-								</tr>
-							</tbody>
-						</table>
+													{/* Opening Balance if applicable */}
+													{openingBal !== 0 && (
+														<tr className="border-b border-black">
+															<td className="border border-black p-1 text-right font-mono font-bold">
+																{openingBal.toLocaleString()}
+															</td>
+															<td colSpan={2} className={`border border-black p-1 ${language === "ur" ? "text-right" : "text-left"} text-[10px]`}>
+																<strong>{t.openingLabel}</strong>
+															</td>
+														</tr>
+													)}
 
-						{/* Urdu Disclaimer & Policy Footer */}
-						<div className="mt-3 pt-1.5 border-t border-black text-center font-bold text-[10.5px] text-neutral-900 leading-snug">
-							<p>{t.termsNote1} {t.termsNote2}</p>
-							<p className="text-[9.5px] font-normal text-neutral-700 mt-1">
-								{t.warrantyNotice} • {t.thankYou}
-							</p>
-						</div>
+													{/* Highlighted Final Balance Box (Double thick border as in video) */}
+													<tr className="bg-neutral-100 border-t-2 border-black">
+														<td className="border-2 border-black p-1.5 text-right font-mono font-black text-[15px]">
+															{order.finalBalance.toLocaleString()}
+														</td>
+														<td colSpan={2} className={`border-2 border-black p-1.5 ${language === "ur" ? "text-right" : "text-left"} font-black text-[13.5px]`}>
+															<strong>{t.finalLabel}</strong>
+														</td>
+													</tr>
+												</tbody>
+											</table>
+
+											{/* Urdu Disclaimer & Policy Footer */}
+											<div className="mt-3 pt-1.5 border-t border-black text-center font-bold text-[10.5px] text-neutral-900 leading-snug">
+												<p>{t.termsNote1} {t.termsNote2}</p>
+												<p className="text-[9.5px] font-normal text-neutral-700 mt-1">
+													{t.warrantyNotice} • {t.thankYou}
+												</p>
+											</div>
+										</>
+									)}
+								</div>
+							</div>
+						))}
 					</div>
 				</div>
 
